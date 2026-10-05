@@ -210,7 +210,7 @@ textarea{width:100%;background:var(--field);border:1px solid var(--line);border-
     <div id="logList"></div>
   </section>
 
-  <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button></div><div id="statList"></div>
+  <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button><button class="ghost" id="monthNow">📧 التقرير الشهري الآن</button></div><div id="statList"></div>
     <div class="period">
       <h3>إعدادات التسعير والترقيم</h3>
       <div class="grid g2" id="setGrid"></div>
@@ -419,7 +419,7 @@ textarea{width:100%;background:var(--field);border:1px solid var(--line);border-
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const APP_VERSION = '34';
+const APP_VERSION = '35';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -586,7 +586,8 @@ function mailTo() {   // إيميل الإشعارات: عند الدعم الف
   const db = loadDb();
   return db.role === 'partner' ? ((db.shared && db.shared.mail) || DEF_MAIL) : (db.recMail || DEF_MAIL);
 }
-function postFileMail(to, all, file) {   // إرسال ملف مرفق: نموذج حقيقي داخل إطار مخفي
+function postFileMail(to, all, file) {   // إرسال ملف (أو عدة ملفات) مرفقة: نموذج حقيقي داخل إطار مخفي
+  const files = Array.isArray(file) ? file : [file];
   return new Promise((resolve, reject) => {
     if (navigator.onLine === false) { reject(new Error('ما فيه اتصال بالإنترنت')); return; }
     const id = 'mf' + Date.now(), fr = document.createElement('iframe'), fm = document.createElement('form');
@@ -594,12 +595,16 @@ function postFileMail(to, all, file) {   // إرسال ملف مرفق: نموذ
     fm.method = 'POST'; fm.enctype = 'multipart/form-data'; fm.target = id; fm.acceptCharset = 'UTF-8'; fm.style.display = 'none';
     fm.action = 'https://formsubmit.co/' + encodeURIComponent(to);
     Object.keys(all).forEach(k => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = String(all[k]); fm.appendChild(i); });
-    const fi = document.createElement('input'); fi.type = 'file'; fi.name = 'attachment';
-    try { const dt = new DataTransfer(); dt.items.add(new File([file.blob], file.name, { type: file.blob.type || 'application/octet-stream' })); fi.files = dt.files; }
-    catch (e) { reject(new Error('الجوال ما يدعم إرفاق الملفات')); return; }
-    fm.appendChild(fi); document.body.appendChild(fr); document.body.appendChild(fm);
+    try {
+      files.forEach((f, k) => {
+        const fi = document.createElement('input'); fi.type = 'file'; fi.name = k ? 'attachment' + (k + 1) : 'attachment';
+        const dt = new DataTransfer(); dt.items.add(new File([f.blob], f.name, { type: f.blob.type || 'application/octet-stream' })); fi.files = dt.files;
+        fm.appendChild(fi);
+      });
+    } catch (e) { reject(new Error('الجوال ما يدعم إرفاق الملفات')); return; }
+    document.body.appendChild(fr); document.body.appendChild(fm);
     let done = false; const fin = () => { if (done) return; done = true; resolve('sent'); setTimeout(() => { fr.remove(); fm.remove(); }, 1500); };
-    fr.onload = fin; setTimeout(fin, 30000);
+    fr.onload = fin; setTimeout(fin, 90000);
     fm.submit();
   });
 }
@@ -1039,31 +1044,30 @@ function drawInvoice(r, logo) {
   c.fillStyle = '#111'; c.fillRect(M, fy + 185, W - 2 * M, 14);
   return cv;
 }
-function jpegToPdf(jpeg, wPt, hPt) {
+function imagesToPdf(jpegs, wPt, hPt) {   // PDF من صفحة أو أكثر (كل صفحة صورة JPEG)
   const enc = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
   const parts = [], offs = []; let len = 0;
   const push = u => { parts.push(u); len += u.length; };
   push(enc('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'));
-  const content = 'q ' + wPt + ' 0 0 ' + hPt + ' 0 0 cm /Im0 Do Q';
-  const objs = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + wPt + ' ' + hPt + '] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>',
-    null,
-    '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream'
-  ];
-  objs.forEach((o, k) => {
-    offs.push(len);
-    if (o === null) {
-      push(enc('4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + jpeg.w + ' /Height ' + jpeg.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpeg.bytes.length + ' >>\nstream\n'));
-      push(jpeg.bytes); push(enc('\nendstream\nendobj\n'));
-    } else push(enc((k + 1) + ' 0 obj\n' + o + '\nendobj\n'));
+  const n = jpegs.length, content = 'q ' + wPt + ' 0 0 ' + hPt + ' 0 0 cm /Im0 Do Q';
+  const obj = (id, body) => { offs[id] = len; push(enc(id + ' 0 obj\n' + body + '\nendobj\n')); };
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, '<< /Type /Pages /Kids [' + jpegs.map((_, k) => (3 + k * 3) + ' 0 R').join(' ') + '] /Count ' + n + ' >>');
+  jpegs.forEach((jp, k) => {
+    const pg = 3 + k * 3, im = pg + 1, ct = pg + 2;
+    obj(pg, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + wPt + ' ' + hPt + '] /Resources << /XObject << /Im0 ' + im + ' 0 R >> >> /Contents ' + ct + ' 0 R >>');
+    offs[im] = len;
+    push(enc(im + ' 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + jp.w + ' /Height ' + jp.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jp.bytes.length + ' >>\nstream\n'));
+    push(jp.bytes); push(enc('\nendstream\nendobj\n'));
+    obj(ct, '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream');
   });
-  const xref = len;
-  push(enc('xref\n0 6\n0000000000 65535 f \n' + offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('') +
-    'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF'));
+  const total = 3 + n * 3, xref = len;
+  let x = 'xref\n0 ' + total + '\n0000000000 65535 f \n';
+  for (let i = 1; i < total; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  push(enc(x + 'trailer\n<< /Size ' + total + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF'));
   return new Blob(parts, { type: 'application/pdf' });
 }
+function jpegToPdf(jpeg, wPt, hPt) { return imagesToPdf([jpeg], wPt, hPt); }
 function drawStamp(cv, label, sub) {   // ختم أحمر قطري من زاوية لزاوية
   const c = cv.getContext('2d'), W = cv.width, H = cv.height, F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
   const diag = Math.hypot(W, H), ang = -Math.atan2(H, W), RED = 'rgba(205,28,28,0.78)';
@@ -1077,6 +1081,15 @@ function drawStamp(cv, label, sub) {   // ختم أحمر قطري من زاوي
   c.fillText(label, 0, -30);
   if (sub) { c.font = '700 40px ' + F; c.fillText(sub, 0, 98); }
   c.restore();
+}
+function invoiceJpeg(r, stamp, q) {
+  const fontReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('700 30px "IBM Plex Sans Arabic"'), document.fonts.load('400 24px "IBM Plex Sans Arabic"')]).catch(() => {}) : Promise.resolve();
+  return Promise.all([getLogo(), fontReady]).then(([logo]) => {
+    const cv = drawInvoice(r, logo); if (stamp) drawStamp(cv, stamp.label, stamp.sub);
+    const url = cv.toDataURL('image/jpeg', q || 0.9), bin = atob(url.split(',')[1]);
+    const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { bytes, w: cv.width, h: cv.height };
+  });
 }
 function invoicePdf(r, stamp) {
   const fontReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('700 30px "IBM Plex Sans Arabic"'), document.fonts.load('400 24px "IBM Plex Sans Arabic"')]).catch(() => {}) : Promise.resolve();
@@ -1484,40 +1497,105 @@ $('logList').addEventListener('click', e => {
 });
 
 // سجل الفواتير (Excel)
-$('dlLog').onclick = () => {
-  if (!DATA) return;
+function buildLogXlsx(log, title) {
   const admin = DATA.role === 'admin';
   const head = ['رقم الفاتورة', 'التاريخ', 'اسم العميل', 'الجوال', 'الوصف', 'العدد', 'الخصم', 'المجموع النهائي'].concat(admin ? ['صافي الربح', 'السعر المقترح'] : []);
-  const rows = DATA.log.map(r => [Number(r.num) || r.num, r.date, r.client, r.phone, r.desc, r.qty, r.disc, r.total]
-    .concat(admin ? [r.profit, r.sugg || ''] : []));
-  const blob = makeXlsx([{ name: 'سجل الفواتير', rows: [head].concat(rows), cols: [11, 12, 20, 14, 40, 8, 10, 14].concat(admin ? [12, 13] : []) }]);
-  deliverFile(blob, 'سجل فواتير RAX3D ' + DATA.today + '.xlsx').catch(e => alert('تعذّر الحفظ: ' + ((e && e.message) || e)));
-};
-
-// الإحصائيات (Excel): الفترات + كل شهر
-$('dlStats').onclick = () => {
+  const rows = log.map(r => [Number(r.num) || r.num, r.date, r.client, r.phone, r.desc, r.qty, r.disc, r.total].concat(admin ? [r.profit, r.sugg || ''] : []));
+  return makeXlsx([{ name: title || 'سجل الفواتير', rows: [head].concat(rows), cols: [11, 12, 20, 14, 40, 8, 10, 14].concat(admin ? [12, 13] : []) }]);
+}
+$('dlLog').onclick = () => {
   if (!DATA) return;
-  const sum = (rs, k) => Math.round(rs.reduce((a, r) => a + (Number(r[k]) || 0), 0) * 100) / 100;
-  const line = (name, rs) => [name, rs.length, sum(rs, 'qty'), sum(rs, 'total'), sum(rs, 'disc'), sum(rs, 'profit'), rs.length ? Math.round(sum(rs, 'total') / rs.length * 100) / 100 : 0];
-  const head = ['الفترة', 'الفواتير', 'القطع', 'المبيعات', 'الخصومات', 'صافي الربح', 'متوسط الفاتورة'];
+  deliverFile(buildLogXlsx(DATA.log), 'سجل فواتير RAX3D ' + DATA.today + '.xlsx').catch(e => alert('تعذّر الحفظ: ' + ((e && e.message) || e)));
+};
+const sumK = (rs, k) => Math.round(rs.reduce((a, r) => a + (Number(r[k]) || 0), 0) * 100) / 100;
+const statLine = (name, rs) => [name, rs.length, sumK(rs, 'qty'), sumK(rs, 'total'), sumK(rs, 'disc'), sumK(rs, 'profit'), rs.length ? Math.round(sumK(rs, 'total') / rs.length * 100) / 100 : 0];
+const STAT_HEAD = ['الفترة', 'الفواتير', 'القطع', 'المبيعات', 'الخصومات', 'صافي الربح', 'متوسط الفاتورة'];
+const CHART_SERIES = [{ col: 3, color: 'E0B64A' }, { col: 5, color: '4CAF50' }];
+function monthsSheet() {
+  const L = DATA.log, months = [...new Set(L.map(r => String(r.date).slice(0, 7)).concat(lastMonths(6)))].sort().map(mo => statLine(monthName(mo), L.filter(r => String(r.date).startsWith(mo))));
+  return { name: 'حسب الشهر', rows: [['الشهر'].concat(STAT_HEAD.slice(1))].concat(months), cols: [16, 10, 10, 13, 12, 13, 15],
+    chart: { title: 'المبيعات وصافي الربح حسب الشهر', rows: months.map((_, k) => k + 1), series: CHART_SERIES } };
+}
+function buildStatsXlsx() {
   const t = DATA.today, [y, m] = t.split('-');
   const d0 = new Date(t + 'T00:00:00'); d0.setDate(d0.getDate() - 6);
   const wk = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
   const L = DATA.log;
-  const periods = [line('اليوم', L.filter(r => r.date === t)), line('آخر 7 أيام', L.filter(r => r.date >= wk && r.date <= t)),
-    line('هذا الشهر', L.filter(r => r.date.startsWith(y + '-' + m))), line('هذه السنة', L.filter(r => r.date.startsWith(y))), line('الإجمالي', L)];
-  const months = [...new Set(L.map(r => String(r.date).slice(0, 7)).concat(lastMonths(6)))].sort().map(mo => line(monthName(mo), L.filter(r => String(r.date).startsWith(mo))));
+  const periods = [statLine('اليوم', L.filter(r => r.date === t)), statLine('آخر 7 أيام', L.filter(r => r.date >= wk && r.date <= t)),
+    statLine('هذا الشهر', L.filter(r => r.date.startsWith(y + '-' + m))), statLine('هذه السنة', L.filter(r => r.date.startsWith(y))), statLine('الإجمالي', L)];
   const g = DATA.goal || {};
   const extra = [[], ['هدف المبيعات', g.goal || ''], ['الخسارة عن السعر المقترح', g.gap || 0], ['تاريخ التقرير', t]];
-  const blob = makeXlsx([
-    { name: 'الإحصائيات', rows: [head].concat(periods, extra), cols: [26, 10, 10, 13, 12, 13, 15],
-      chart: { title: 'المبيعات وصافي الربح حسب الفترة', rows: [1, 2, 3, 4, 5], series: [{ col: 3, color: 'E0B64A' }, { col: 5, color: '4CAF50' }] } },
-    { name: 'حسب الشهر', rows: [['الشهر'].concat(head.slice(1))].concat(months), cols: [16, 10, 10, 13, 12, 13, 15],
-      chart: { title: 'المبيعات وصافي الربح حسب الشهر', rows: months.map((_, k) => k + 1), series: [{ col: 3, color: 'E0B64A' }, { col: 5, color: '4CAF50' }] } }
+  return makeXlsx([
+    { name: 'الإحصائيات', rows: [STAT_HEAD].concat(periods, extra), cols: [26, 10, 10, 13, 12, 13, 15],
+      chart: { title: 'المبيعات وصافي الربح حسب الفترة', rows: [1, 2, 3, 4, 5], series: CHART_SERIES } },
+    monthsSheet()
   ]);
-  deliverFile(blob, 'إحصائيات RAX3D ' + t + '.xlsx').catch(e => alert('تعذّر الحفظ: ' + ((e && e.message) || e)));
+}
+function buildMonthStatsXlsx(ym) {   // إحصائيات شهر معيّن: كل يوم + الإجمالي + رسم بياني
+  const rs = DATA.log.filter(r => String(r.date).startsWith(ym));
+  const days = [...new Set(rs.map(r => r.date))].sort().map(d => statLine(d, rs.filter(r => r.date === d)));
+  const rows = [['اليوم'].concat(STAT_HEAD.slice(1))].concat(days.length ? days : [['لا توجد فواتير في هذا الشهر']], [statLine('إجمالي ' + monthName(ym), rs)]);
+  const g = DATA.goal || {};
+  rows.push([], ['هدف المبيعات الحالي', g.goal || ''], ['تاريخ التقرير', DATA.today]);
+  return makeXlsx([
+    Object.assign({ name: 'ملخص ' + monthName(ym), rows: rows, cols: [22, 10, 10, 13, 12, 13, 15] },
+      days.length ? { chart: { title: 'المبيعات وصافي الربح — ' + monthName(ym), rows: days.map((_, k) => k + 1), series: CHART_SERIES } } : {}),
+    monthsSheet()
+  ]);
+}
+
+// الإحصائيات (Excel): الفترات + كل شهر
+$('dlStats').onclick = () => {
+  if (!DATA) return;
+  deliverFile(buildStatsXlsx(), 'إحصائيات RAX3D ' + DATA.today + '.xlsx').catch(e => alert('تعذّر الحفظ: ' + ((e && e.message) || e)));
 };
 
+// ================= التقرير الشهري: الإحصائيات + السجل + كل الفواتير PDF =================
+const ymOf = d => String(d).slice(0, 7);
+const ymAdd = (ym, k) => { const [y, m] = ym.split('-').map(Number), d = new Date(y, m - 1 + k, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+async function sendMonthlyReport(ym, manual) {
+  const rs = DATA.log.filter(r => String(r.date).startsWith(ym));
+  const en = ym, files = [
+    { blob: buildMonthStatsXlsx(ym), name: 'RAX3D-Statistics-' + en + '.xlsx' },
+    { blob: buildLogXlsx(rs, 'سجل ' + monthName(ym)), name: 'RAX3D-Invoices-Log-' + en + '.xlsx' }
+  ];
+  // كل فواتير الشهر في ملف PDF واحد (ينقسم لأكثر من إيميل إذا كبر حجمه)
+  const parts = []; let cur = [], size = 0;
+  for (const r of rs) {
+    const jp = await invoiceJpeg(r, null, 0.72);
+    if (cur.length && size + jp.bytes.length > 7.5e6) { parts.push(cur); cur = []; size = 0; }
+    cur.push(jp); size += jp.bytes.length;
+  }
+  if (cur.length) parts.push(cur);
+  const total = Math.max(1, parts.length), sales = sumK(rs, 'total'), profit = sumK(rs, 'profit');
+  for (let k = 0; k < total; k++) {
+    const pdf = parts[k] ? [{ blob: imagesToPdf(parts[k], 595.28, 841.89), name: 'RAX3D-Invoices-' + en + (total > 1 ? '-part' + (k + 1) : '') + '.pdf' }] : [];
+    const att = (k === 0 ? files : []).concat(pdf);
+    const fields = { 'الشهر': monthName(ym) + (total > 1 ? ' — الجزء ' + (k + 1) + ' من ' + total : ''), 'عدد الفواتير': rs.length,
+      'المبيعات': fmt(sales) + ' ريال', 'صافي الربح': fmt(profit) + ' ريال',
+      'المرفقات': att.map(f => f.name).join(' ، ') || 'لا توجد فواتير في هذا الشهر' };
+    if (manual) fields['ملاحظة'] = 'تقرير حتى تاريخ ' + DATA.today + ' (إرسال يدوي)';
+    const r = att.length ? await notify('Monthly Reports', fields, att) : await notify('Monthly Reports', fields);
+    if (r !== 'sent') return r;
+  }
+  return 'sent';
+}
+let monthlyBusy = false;
+async function checkMonthly() {   // أول ما ينفتح التطبيق في شهر جديد، يرسل تقرير الشهر اللي قبله
+  if (monthlyBusy || !DATA || DATA.role !== 'admin' || navigator.onLine === false) return;
+  const cur = ymOf(DATA.today), db = loadDb();
+  if (!db.monthlySent) { db.monthlySent = ymAdd(cur, -1); saveDb(db); return; }   // أول مرة: يبدأ من الشهر الجاي
+  monthlyBusy = true;
+  try {
+    for (let i = 0; i < 6 && loadDb().monthlySent < ymAdd(cur, -1); i++) {
+      const target = ymAdd(loadDb().monthlySent, 1);
+      const r = await sendMonthlyReport(target);
+      if (r !== 'sent') break;
+      const d = loadDb(); d.monthlySent = target; saveDb(d);
+      toast('📊 انرسل التقرير الشهري — ' + monthName(target));
+    }
+  } catch (e) {} finally { monthlyBusy = false; }
+}
 
 // ================= إعدادات، نسخ احتياطي، أول تشغيل =================
 const SET_FIELDS = [['spool', 'سعر البكرة (ريال)'], ['spoolW', 'وزن البكرة (جم)'], ['run', 'التشغيل للساعة (ريال)'], ['waste', 'الهدر (0.1 = 10%)'],
@@ -1642,6 +1720,7 @@ function load() {
       const cy = CARRY || {}; CARRY = null;
       if (d.pinNotice || cy.pinNotice) showOk('تم تعديل الرقم السري بنجاح', 'من الحين تدخل بالرقم الجديد');
       if ($('recMail') && !$('recMail').value) $('recMail').value = d.recMail || '';
+      if (d.role === 'admin') setTimeout(checkMonthly, 4000);
     })
     .withFailureHandler(err => {
       if (pinError(err)) { if ($('boot')) $('boot').textContent = ''; return; }
@@ -1997,6 +2076,14 @@ if (loadDb().role === 'partner' && !location.hash.includes('reset=')) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { resetSkip = null; checkReset(); } });
 }
 
+$('monthNow').onclick = () => {
+  if (!DATA || monthlyBusy) return;
+  const ym = ymOf(DATA.today);
+  if (!confirm('إرسال تقرير ' + monthName(ym) + ' (حتى اليوم) إلى إيميلك الحين؟\nفيه الإحصائيات والسجل وكل فواتير الشهر PDF.')) return;
+  monthlyBusy = true; const b = $('monthNow'); b.disabled = true; b.textContent = '⏳ جاري التجهيز…';
+  sendMonthlyReport(ym, true).then(r => toast(r === 'sent' ? '📊 انرسل التقرير لإيميلك ✔' : r === 'activate' ? '📧 فعّل إيميلك أول مرة' : '⚠️ ما انرسل — تأكد من الإنترنت'))
+    .catch(e => toast('⚠️ ' + errTxt(e))).finally(() => { monthlyBusy = false; b.disabled = false; b.textContent = '📧 التقرير الشهري الآن'; });
+};
 // --- رسائل لمرة وحدة ---
 function showOk(t, sub) { $('okTitle').textContent = t; $('okText').textContent = sub || ''; $('okSheet').classList.add('on'); }
 $('okBtn').onclick = () => $('okSheet').classList.remove('on');
