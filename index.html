@@ -1,0 +1,2057 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>RAX3D</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RAX3D">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#000; --panel:#141414; --line:#2a2a2a; --field:#1d1d1d;
+  --gold:#E0B64A; --gold-d:#C9A227; --text:#f2efe6; --mute:#9a968c; --good:#7fcf8a; --bad:#ff7b6b;
+  --r-lg:18px; --r-sm:10px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--ink);color:var(--text);
+  font-family:"IBM Plex Sans Arabic",Tahoma,Arial,sans-serif;font-size:16px;line-height:1.5}
+body{padding:env(safe-area-inset-top,0) 0 calc(150px + env(safe-area-inset-bottom,0))}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:560px;margin:0 auto;padding:0 14px}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 2px 10px}
+.brand{font-weight:700;font-size:26px;letter-spacing:.06em;color:var(--gold);direction:ltr}
+.brand small{display:block;font-size:11px;letter-spacing:.02em;color:var(--mute);font-weight:400}
+.num{font-size:14px;color:var(--mute);text-align:left}
+.num b{display:block;color:var(--text);font-size:20px}
+
+nav{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:16px;position:sticky;top:env(safe-area-inset-top,0);z-index:5}
+nav button{flex:1;border:0;background:none;padding:9px 4px;border-radius:999px;font-size:15px;color:var(--mute);cursor:pointer}
+nav button.on{background:var(--gold);color:#000;font-weight:700}
+section{display:none} section.on{display:block}
+
+label{display:block;font-size:13px;color:var(--mute);margin-bottom:4px}
+input,select{width:100%;background:var(--field);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;font-size:16px;outline:none}
+input:focus,select:focus{border-color:var(--gold)}
+input[type=number]{direction:ltr;text-align:center}
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:1.3fr 1fr 1fr 1fr;gap:8px}.g3{grid-template-columns:1fr 1fr 1fr}
+
+.client{display:grid;gap:10px;margin-bottom:18px}
+.item{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;margin-bottom:12px}
+.item-top{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.item-top input{flex:1}
+.x{border:0;background:none;color:var(--mute);font-size:22px;width:36px;height:36px;border-radius:50%;cursor:pointer}
+.seg{display:flex;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+.seg button{flex:1;border:0;background:var(--field);padding:11px 0;cursor:pointer;color:var(--mute)}
+.seg button.on{background:var(--gold-d);color:#000;font-weight:700}
+.calc{display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);font-size:14px;color:var(--mute)}
+.calc b{color:var(--text);font-weight:500}
+.add{width:100%;border:1px dashed var(--gold-d);background:none;color:var(--gold);padding:13px;border-radius:var(--r-lg);font-size:16px;cursor:pointer}
+.add:disabled{opacity:.35}
+.item.filled{border-color:var(--gold);transition:border-color .2s}
+.goal{background:linear-gradient(135deg,#1a1405,#0d0d0d);border:1px solid var(--gold-d);border-radius:var(--r-lg);padding:14px;margin-bottom:16px}
+.goal-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.goal-top b{color:var(--gold);font-size:18px;direction:ltr}
+.goal-top span{font-size:13px;color:var(--mute)}
+.goal-bar{height:10px;background:#262626;border-radius:99px;overflow:hidden;margin:10px 0 6px}
+.goal-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold));border-radius:99px;transition:width .6s}
+.goal-sub{display:flex;justify-content:space-between;font-size:12px;color:var(--mute)}
+.goal-sub b{color:var(--text);font-weight:500}
+.warn{color:var(--bad);font-size:13px;margin-top:6px;min-height:0}
+.loss{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.loss-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--mute)}
+.loss-top b{font-size:16px;color:var(--text);white-space:nowrap}
+.loss-bar{height:8px;background:#262626;border-radius:99px;overflow:hidden;margin:8px 0 4px}
+.loss-bar i{display:block;height:100%;width:0;background:#b4574b;border-radius:99px;transition:width .6s}
+.loss-sub{font-size:12px;color:var(--mute)}
+.party{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;padding:24px;text-align:center}
+.party.on{display:flex}
+.party canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.party .box{position:relative;max-width:360px}
+.party .cup{font-size:72px;line-height:1}
+.party h2{color:var(--gold);font-size:26px;margin:12px 0 6px}
+.party .amt{font-size:40px;font-weight:700;color:var(--text);direction:ltr;margin:4px 0}
+.party p{color:var(--mute);margin:6px 0 18px;line-height:1.7}
+.party p b{color:var(--gold)}
+@media (prefers-reduced-motion:no-preference){.party.on .cup{animation:pop .6s ease-out}@keyframes pop{0%{transform:scale(.2) rotate(-20deg)}70%{transform:scale(1.2)}100%{transform:scale(1)}}}
+
+.bar{position:fixed;left:0;right:0;bottom:0;background:#0a0a0a;border-top:2px solid var(--gold-d);
+  padding:12px 14px calc(12px + env(safe-area-inset-bottom,0));z-index:10}
+.bar .wrap{padding:0}
+.sum{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px}
+.sum .big{font-size:34px;font-weight:700;color:var(--gold);line-height:1;direction:ltr}
+.sum .big span{font-size:15px;color:var(--mute);font-weight:400;margin-right:4px}
+.sum .sub{font-size:13px;color:var(--mute);text-align:right}
+.sum .sub b{color:var(--good);font-weight:500}
+.save{width:100%;border:0;border-radius:14px;background:var(--gold);color:#000;font-weight:700;font-size:18px;padding:14px;cursor:pointer}
+.save:disabled{opacity:.5}
+.bar.hide{display:none}
+
+.search{margin-bottom:12px}
+.row{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:10px}
+.row-h{display:flex;justify-content:space-between;align-items:baseline}
+.row-h b{font-size:17px}
+.row-h .amt{color:var(--gold);font-weight:700;direction:ltr}
+.row p{margin:4px 0 8px;font-size:13px;color:var(--mute);overflow-wrap:anywhere}
+.row .meta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mute)}
+.pdf{border:1px solid var(--gold-d);color:var(--gold);background:none;border-radius:999px;padding:5px 14px;font-size:13px;text-decoration:none}
+.empty{text-align:center;color:var(--mute);padding:40px 10px}
+
+.period{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;margin-bottom:10px}
+.period h3{margin:0 0 10px;font-size:15px;color:var(--gold);font-weight:500}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px}
+.kv div{font-size:12px;color:var(--mute)}
+.kv div b{display:block;font-size:17px;color:var(--text);font-weight:500;direction:ltr;text-align:right}
+
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.sheet.on{display:flex}
+.sheet .box{background:var(--panel);border-top:2px solid var(--gold);border-radius:22px 22px 0 0;width:100%;max-width:560px;
+  padding:24px 18px calc(24px + env(safe-area-inset-bottom,0));text-align:center}
+.sheet h2{margin:0 0 4px;font-size:21px}
+.sheet .tot{font-size:38px;color:var(--gold);font-weight:700;margin:6px 0 16px;direction:ltr}
+.sheet a.save,.sheet button{display:block;text-decoration:none;margin-top:10px}
+.ghost{width:100%;background:none;border:1px solid var(--line);border-radius:14px;padding:13px;color:var(--text);font-size:16px;cursor:pointer}
+.err{color:var(--bad);font-size:14px;min-height:20px;margin:0 0 6px;text-align:center}
+.loading{text-align:center;color:var(--mute);padding:60px 0}
+.lock{position:fixed;inset:0;background:var(--ink);z-index:30;display:none;align-items:center;justify-content:center;padding:24px}
+.lock.on{display:flex}
+.lock .box{width:100%;max-width:340px;text-align:center}
+.lock .brand{font-size:34px;margin-bottom:6px}
+.lock p{color:var(--mute);margin:0 0 22px}
+.lock input{text-align:center;font-size:26px;letter-spacing:.4em;direction:ltr;margin-bottom:12px}
+#pinErr{color:var(--bad);margin:0 0 14px;min-height:22px}
+.logout{border:0;background:none;color:var(--mute);font-size:12px;padding:0;margin-top:4px;cursor:pointer;text-decoration:underline}
+@media (prefers-reduced-motion:no-preference){.sheet .box{animation:up .25s ease-out}@keyframes up{from{transform:translateY(40px);opacity:0}}}
+</style>
+<style>.tools{display:flex;gap:8px;margin-bottom:12px}
+.tools .ghost{padding:11px;font-size:15px}
+.row .acts{display:flex;gap:6px}
+.pdf.dl{border-color:var(--line);color:var(--text);cursor:pointer;font-family:inherit}
+.hb{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
+.hb .logout{margin-top:0}
+.hbtn{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:4px 11px;font-size:12px;position:relative;cursor:pointer;font-family:inherit}
+.hbtn i{position:absolute;top:-7px;left:-7px;background:var(--bad);color:#fff;border-radius:999px;min-width:19px;height:19px;font-size:11px;font-style:normal;line-height:19px;text-align:center;padding:0 5px}
+[hidden]{display:none!important}
+.partner .adm{display:none!important}
+.st{width:100%;border-collapse:collapse;font-size:13px}
+.st th{color:var(--gold);font-weight:500;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
+.st td{padding:6px 4px;border-bottom:1px solid #1b1b1b;direction:rtl}
+.st td:not(:first-child),.st th:not(:first-child){text-align:center}
+.sheet .box{max-height:90vh;overflow-y:auto;text-align:right}
+.sheet h2,.sheet .tot{text-align:center}
+.lock{overflow-y:auto}
+textarea{width:100%;background:var(--field);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px;color:var(--text);font:inherit;font-size:15px;resize:vertical}
+.link{display:block;width:100%;border:0;background:none;color:var(--gold);font-size:14px;margin-top:14px;text-decoration:underline;cursor:pointer;font-family:inherit}
+.rq{background:var(--field);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px;text-align:right}
+.rq.new{border-color:var(--gold-d)}
+.rq.done{opacity:.6}
+.rq-h{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--mute)}
+.rq-h b{color:var(--text);font-size:15px}
+.rq p{margin:6px 0;font-size:15px;white-space:pre-wrap;overflow-wrap:anywhere}
+.rq .rep{color:var(--good);font-size:13px}
+.rq input{margin-top:6px}
+.rq .acts{display:flex;gap:8px;margin-top:8px}
+.rq .acts button{margin-top:0;flex:1;padding:10px;font-size:14px}
+.tag{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 8px;margin-inline-start:6px;color:var(--mute);font-weight:400}
+.tag.p{border-color:var(--gold-d);color:var(--gold)}
+.ed-it{background:var(--field);border:1px solid var(--line);border-radius:14px;padding:10px;margin-top:10px}
+.ed-it .hint{font-size:12px;color:var(--mute);margin-top:6px}
+.ed-it .seg button{margin-top:0}
+.edsum{text-align:center;color:var(--gold);font-weight:700;font-size:18px;margin:12px 0 4px}
+.toast{position:fixed;top:calc(12px + env(safe-area-inset-top,0));left:50%;transform:translateX(-50%);z-index:60;background:var(--panel);border:1px solid var(--gold-d);color:var(--text);border-radius:999px;padding:10px 18px;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.6);max-width:92vw;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">RAX3D<small>حاسبة وفواتير<span id="roleTag" hidden></span></small></div>
+    <div class="num">فاتورة رقم<b id="invNum">—</b>
+      <div class="hb"><button class="hbtn" id="bellBtn" hidden aria-label="طلبات مدخل البيانات">🔔<i id="bellN" hidden></i></button><button class="hbtn" id="supBtn" hidden>🛟 الدعم الفني</button><button class="logout" id="logoutBtn">قفل التطبيق</button></div></div>
+  </header>
+  <nav class="adm">
+    <button class="on" data-tab="new">فاتورة جديدة</button>
+    <button data-tab="log">السجل</button>
+    <button data-tab="stats">الإحصائيات</button>
+  </nav>
+
+  <div id="boot" class="loading">جاري التحميل…</div>
+
+  <section id="new">
+    <div class="goal adm" id="goalCard" style="display:none">
+      <div class="goal-top"><span>🎯 هدف المبيعات</span><b id="goalAmt"></b></div>
+      <div class="goal-bar"><i id="goalBar"></i></div>
+      <div class="goal-sub"><span>المحقق <b id="goalSales"></b></span><span>باقي <b id="goalLeft"></b> ريال</span></div>
+      <div class="loss" id="gapBox" style="display:none">
+        <div class="loss-top"><span>📉 الخسارة عن السعر المقترح</span><b id="gapAmt"></b></div>
+        <div class="loss-bar"><i id="gapBar"></i></div>
+        <div class="loss-sub" id="gapTxt"></div>
+      </div>
+    </div>
+    <div class="client grid g2">
+      <div><label for="client">اسم العميل</label><input id="client" autocomplete="off"></div>
+      <div><label for="phone">الجوال</label><input id="phone" inputmode="tel" autocomplete="off" style="direction:ltr;text-align:right"></div>
+    </div>
+    <div id="items"></div>
+    <datalist id="catList"></datalist>
+    <button class="add" id="addBtn">+ إضافة قطعة</button>
+  </section>
+
+  <section id="log">
+    <div class="tools"><button class="ghost" id="dlLog">⬇️ سجل الفواتير</button><button class="ghost" id="backupBtn">📦 نسخة احتياطية</button></div>
+    <input class="search" id="q" placeholder="ابحث باسم العميل أو الجوال أو رقم الفاتورة">
+    <div id="logList"></div>
+  </section>
+
+  <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button></div><div id="statList"></div>
+    <div class="period">
+      <h3>إعدادات التسعير والترقيم</h3>
+      <div class="grid g2" id="setGrid"></div>
+      <p class="err" id="setMsg" style="margin:10px 0 0"></p>
+      <button class="save" id="setSave" style="margin-top:8px;font-size:16px;padding:12px">حفظ الإعدادات</button>
+    </div>
+    <div class="period">
+      <h3>الترقيم المشترك والربط مع مدخل البيانات</h3>
+      <p id="syncState" style="font-size:14px;margin:0 0 12px"></p>
+      <label for="syncRepo">اسم المستودع الخاص</label>
+      <input id="syncRepo" placeholder="RAX3D/rax3d-data" dir="ltr" autocomplete="off">
+      <label for="syncToken" style="margin-top:10px;display:block">رمز GitHub (Token)</label>
+      <input id="syncToken" type="password" placeholder="github_pat_…" dir="ltr" autocomplete="off">
+      <label for="syncNext" style="margin-top:10px;display:block">تغيير الرقم القادم (اختياري)</label>
+      <input id="syncNext" type="number" inputmode="numeric" placeholder="اتركه فاضي">
+      <p class="err" id="syncMsg" style="margin:10px 0 0"></p>
+      <button class="save" id="syncSave" style="margin-top:8px;font-size:16px;padding:12px">تفعيل / حفظ</button>
+      <button class="ghost" id="syncOff" style="margin-top:8px">إيقاف الترقيم المشترك على هذا الجوال</button>
+    </div>
+    <div class="period" id="partnerBox">
+      <h3>حساب مدخل البيانات</h3>
+      <p id="pState" style="font-size:14px;margin:0 0 12px"></p>
+      <label for="newPartner">تغيير رقم مدخل البيانات بنفسك (اختياري)</label>
+      <input id="newPartner" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="أرقام من 4 إلى 12 خانة">
+      <p class="err" id="pMsg" style="margin:10px 0 0"></p>
+      <button class="save" id="pSave" style="margin-top:8px;font-size:16px;padding:12px">حفظ رمز مدخل البيانات</button>
+      <button class="ghost" id="joinBtn" style="margin-top:8px">📤 إرسال رابط التطبيق لمدخل البيانات</button>
+      <textarea id="joinOut" rows="3" dir="ltr" readonly hidden style="margin-top:8px"></textarea>
+      <p class="err" id="joinMsg" style="margin:10px 0 0"></p>
+    </div>
+    <div class="period">
+      <h3>استرجاع نسخة احتياطية</h3>
+      <p style="color:var(--mute);font-size:13px;margin:0 0 12px">يستبدل كل بيانات هذا الجوال بالبيانات الموجودة في ملف النسخة.</p>
+      <input type="file" id="restoreIn" accept=".json,application/json" style="display:none">
+      <button class="ghost" id="restoreBtn">♻️ اختيار ملف النسخة</button>
+      <p class="err" id="restoreMsg" style="margin:10px 0 0"></p>
+    </div>
+    <div class="period" id="pinBox">
+      <h3>تغيير رمز دخول الدعم الفني</h3>
+      <p style="color:var(--mute);font-size:13px;margin:0 0 12px">أرقام فقط، من 4 إلى 12 خانة. يتغيّر على هذا الجوال فقط.</p>
+      <input id="newAdmin" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="الرمز الجديد" aria-label="الرمز الجديد">
+      <p class="err" id="pinMsg" style="margin:10px 0 0"></p>
+      <button class="save" id="pinSave" style="margin-top:8px;font-size:16px;padding:12px">حفظ الرمز</button>
+    </div>
+    <div class="period" id="mailBox">
+      <h3>📧 إيميل الإشعارات واسترجاع الرمز</h3>
+      <p style="color:var(--mute);font-size:13px;margin:0 0 12px">توصلك عليه نسخة من كل فاتورة وملف تحفظه، وطلبات مدخل البيانات، ورمز التحقق إذا نسيت رمزك. أول مرة: اضغط الزر تحت، وافتح رسالة FormSubmit في إيميلك واضغط <b dir="ltr">Activate Form</b>.</p>
+      <label for="recMail">الإيميل</label>
+      <input id="recMail" type="email" inputmode="email" dir="ltr" autocomplete="off" placeholder="rax3d.sa@hotmail.com">
+      <p class="err" id="mailMsg" style="margin:10px 0 0"></p>
+      <button class="save" id="mailSave" style="margin-top:8px;font-size:16px;padding:12px">حفظ وإرسال رسالة التفعيل</button>
+    </div>
+  </section>
+</div>
+
+<div class="bar hide" id="bar"><div class="wrap">
+  <div class="sum">
+    <div class="sub">الخصم <span id="tDisc">0</span><span class="adm"><br>صافي الربح <b id="tProfit">0</b></span></div>
+    <div class="big" id="tTotal">0<span>ريال</span></div>
+  </div>
+  <p class="err" id="err"></p>
+  <button class="save" id="saveBtn">حفظ الفاتورة وإنشاء PDF</button>
+</div></div>
+
+<div class="lock" id="lock"><div class="box">
+  <div class="brand">RAX3D</div>
+  <p id="lockHint">اكتب رمز الدخول</p>
+  <input id="pinIn" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
+  <div id="firstRun" style="display:none;text-align:right">
+    <div id="frChoose">
+      <button class="save" id="frA">📱 هذا جوال الدعم الفني</button>
+      <button class="ghost" id="frP" style="margin-top:10px">📝 هذا جوال مدخل البيانات</button>
+    </div>
+    <div id="frAdmin" hidden>
+      <label for="fAdmin">رمز دخول الدعم الفني</label><input id="fAdmin" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
+      <label for="fNum" style="margin-top:10px;display:block">رقم أول فاتورة</label><input id="fNum" type="number" inputmode="numeric" value="1">
+    </div>
+    <div id="frPartner" hidden>
+      <div id="fJoinBox"><label for="fJoin">الصق رمز الربط اللي أرسله لك الدعم الفني</label>
+      <textarea id="fJoin" rows="4" dir="ltr" autocomplete="off" placeholder="RAX3D-…"></textarea></div>
+      <label for="fJ1" style="margin-top:10px;display:block">اختر رقمك السري (أرقام من 4 إلى 12 خانة)</label><input id="fJ1" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12">
+      <label for="fJ2" style="margin-top:10px;display:block">أعد كتابة الرقم السري</label><input id="fJ2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12">
+    </div>
+  </div>
+  <p class="err" id="pinErr"></p>
+  <button class="save" id="pinBtn">دخول</button>
+  <button class="link" id="frBack" hidden>رجوع</button>
+  <button class="link" id="forgotBtn" hidden>نسيت الرمز؟ تواصل مع الدعم الفني</button>
+</div></div>
+
+<div class="party" id="party"><canvas id="confetti"></canvas><div class="box">
+  <div class="cup">🏆</div>
+  <h2>مبروك يا RAX3D&rlm;!</h2>
+  <div class="amt" id="partyAmt"></div>
+  <p>وصلنا الهدف بمبيعات فوق <b id="partyReached"></b> ريال 👏<br><bdi dir="ltr">RsHoOoD</bdi> فخور فيك، كل قطعة طبعتها وكل جهد فعلته وصّلتنا لرأس المال، ومنها إلى <bdi dir="ltr" style="white-space:nowrap">Financial freedom</bdi> ✨<br>الهدف الجديد: <b id="partyNext"></b> ريال 🚀</p>
+  <button class="save" id="partyBtn">يلا نكمل 💪</button>
+</div></div>
+
+<div class="sheet" id="done"><div class="box">
+  <h2 id="doneTitle"></h2>
+  <div class="tot" id="doneTotal"></div>
+  <button class="save" id="doneSave">📄 الفاتورة PDF</button>
+  <button class="ghost" id="doneNew">فاتورة جديدة</button>
+</div></div>
+
+<div class="sheet" id="fileSheet"><div class="box">
+  <h2 id="fileTitle"></h2>
+  <p id="fileMsg" style="color:var(--mute);font-size:14px;margin:6px 0 4px"></p>
+  <img id="filePrev" alt="معاينة الفاتورة" style="display:none;width:100%;max-height:46vh;object-fit:contain;background:#fff;border-radius:8px;margin:8px 0">
+  <button class="save" id="fileGo" disabled>جاري التجهيز…</button>
+  <button class="ghost" id="fileClose">إغلاق</button>
+</div></div>
+
+<div class="sheet" id="supSheet" style="z-index:40"><div class="box">
+  <h2>🛟 الدعم الفني</h2>
+  <p style="color:var(--mute);font-size:14px;margin:4px 0 6px;text-align:center">طلبك يوصل للدعم الفني كإشعار داخل التطبيق</p>
+  <div id="supChoose">
+    <button class="save" id="supPin">🔑 تغيير / استعادة الرقم السري</button>
+    <button class="ghost" id="supMsgBtn">✏️ طلب تعديل فاتورة أو أي أمر ثاني</button>
+  </div>
+  <div id="supForm" hidden>
+    <label for="supInv">رقم الفاتورة (اختياري)</label><input id="supInv" type="number" inputmode="numeric">
+    <label for="supText" style="margin-top:10px;display:block">اكتب طلبك</label>
+    <textarea id="supText" rows="4" maxlength="800" placeholder="مثال: الفاتورة رقم 52 اسم العميل غلط، الصحيح …"></textarea>
+    <button class="save" id="supSend">إرسال الطلب</button>
+  </div>
+  <p class="err" id="supMsg" style="margin-top:10px"></p>
+  <div id="supMine"></div>
+  <button class="ghost" id="supClose">إغلاق</button>
+</div></div>
+
+<div class="sheet" id="ntSheet"><div class="box">
+  <h2>🔔 طلبات مدخل البيانات</h2>
+  <p id="ntState" style="color:var(--mute);font-size:13px;margin:4px 0 0;text-align:center"></p>
+  <div id="ntList"></div>
+  <button class="ghost" id="ntClose">إغلاق</button>
+</div></div>
+
+<div class="sheet" id="edSheet"><div class="box">
+  <h2 id="edTitle"></h2>
+  <div class="grid g2" style="margin-top:10px">
+    <div><label for="edClient">اسم العميل</label><input id="edClient" autocomplete="off"></div>
+    <div><label for="edPhone">الجوال</label><input id="edPhone" inputmode="tel" autocomplete="off" style="direction:ltr;text-align:right"></div>
+  </div>
+  <div id="edItems"></div>
+  <p style="color:var(--mute);font-size:12px;margin:6px 0 0">لحذف قطعة اكتب عددها 0 — لما تغيّر الوزن أو الوقت يتحدث السعر التلقائي، وتقدر تكتب سعر بنفسك</p>
+  <label for="edDisc" style="margin-top:10px;display:block">الخصم الكلي (ريال)</label><input id="edDisc" type="number" inputmode="decimal">
+  <p class="edsum" id="edSum"></p>
+  <p class="err" id="edMsg"></p>
+  <button class="save" id="edSave">حفظ التعديل</button>
+  <button class="ghost" id="edClose">إلغاء</button>
+  <button class="ghost" id="edDel" style="color:var(--bad);border-color:rgba(255,123,107,.45);margin-top:22px">🗑️ حذف الفاتورة</button>
+</div></div>
+
+<div class="sheet" id="resetSheet" style="z-index:45"><div class="box">
+  <h2>🔑 تمت الموافقة على طلبك</h2>
+  <p style="color:var(--mute);font-size:14px;margin:4px 0 12px;text-align:center">اختر رقم سري جديد واكتبه مرتين (أرقام من 4 إلى 12 خانة)</p>
+  <label for="rs1">الرقم السري الجديد</label>
+  <input id="rs1" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12" style="text-align:center;letter-spacing:.3em;direction:ltr">
+  <label for="rs2" style="margin-top:10px;display:block">أعد كتابة الرقم السري</label>
+  <input id="rs2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12" style="text-align:center;letter-spacing:.3em;direction:ltr">
+  <p class="err" id="rsMsg" style="margin-top:10px"></p>
+  <button class="save" id="rsSave">حفظ الرقم السري</button>
+  <button class="ghost" id="rsLater">لاحقاً</button>
+</div></div>
+
+<div class="sheet" id="okSheet" style="z-index:46"><div class="box">
+  <div style="font-size:52px;text-align:center;line-height:1.2">✅</div>
+  <h2 id="okTitle">تم تعديل الرقم السري بنجاح</h2>
+  <p id="okText" style="color:var(--mute);font-size:15px;margin:6px 0 4px;text-align:center"></p>
+  <button class="save" id="okBtn">تمام</button>
+</div></div>
+
+<div class="sheet" id="recSheet" style="z-index:46"><div class="box">
+  <h2>🔑 نسيت رمز الدخول</h2>
+  <p id="rcInfo" style="color:var(--mute);font-size:14px;margin:4px 0 10px;text-align:center"></p>
+  <button class="save" id="rcSend">📧 إرسال رمز التحقق</button>
+  <div id="rcStep2" hidden>
+    <label for="rcCode">رمز التحقق من الإيميل (6 أرقام)</label><input id="rcCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="direction:ltr;text-align:center;letter-spacing:.3em">
+    <label for="rc1" style="margin-top:10px;display:block">رمز الدخول الجديد</label><input id="rc1" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12">
+    <label for="rc2" style="margin-top:10px;display:block">أعد كتابة الرمز</label><input id="rc2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12">
+    <button class="save" id="rcSave">حفظ والدخول</button>
+  </div>
+  <p class="err" id="rcMsg" style="margin-top:10px"></p>
+  <button class="ghost" id="rcClose">إلغاء</button>
+</div></div>
+
+<div class="lock" id="linkReset" style="z-index:44"><div class="box">
+  <div class="brand">RAX3D</div>
+  <div id="lrForm">
+    <p>🔑 اختر رقمك السري الجديد واكتبه مرتين</p>
+    <div style="text-align:right">
+      <label for="lr1">الرقم السري الجديد (4 إلى 12 رقم)</label><input id="lr1" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12">
+      <label for="lr2" style="margin-top:10px;display:block">أعد كتابة الرقم السري</label><input id="lr2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12">
+    </div>
+    <p class="err" id="lrMsg" style="margin-top:12px"></p>
+    <button class="save" id="lrSave">حفظ الرقم السري</button>
+  </div>
+  <div id="lrDone" hidden>
+    <div style="font-size:60px;line-height:1.2">✅</div>
+    <h2 style="margin:8px 0">تم تحديث رقمك السري</h2>
+    <p style="color:var(--text);font-size:16px">سكّر Safari وافتح تطبيق <b style="color:var(--gold)">RAX3D</b> من الشاشة الرئيسية، وادخل برقمك الجديد</p>
+  </div>
+</div></div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const APP_VERSION = '32';
+// ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
+// كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
+const DB_KEY = 'rax3d_db';
+const DEF_SETTINGS = { spool: 115, spoolW: 1000, run: 1.15, waste: 0.1, pack: 2.3, multSet: 3.5, multOne: 4.5, goalStart: 10000 };
+function loadDb() {
+  let d = null; try { d = JSON.parse(localStorage.getItem(DB_KEY) || 'null'); } catch (e) {}
+  if (!d || typeof d !== 'object') d = {};
+  d.settings = Object.assign({}, DEF_SETTINGS, d.settings || {});
+  d.log = Array.isArray(d.log) ? d.log : []; d.catalog = Array.isArray(d.catalog) ? d.catalog : [];
+  d.nextNum = Number(d.nextNum) || 1; d.pins = d.pins || null; d.fails = d.fails || { n: 0, until: 0 };
+  d.role = d.role || (d.pins && d.pins.admin ? 'admin' : null);   // جوال الدعم الفني أو جوال مدخل البيانات
+  d.shared = d.shared || null; d.pending = Array.isArray(d.pending) ? d.pending : [];
+  if (d.recMail === 'rax3d.sa@gmail.com' || d.recMail === 'rashid.aw@hotmail.com') d.recMail = null;   // الإيميل المعتمد الجديد
+  return d;
+}
+function saveDb(d) { localStorage.setItem(DB_KEY, JSON.stringify(d)); }
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+const todayStr = () => { const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0'); };
+const R2 = v => Math.round(Number(v || 0) * 100) / 100;
+const rk = r => (r.by || 'admin') + ':' + r.num;   // مفتاح الفاتورة (مين أنشأها + رقمها)
+const normN = t => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
+function upsertCat(list, c) { const k = list.findIndex(x => normN(x.desc) === normN(c.desc)); if (k >= 0) list[k] = c; else list.push(c); }
+async function hashPin(p) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('rax3d:' + p));
+  return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
+}
+function goalFor(sales, start) { let g = start || 10000; while (sales >= g) g *= 2; return g; }
+
+function calcLocal(S, it) {
+  const w = +it.w || 0, q = +it.q || 1;
+  const cost = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack;
+  const sugg = Math.ceil(R2(cost * (it.type === 'مجموعة' ? S.multSet : S.multOne)) - 1e-9);
+  const pr = +it.price || 0, unit = pr > 0 ? pr : sugg;
+  const disc = R2(unit * q * (+it.disc || 0) / 100);
+  return { cost, sugg, unit, q, disc, line: R2(unit * q), total: R2(unit * q - disc), profit: R2(unit * q - disc - cost * q) };
+}
+// ================= الترقيم المشترك (مستودع خاص في GitHub) =================
+const SYNC_KEY = 'rax3d_sync';   // منفصل عن البيانات عشان ما يدخل في النسخة الاحتياطية
+function getSync() { try { const v = JSON.parse(localStorage.getItem(SYNC_KEY) || 'null'); return v && v.token && v.repo ? v : null; } catch (e) { return null; } }
+function setSync(v) { if (v) localStorage.setItem(SYNC_KEY, JSON.stringify(v)); else localStorage.removeItem(SYNC_KEY); }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function b64e(str) { const b = new TextEncoder().encode(str); let o = ''; for (let i = 0; i < b.length; i += 0x8000) o += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(o); }
+function b64d(str) { const bin = atob(String(str).replace(/\s/g, '')); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new TextDecoder().decode(u); }
+function gh(sync, method, body, path) {
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 12000);
+  return fetch('https://api.github.com/repos/' + sync.repo + '/contents/' + (path || 'counter.json'), {
+    method, cache: 'no-store', signal: ctrl.signal,
+    headers: { Authorization: 'Bearer ' + sync.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    body: body ? JSON.stringify(body) : undefined
+  }).catch(() => { throw new Error('ما فيه اتصال بالإنترنت — هذي الخاصية تحتاج إنترنت'); })
+    .finally(() => clearTimeout(t));
+}
+function ghErr(res) {
+  if (res.status === 401) return new Error('رمز GitHub غير صالح أو انتهت صلاحيته — حدّثه من الإحصائيات ← الترقيم المشترك');
+  if (res.status === 403) return new Error('رمز GitHub ما عنده صلاحية الكتابة على المستودع');
+  if (res.status === 404) return new Error('المستودع غير موجود — تأكد من الاسم');
+  return new Error('خطأ من GitHub (' + res.status + ')');
+}
+async function readJson(sync, path, def) {
+  const res = await gh(sync, 'GET', null, path);
+  if (res.status === 404) {   // الملف ما انشأ بعد، أو المستودع غلط
+    const chk = await fetch('https://api.github.com/repos/' + sync.repo, { cache: 'no-store', headers: { Authorization: 'Bearer ' + sync.token } }).catch(() => null);
+    if (chk && chk.ok) return { data: def, sha: null };
+    throw ghErr(chk || res);
+  }
+  if (!res.ok) throw ghErr(res);
+  const j = await res.json(), txt = j.content ? b64d(j.content) : '';
+  return { data: txt.trim() ? JSON.parse(txt) : def, sha: j.sha };
+}
+async function writeJson(sync, path, data, sha, msg) {
+  const body = { message: msg || ('تحديث ' + path), content: b64e(JSON.stringify(data)) };
+  if (sha) body.sha = sha;
+  const res = await gh(sync, 'PUT', body, path);
+  if (res.status === 409 || res.status === 422) return false;   // جهاز ثاني كتب بنفس اللحظة
+  if (!res.ok) throw ghErr(res);
+  return true;
+}
+// قراءة ← تعديل ← كتابة، مع إعادة المحاولة لو الجوال الثاني كتب بنفس الوقت
+async function updateJson(sync, path, def, fn, msg) {
+  for (let i = 0; i < 6; i++) {
+    const c = await readJson(sync, path, def);
+    const nd = fn(c.data);
+    if (nd === undefined) return c.data;
+    if (await writeJson(sync, path, nd, c.sha, msg)) return nd;
+    await sleep(600 + Math.random() * 900);
+  }
+  throw new Error('الجوال الثاني يكتب الحين — جرّب مرة ثانية');
+}
+async function readCounter(sync) { const c = await readJson(sync, 'counter.json', null); return { next: c.data ? Number(c.data.next) || 1 : null, sha: c.sha }; }
+function writeCounter(sync, next, sha) { return writeJson(sync, 'counter.json', { next: next }, sha, 'رقم الفاتورة القادم ' + next); }
+
+// ================= الحسابين: الدعم الفني ومدخل البيانات =================
+async function pullShared(db) {   // جوال مدخل البيانات يجيب الإعدادات ورمزه من الدعم الفني
+  const sync = getSync(); if (!sync) return false;
+  try { const c = await readJson(sync, 'shared.json', null); if (c.data && c.data.partnerHash) { db.shared = c.data; saveDb(db); } return true; }
+  catch (e) { return false; }   // بدون إنترنت: يستخدم آخر نسخة محفوظة
+}
+async function auth(db, pin, refresh) {
+  if (!db.role) throw new Error('NO_PINS');
+  if (db.fails.until > Date.now()) throw new Error('LOCKED');
+  const p = String(pin || '');
+  let ok = false;
+  if (db.role === 'admin') ok = !!p && p === (db.pins || {}).admin;
+  else {
+    if (refresh) await pullShared(db);
+    ok = !!p && !!(db.shared && db.shared.partnerHash) && (await hashPin(p)) === db.shared.partnerHash;
+  }
+  if (ok) { if (db.fails.n) { db.fails = { n: 0, until: 0 }; saveDb(db); } return db.role; }
+  db.fails.n = (db.fails.n || 0) + 1;
+  if (db.fails.n >= 10) db.fails = { n: 0, until: Date.now() + 15 * 60 * 1000 };
+  saveDb(db); throw new Error('BAD_PIN');
+}
+async function adminDb(pin) { const db = loadDb(); if (await auth(db, pin) !== 'admin') throw new Error('NOT_ADMIN'); return db; }
+const partnerSettings = db => Object.assign({}, DEF_SETTINGS, (db.shared && db.shared.settings) || {});
+async function pushShared(newPin) {   // الدعم الفني يرسل الإعدادات والقطع المحفوظة ورمز مدخل البيانات (مشفّر)
+  const db = loadDb(), sync = getSync();
+  if (db.role !== 'admin' || !sync) return false;
+  const mine = newPin ? await hashPin(newPin) : (db.pins && db.pins.partner ? await hashPin(db.pins.partner) : '');
+  const data = { v: 1, settings: db.settings, catalog: db.catalog, mail: db.recMail || DEF_MAIL, updated: new Date().toISOString() };
+  // لو مدخل البيانات اختار رقمه بنفسه، ما نرجّع الرقم القديم
+  await updateJson(sync, 'shared.json', null, cur => Object.assign({}, data, { partnerHash: newPin ? mine : ((cur && cur.partnerHash) || mine), pinChangedTs: newPin ? Date.now() : ((cur && cur.pinChangedTs) || 0) }), 'إعدادات مشتركة');
+  return true;
+}
+const pushSharedSoon = () => { pushShared().catch(() => {}); };
+let flushing = null;
+function flushPending() {   // جوال مدخل البيانات يرسل فواتيره للدعم الفني
+  if (flushing) return flushing;
+  flushing = (async () => {
+    const sync = getSync(); let db = loadDb();
+    if (!sync || db.role !== 'partner' || !db.pending.length) return 0;
+    const batch = db.pending.slice();
+    await updateJson(sync, 'partner_log.json', [], arr => {
+      arr = Array.isArray(arr) ? arr : []; const have = new Set(arr.map(r => Number(r.num)));
+      batch.forEach(r => { if (!have.has(Number(r.num))) arr.push(r); }); return arr;
+    }, 'فاتورة من مدخل البيانات');
+    db = loadDb(); const sent = new Set(batch.map(r => Number(r.num)));
+    db.pending = db.pending.filter(r => !sent.has(Number(r.num))); saveDb(db); return batch.length;
+  })().finally(() => { flushing = null; });
+  return flushing;
+}
+const RESET_MS = 48 * 3600 * 1000;   // مهلة الموافقة على تغيير الرقم السري
+async function doReset(sync, d) {
+  const p = String(d.pin || '').trim();
+  if (!/^[0-9]{4,12}$/.test(p)) throw new Error('الرقم السري لازم يكون أرقام من 4 إلى 12 خانة');
+  if (p !== String(d.pin2 || '').trim()) throw new Error('الرقمين مو متطابقين، اكتبه مرة ثانية');
+  let ok = false;
+  await updateJson(sync, 'requests.json', [], arr => {
+    arr = Array.isArray(arr) ? arr : [];
+    const x = arr.find(q => q.id === d.id && q.status === 'approved' && Date.now() - (q.approvedTs || 0) < RESET_MS);
+    if (!x) return undefined;
+    ok = true; x.status = 'done'; x.reply = 'تم تغيير الرقم السري ✔'; x.doneAt = nowStr(); x.doneTs = Date.now(); return arr;
+  }, 'تم تغيير رقم مدخل البيانات');
+  if (!ok) throw new Error('هذا الرابط مستخدم أو انتهت صلاحيته — اطلب رابط جديد من الدعم الفني');
+  const h = await hashPin(p), ts = Date.now();
+  const shared = await updateJson(sync, 'shared.json', null, cur => Object.assign({}, cur || {}, { partnerHash: h, pinChangedTs: ts }), 'رقم سري جديد لمدخل البيانات');
+  const db = loadDb(); if (db.role === 'partner') { db.shared = shared; db.fails = { n: 0, until: 0 }; saveDb(db); }
+  sendMail((shared && shared.mail) || DEF_MAIL, { _subject: '✅ مدخل البيانات غيّر الرقم السري', 'التفاصيل': 'تم تغيير الرقم السري لمدخل البيانات بعد موافقتك', 'الوقت': nowStr() }).catch(() => {});
+  return ts;
+}
+const DEF_MAIL = 'rax3d.sa@hotmail.com';
+const SIGN = 'فريق RAX3D للطباعة ثلاثية الأبعاد — الدمام · إنستقرام @rax3d.sa';
+const maskMail = m => String(m).replace(/^(.{2})[^@]*(@.*)$/, '$1•••$2');
+function mailTo() {   // إيميل الإشعارات: عند الدعم الفني من إعداداته، وعند مدخل البيانات من الإعدادات المشتركة
+  const db = loadDb();
+  return db.role === 'partner' ? ((db.shared && db.shared.mail) || DEF_MAIL) : (db.recMail || DEF_MAIL);
+}
+function postFileMail(to, all, file) {   // إرسال ملف مرفق: نموذج حقيقي داخل إطار مخفي
+  return new Promise((resolve, reject) => {
+    if (navigator.onLine === false) { reject(new Error('ما فيه اتصال بالإنترنت')); return; }
+    const id = 'mf' + Date.now(), fr = document.createElement('iframe'), fm = document.createElement('form');
+    fr.name = id; fr.style.display = 'none';
+    fm.method = 'POST'; fm.enctype = 'multipart/form-data'; fm.target = id; fm.acceptCharset = 'UTF-8'; fm.style.display = 'none';
+    fm.action = 'https://formsubmit.co/' + encodeURIComponent(to);
+    Object.keys(all).forEach(k => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = String(all[k]); fm.appendChild(i); });
+    const fi = document.createElement('input'); fi.type = 'file'; fi.name = 'attachment';
+    try { const dt = new DataTransfer(); dt.items.add(new File([file.blob], file.name, { type: file.blob.type || 'application/octet-stream' })); fi.files = dt.files; }
+    catch (e) { reject(new Error('الجوال ما يدعم إرفاق الملفات')); return; }
+    fm.appendChild(fi); document.body.appendChild(fr); document.body.appendChild(fm);
+    let done = false; const fin = () => { if (done) return; done = true; resolve('sent'); setTimeout(() => { fr.remove(); fm.remove(); }, 1500); };
+    fr.onload = fin; setTimeout(fin, 30000);
+    fm.submit();
+  });
+}
+async function sendMail(to, fields, file) {   // إرسال إيميل عبر خدمة FormSubmit المجانية (مع مرفق اختياري)
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), file ? 45000 : 15000);
+  const all = Object.assign({ _template: 'box', _captcha: 'false' }, fields, { 'مع تحيات': SIGN });
+  let body, headers = { Accept: 'application/json' };
+  if (file) return postFileMail(to, Object.assign({ _template: 'basic' }, all, { _template: 'basic' }), file);
+  if (false) {}
+  else { body = JSON.stringify(all); headers['Content-Type'] = 'application/json'; }
+  let res;
+  try { res = await fetch('https://formsubmit.co/ajax/' + encodeURIComponent(to), { method: 'POST', signal: ctrl.signal, headers: headers, body: body }); }
+  catch (e) { throw new Error('ما فيه اتصال بالإنترنت — الإيميل يحتاج إنترنت'); } finally { clearTimeout(t); }
+  let j = {}; try { j = await res.json(); } catch (e) {}
+  const msg = String(j.message || '');
+  if (/activat/i.test(msg)) return 'activate';
+  if (!res.ok || String(j.success) !== 'true') throw new Error('تعذّر إرسال الإيميل' + (msg ? ': ' + msg : ''));
+  return 'sent';
+}
+// صندوق صادر: الرسائل النصية اللي ما انرسلت (بدون نت) تنرسل لاحقاً تلقائياً
+const OUTBOX = 'rax3d_outbox';
+function outbox(v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(OUTBOX) || '[]'); localStorage.setItem(OUTBOX, JSON.stringify(v.slice(-30))); } catch (e) { return []; } }
+async function notify(subject, fields, file) {
+  const to = mailTo(), f = Object.assign({ _subject: subject }, fields || {}, file ? {} : { 'الوقت': nowStr() });
+  try { const r = await sendMail(to, f, file); if (r === 'activate') return 'activate'; flushOutbox(); return 'sent'; }
+  catch (e) { if (!file) { const o = outbox(); o.push({ to: to, f: f }); outbox(o); } return 'fail'; }
+}
+let flushingMail = false;
+async function flushOutbox() {
+  if (flushingMail) return; const o = outbox(); if (!o.length) return; flushingMail = true;
+  const left = [];
+  for (const m of o) { try { await sendMail(m.to, m.f); } catch (e) { left.push(m); } }
+  outbox(left.concat(outbox().slice(o.length))); flushingMail = false;
+}
+addEventListener('online', () => flushOutbox());
+function randCode() { const a = new Uint32Array(2); crypto.getRandomValues(a); return String(a[0] % 10000).padStart(4, '0') + String(a[1] % 10000).padStart(4, '0'); }
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const nowStr = () => { const n = new Date(); return todayStr() + ' ' + String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0'); };
+
+// يحجز رقم فاتورة واحد بشكل آمن حتى لو الجوالين حفظوا بنفس الوقت
+async function reserveNumber(sync, fallbackStart) {
+  for (let i = 0; i < 6; i++) {
+    const c = await readCounter(sync);
+    const num = c.next || fallbackStart || 1;
+    if (await writeCounter(sync, num + 1, c.sha)) return num;
+    await sleep(600 + Math.random() * 900);
+  }
+  throw new Error('الجوال الثاني يحفظ فاتورة الحين — جرّب مرة ثانية');
+}
+async function setCounter(sync, next) {
+  for (let i = 0; i < 5; i++) {
+    const c = await readCounter(sync);
+    if (await writeCounter(sync, next, c.sha)) return true;
+    await sleep(700);
+  }
+  throw new Error('تعذّر تحديث الرقم، جرّب مرة ثانية');
+}
+
+const API = {
+  async getAppData(pin) {
+    const db = loadDb(), role = await auth(db, pin, true);
+    if (role === 'partner') {
+      flushPending().catch(() => {});
+      const cat = ((db.shared && db.shared.catalog) || []).slice(); db.catalog.forEach(c => upsertCat(cat, c));
+      const ts = Number((db.shared && db.shared.pinChangedTs) || 0), notice = ts > Number(db.seenPinTs || 0);
+      if (notice) { db.seenPinTs = ts; saveDb(db); }   // رسالة «تم التعديل» مرة وحدة بس
+      return { settings: partnerSettings(db), nextNum: db.nextNum, today: todayStr(), role: role, catalog: cat, log: [], goal: null, pinNotice: notice };
+    }
+    const notice = !!db.pinNotice;
+    if (notice) { delete db.pinNotice; saveDb(db); }
+    const S = db.settings;
+    const sales = db.log.reduce((a, r) => a + (Number(r.total) || 0), 0);
+    const goal = goalFor(sales, S.goalStart), prev = goal === S.goalStart ? 0 : goal / 2;
+    return {
+      settings: S, nextNum: db.nextNum, today: todayStr(), role: role, catalog: db.catalog, partnerSet: !!(db.pins && db.pins.partner), pinNotice: notice, recMail: db.recMail || DEF_MAIL,
+      log: db.log.map(r => Object.assign({}, r, { pdf: 'local' })),
+      goal: { sales: R2(sales), goal: goal, prev: prev, remaining: R2(goal - sales), reached: prev,
+              gap: R2(db.log.reduce((a, r) => a + (r.sugg > 0 ? r.sugg - r.total : 0), 0)), gapCount: db.log.filter(r => r.sugg > 0).length }
+    };
+  },
+  async saveFromApp(data, pin) {
+    let db = loadDb(); const role = await auth(db, pin);
+    const S = role === 'partner' ? partnerSettings(db) : db.settings;
+    const its = (data.items || []).filter(it => +it.w > 0 && String(it.desc).trim()).slice(0, 10);
+    if (!its.length) throw new Error('أضف قطعة واحدة على الأقل');
+    const sync = getSync();
+    if (role === 'partner' && !sync) throw new Error('جوال مدخل البيانات غير مربوط — اطلب رمز ربط جديد من الدعم الفني');
+    let num;
+    if (sync) { num = await reserveNumber(sync, db.nextNum); db = loadDb(); }
+    else { num = db.nextNum; while (db.log.some(r => Number(r.num) === num)) num++; }
+    const lines = its.map(it => { const c = calcLocal(S, it); return { desc: String(it.desc).trim(), q: c.q, unit: c.unit, line: c.line, disc: c.disc, total: c.total, profit: c.profit, cost: R2(c.cost), sugg: (+it.price > 0) ? c.sugg * c.q : 0, w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: it.type === 'مجموعة' ? 'مجموعة' : 'واحدة', auto: !(+it.price > 0) }; });
+    const before = db.log.reduce((a, r) => a + (Number(r.total) || 0), 0);
+    const rec = {
+      num: num, date: todayStr(), by: role, client: String(data.client || '').trim(), phone: String(data.phone || '').trim(),
+      desc: lines.map(l => l.desc + ' (' + l.q + ')').join(' ، '), qty: lines.reduce((a, l) => a + l.q, 0),
+      disc: R2(lines.reduce((a, l) => a + l.disc, 0)), total: R2(lines.reduce((a, l) => a + l.total, 0)),
+      profit: R2(lines.reduce((a, l) => a + l.profit, 0)), sugg: R2(lines.reduce((a, l) => a + l.sugg, 0)),
+      sub: R2(lines.reduce((a, l) => a + l.line, 0)), items: lines.map(l => ({ desc: l.desc, q: l.q, unit: l.unit, line: l.line, cost: l.cost, w: l.w, h: l.h, m: l.m, sec: l.sec, type: l.type, auto: l.auto }))
+    };
+    const cats = its.map(it => ({ desc: String(it.desc).trim(), w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, price: +it.price > 0 ? +it.price : 0 }));
+    db.log.push(rec); db.nextNum = Math.max(db.nextNum, num + 1);
+    cats.forEach(c => upsertCat(db.catalog, c));   // القطع المحفوظة للتعبئة التلقائية
+    if (role === 'partner') {
+      db.pending.push(Object.assign({}, rec, { cat: cats })); saveDb(db);
+      flushPending().catch(() => {});   // لو ما فيه نت الحين، تنرسل لاحقاً تلقائياً
+      return { num: num, total: rec.total, pdfUrl: 'local', milestone: null };
+    }
+    saveDb(db); pushSharedSoon();
+    const after = before + rec.total, g0 = goalFor(before, S.goalStart), g1 = goalFor(after, S.goalStart);
+    return { num: num, total: rec.total, pdfUrl: 'local', milestone: g1 > g0 ? { reached: g1 / 2, next: g1, sales: Math.round(after) } : null };
+  },
+  async changePins(d, pin) {
+    const db = await adminDb(pin);
+    const a = String((d && d.admin) || '').trim();
+    if (!/^[0-9]{4,12}$/.test(a)) throw new Error('الرمز لازم يكون أرقام من 4 إلى 12 خانة');
+    if (db.pins.partner && a === db.pins.partner) throw new Error('رمز الدعم الفني لازم يختلف عن رمز مدخل البيانات');
+    db.pins.admin = a; saveDb(db); return true;
+  },
+  async setPartnerPin(d, pin) {
+    const db = await adminDb(pin);
+    const p = String((d && d.pin) || '').trim();
+    if (!/^[0-9]{4,12}$/.test(p)) throw new Error('الرمز لازم يكون أرقام من 4 إلى 12 خانة');
+    if (p === db.pins.admin) throw new Error('رمز مدخل البيانات لازم يختلف عن رمز الدعم الفني');
+    db.pins.partner = p; saveDb(db);
+    if (!getSync()) return { synced: false };
+    await pushShared(p); return { synced: true };
+  },
+  async saveSync(d, pin) {
+    const db = await adminDb(pin);
+    if (d.off) { setSync(null); return 'off'; }
+    const repo = String(d.repo || '').trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/+$/, '');
+    const token = String(d.token || '').trim() || ((getSync() || {}).token || '');
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('اكتب اسم المستودع بهالشكل: RAX3D/rax3d-data');
+    if (!token) throw new Error('الصق رمز GitHub');
+    const sync = { repo, token };
+    const c = await readCounter(sync);
+    const start = Math.floor(+d.next) || 0;
+    if (start > 0) await setCounter(sync, start);
+    else if (!c.next) await setCounter(sync, db.nextNum);
+    setSync(sync);
+    await pushShared();
+    return (await readCounter(sync)).next;
+  },
+  async peekNumber(pin) {
+    const db = loadDb(); await auth(db, pin); const sync = getSync();
+    if (!sync) return null;
+    return (await readCounter(sync)).next || db.nextNum;
+  },
+  async saveSettings(d, pin) {
+    const db = await adminDb(pin);
+    Object.keys(DEF_SETTINGS).forEach(k => { if (d[k] !== undefined && d[k] !== '' && isFinite(+d[k])) db.settings[k] = +d[k]; });
+    if (+d.nextNum > 0) db.nextNum = Math.floor(+d.nextNum);
+    saveDb(db); pushSharedSoon(); return true;
+  },
+  async setRecMail(d, pin) {
+    const db = await adminDb(pin), m = String(d.email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)) throw new Error('اكتب إيميل صحيح');
+    db.recMail = m; saveDb(db); pushSharedSoon();
+    const r = await sendMail(m, { _subject: '✅ تفعيل إيميل الإشعارات — RAX3D', 'الرسالة': 'تم ربط هذا الإيميل بتطبيق RAX3D: الفواتير والملفات والطلبات واسترجاع رمز الدخول ✔' });
+    return r;
+  },
+  recInfo() { const db = loadDb(); return db.role === 'admin' ? maskMail(db.recMail || DEF_MAIL) : ''; },
+  async sendRecovery() {   // يرسل رمز تحقق لإيميل الدعم الفني
+    const db = loadDb(); if (db.role !== 'admin') throw new Error('هذي الخاصية لجوال الدعم الفني');
+    const r0 = db.recMail0 || {};
+    if (r0.sent && Date.now() - r0.sent < 60000) throw new Error('انتظر دقيقة قبل ما تطلب رمز ثاني');
+    const code = String(randCode()).slice(0, 6), m = db.recMail || DEF_MAIL;
+    const r = await sendMail(m, { _subject: '🔑 رمز استرجاع دخول الدعم الفني: ' + code, 'رمز التحقق': code, 'الوقت': nowStr(), 'ملاحظة': 'صالح لمدة 15 دقيقة. إذا ما طلبته تجاهل هذي الرسالة.' });
+    if (r === 'activate') throw new Error('الإيميل يحتاج تفعيل أول مرة — افتح رسالة FormSubmit في ' + maskMail(m) + ' واضغط Activate Form، وبعدها اطلب الرمز مرة ثانية');
+    const db2 = loadDb(); db2.recMail0 = { hash: await hashPin('mail:' + code), exp: Date.now() + 15 * 60000, n: 0, sent: Date.now() }; saveDb(db2);
+    return maskMail(m);
+  },
+  async adminRecover(d) {   // الدعم الفني نسي رمزه: رمز التحقق من الإيميل + رمز جديد
+    const db = loadDb();
+    if (db.role !== 'admin') throw new Error('هذي الخاصية لجوال الدعم الفني');
+    const r0 = db.recMail0;
+    if (!r0 || !r0.hash || Date.now() > r0.exp) throw new Error('الرمز انتهى أو ما انطلب — اضغط إرسال رمز التحقق');
+    const code = String(d.code || '').replace(/\D/g, '');
+    if ((await hashPin('mail:' + code)) !== r0.hash) {
+      r0.n = (r0.n || 0) + 1; if (r0.n >= 5) { db.recMail0 = null; saveDb(db); throw new Error('محاولات كثيرة — اطلب رمز جديد'); }
+      saveDb(db); throw new Error('رمز التحقق غير صحيح');
+    }
+    const p = String(d.pin || '').trim();
+    if (!/^[0-9]{4,12}$/.test(p)) throw new Error('الرمز لازم يكون أرقام من 4 إلى 12 خانة');
+    if (p !== String(d.pin2 || '').trim()) throw new Error('الرمزين مو متطابقين، اكتبه مرة ثانية');
+    db.pins.admin = p; db.fails = { n: 0, until: 0 }; db.recMail0 = null; db.pinNotice = true; delete db.recHash; saveDb(db);
+    notify('✅ تم استرجاع دخول الدعم الفني وتغيير الرمز', { 'التفاصيل': 'تم تغيير رمز دخول الدعم الفني عن طريق رمز التحقق من الإيميل' });
+    return true;
+  },
+  async makeJoinCode(pin) {
+    const db = await adminDb(pin), sync = getSync();
+    if (!sync) throw new Error('فعّل الترقيم المشترك أولاً (فوق)');
+    await pushShared();
+    return 'RAX3D-' + b64e(JSON.stringify({ r: sync.repo, t: sync.token }));
+  },
+  async joinPartner(d) {
+    if (loadDb().role) throw new Error('هذا الجوال مُعد من قبل');
+    let j = null;
+    try { j = JSON.parse(b64d(decodeURIComponent(String(d.code || '').trim()).replace(/^RAX3D-/, ''))); } catch (e) {}
+    if (!j || !j.r || !j.t) throw new Error('رمز الربط غير صحيح — افتح الرابط من رسالة الدعم الفني مرة ثانية');
+    const p = String(d.pin || '').trim();
+    if (!/^[0-9]{4,12}$/.test(p)) throw new Error('الرقم السري لازم يكون أرقام من 4 إلى 12 خانة');
+    if (p !== String(d.pin2 || '').trim()) throw new Error('الرقمين مو متطابقين، اكتبه مرة ثانية');
+    const sync = { repo: j.r, token: j.t };
+    const c = await readJson(sync, 'shared.json', null);
+    if (!c.data) throw new Error('الدعم الفني ما فعّل الترقيم المشترك بعد');
+    const h = await hashPin(p);
+    const shared = await updateJson(sync, 'shared.json', null, cur => Object.assign({}, cur || {}, { partnerHash: h }), 'ربط جوال مدخل البيانات');
+    setSync(sync);
+    const db = loadDb(); db.role = 'partner'; db.shared = shared; db.pins = null; db.fails = { n: 0, until: 0 }; db.seenPinTs = Date.now(); saveDb(db);
+    return true;
+  },
+  // --- الدعم الفني: مدخل البيانات يرسل، الدعم الفني يستلم ---
+  async sendRequest(d, pin) {
+    const db = loadDb();
+    if (db.role !== 'partner') throw new Error('هذي الخاصية لجوال مدخل البيانات');
+    const type = d.type === 'pin' ? 'pin' : 'msg';
+    if (type === 'msg') await auth(db, pin);   // طلب استعادة الرمز يشتغل حتى لو ناسي الرمز
+    const sync = getSync(); if (!sync) throw new Error('الجوال غير مربوط بالدعم الفني');
+    const text = String(d.text || '').trim().slice(0, 800);
+    if (type === 'msg' && !text) throw new Error('اكتب طلبك');
+    let res = 'sent';
+    await updateJson(sync, 'requests.json', [], arr => {
+      arr = Array.isArray(arr) ? arr : [];
+      if (type === 'pin' && arr.some(x => x.type === 'pin' && (x.status === 'new' || (x.status === 'approved' && Date.now() - x.approvedTs < RESET_MS)))) { res = 'exists'; return undefined; }
+      arr.push({ id: newId(), type: type, text: text, inv: Math.floor(+d.inv) || null, date: nowStr(), status: 'new' });
+      return arr;
+    }, type === 'pin' ? 'طلب رمز سري من مدخل البيانات' : 'طلب من مدخل البيانات');
+    if (res === 'sent') {
+      const inv = Math.floor(+d.inv) || null;
+      notify(type === 'pin' ? '🔑 طلب تغيير الرقم السري — مدخل البيانات' : '✏️ طلب تعديل' + (inv ? ' — فاتورة رقم ' + inv : '') + ' — مدخل البيانات',
+        type === 'pin' ? { 'الطلب': text || 'تغيير / استعادة الرقم السري', 'من': 'مدخل البيانات', 'الإجراء': 'افتح تطبيق RAX3D ← 🔔 ← موافقة أو رفض' }
+                       : Object.assign({ 'من': 'مدخل البيانات' }, inv ? { 'رقم الفاتورة': inv } : {}, { 'الطلب': text, 'الإجراء': 'افتح تطبيق RAX3D ← 🔔' }));
+    }
+    return res;
+  },
+  async pendingReset() {   // هل الدعم الفني وافق على طلب تغيير الرقم السري؟ (يشتغل حتى من شاشة القفل)
+    const db = loadDb(), sync = getSync();
+    if (db.role !== 'partner' || !sync) return null;
+    const c = await readJson(sync, 'requests.json', []);
+    const x = (Array.isArray(c.data) ? c.data : []).filter(q => q.type === 'pin' && q.status === 'approved' && Date.now() - (q.approvedTs || 0) < RESET_MS).pop();
+    return x ? { id: x.id } : null;
+  },
+  async completeReset(d) {   // من داخل التطبيق (جوال مدخل البيانات)
+    const db = loadDb(), sync = getSync();
+    if (db.role !== 'partner' || !sync) throw new Error('هذي الخاصية لجوال مدخل البيانات');
+    const ts = await doReset(sync, d);
+    const db2 = loadDb(); db2.seenPinTs = ts; saveDb(db2);   // دخل مباشرة، ما يحتاج رسالة ثانية
+    return true;
+  },
+  async resetByLink(d) {   // من رابط الدعم الفني في Safari
+    let j = null;
+    try { j = JSON.parse(b64d(decodeURIComponent(String(d.code || '')).replace(/^RAX3D-/, ''))); } catch (e) {}
+    if (!j || !j.r || !j.t) throw new Error('الرابط غير صحيح — اطلب رابط جديد من الدعم الفني');
+    await doReset({ repo: j.r, token: j.t }, d);
+    return true;
+  },
+  async myRequests(pin) {
+    const db = loadDb(); await auth(db, pin); const sync = getSync();
+    if (!sync) return [];
+    const c = await readJson(sync, 'requests.json', []);
+    return (Array.isArray(c.data) ? c.data : []).slice(-8).reverse();
+  },
+  async adminSync(pin) {   // يستلم فواتير مدخل البيانات ويقرأ طلباته
+    await adminDb(pin); const sync = getSync();
+    if (!sync) return { off: true, requests: [], imported: 0 };
+    let imported = 0, catChanged = false;
+    await updateJson(sync, 'partner_log.json', [], arr => {
+      if (!Array.isArray(arr) || !arr.length) return undefined;
+      const db = loadDb();
+      arr.forEach(r => {
+        if (!r || !r.num) return;
+        (r.cat || []).forEach(c => { upsertCat(db.catalog, c); catChanged = true; });
+        const rec = Object.assign({}, r, { by: 'partner' }); delete rec.cat;
+        if (!db.log.some(x => rk(x) === rk(rec))) { db.log.push(rec); imported++; db.nextNum = Math.max(db.nextNum, Number(rec.num) + 1); }
+      });
+      db.log.sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0));
+      saveDb(db);   // انحفظت عند الدعم الفني أولاً، بعدين ننظف الملف المشترك
+      return [];
+    }, 'استلام فواتير مدخل البيانات');
+    if (catChanged) pushSharedSoon();
+    const rq = await readJson(sync, 'requests.json', []);
+    return { requests: Array.isArray(rq.data) ? rq.data : [], imported: imported };
+  },
+  async resolveRequest(d, pin) {
+    await adminDb(pin); const sync = getSync(); if (!sync) throw new Error('الترقيم المشترك غير مفعّل');
+    const old = Date.now() - 30 * 864e5;
+    return updateJson(sync, 'requests.json', [], arr => {
+      arr = Array.isArray(arr) ? arr : [];
+      const x = arr.find(q => q.id === d.id); if (!x) return arr;
+      if (d.approve) { x.status = 'approved'; x.reply = 'تمت الموافقة ✔ افتح التطبيق واختر رقمك الجديد'; x.doneAt = nowStr(); x.approvedTs = Date.now(); return arr; }
+      x.status = 'done'; x.reply = String(d.reply || '').trim().slice(0, 400); x.doneAt = nowStr(); x.doneTs = Date.now();
+      return arr.filter(q => q.status !== 'done' || !q.doneTs || q.doneTs > old);   // ينظّف الطلبات المنتهية الأقدم من 30 يوم
+    }, 'رد الدعم الفني');
+  },
+  async editInvoice(d, pin) {
+    const db = await adminDb(pin), S = db.settings;
+    const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
+    const old = r.items || [], sub0 = Number(r.sub) || old.reduce((a, i) => a + (+i.line || 0), 0), cost0 = (Number(r.total) || 0) - (Number(r.profit) || 0);
+    let allW = true;
+    const its = (d.items || []).map((it, i) => {
+      const o = old[i] || {}, q = Math.max(0, Math.floor(+it.q || 0)), w = Math.max(0, +it.w || 0);
+      const type = it.type === 'مجموعة' ? 'مجموعة' : 'واحدة';
+      let cost, sugg = 0;
+      if (w > 0) {   // وزن ووقت معروفين ← نحسب التكلفة والسعر المقترح من جديد
+        const c = calcLocal(S, { w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: type, q: 1 });
+        cost = c.cost; sugg = c.sugg;
+      } else { allW = false; cost = o.cost !== undefined ? +o.cost : (sub0 > 0 && +o.q ? cost0 * (+o.line || 0) / sub0 / +o.q : 0); }
+      const auto = !!it.auto && w > 0, unit = auto ? sugg : Math.max(0, +it.unit || 0);
+      return { desc: String(it.desc || '').trim() || o.desc || 'قطعة', q: q, unit: R2(unit), line: R2(unit * q), cost: R2(cost),
+        w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: type, auto: auto, _s: sugg };
+    }).filter(it => it.q > 0);
+    if (!its.length) throw new Error('لازم تبقى قطعة واحدة على الأقل');
+    const sub = R2(its.reduce((a, i) => a + i.line, 0)), disc = R2(Math.min(Math.max(0, +d.disc || 0), sub)), total = R2(sub - disc);
+    const sugg = allW ? R2(its.reduce((a, i) => a + (i.auto ? 0 : i._s * i.q), 0)) : r.sugg;
+    its.forEach(i => delete i._s);
+    Object.assign(r, { client: String(d.client || '').trim(), phone: String(d.phone || '').trim(), items: its, sub: sub, disc: disc, total: total, sugg: sugg,
+      qty: its.reduce((a, i) => a + i.q, 0), desc: its.map(i => i.desc + ' (' + i.q + ')').join(' ، '),
+      profit: R2(total - its.reduce((a, i) => a + i.cost * i.q, 0)), edited: todayStr() });
+    saveDb(db); return true;
+  },
+  async deleteInvoice(d, pin) {
+    const db = await adminDb(pin);
+    const i = db.log.findIndex(x => rk(x) === d.key); if (i < 0) throw new Error('الفاتورة غير موجودة');
+    const N = Number(db.log[i].num);
+    db.log.splice(i, 1);
+    db.log.forEach(r => { if (Number(r.num) > N) r.num = Number(r.num) - 1; });   // الفواتير اللي بعدها تنزل رقم
+    db.nextNum = Math.max(1, db.nextNum - 1);
+    saveDb(db);
+    const sync = getSync(); if (!sync) return { num: N, warn: '' };
+    try {
+      await updateJson(sync, 'counter.json', null, c => ({ next: Math.max(1, (c && Number(c.next) ? Number(c.next) : db.nextNum + 1) - 1) }), 'حذف الفاتورة ' + N);
+      await updateJson(sync, 'partner_log.json', [], arr => {
+        if (!Array.isArray(arr) || !arr.some(r => Number(r.num) > N)) return undefined;
+        arr.forEach(r => { if (Number(r.num) > N) r.num = Number(r.num) - 1; }); return arr;
+      }, 'تعديل الترقيم');
+      await updateJson(sync, 'requests.json', [], arr => {
+        if (!Array.isArray(arr) || !arr.some(r => Number(r.inv) > N)) return undefined;
+        arr.forEach(r => { if (Number(r.inv) > N) r.inv = Number(r.inv) - 1; }); return arr;
+      }, 'تعديل الترقيم');
+      return { num: N, warn: '' };
+    } catch (e) { return { num: N, warn: 'انحذفت من جوالك، لكن العدّاد المشترك ما تحدّث: ' + ((e && e.message) || e) + ' — عدّله من الترقيم المشترك' }; }
+  }
+
+};
+function callApi_(name, args, ctx) {
+  setTimeout(() => {
+    Promise.resolve().then(() => API[name](...args))
+      .then(r => ctx.ok && ctx.ok(r), e => ctx.fail && ctx.fail(e));
+  }, 0);
+}
+function makeRunner_() {
+  const ctx = { ok: null, fail: null };
+  const p = new Proxy({}, { get(_, name) {
+    if (name === 'withSuccessHandler') return f => { ctx.ok = f; return p; };
+    if (name === 'withFailureHandler') return f => { ctx.fail = f; return p; };
+    return (...args) => callApi_(name, args, ctx);
+  }});
+  return p;
+}
+window.google = { script: {} };
+Object.defineProperty(window.google.script, 'run', { get: makeRunner_ });
+
+// ================= صنع فاتورة PDF داخل الجوال =================
+const LOGO_SRC = 'data:image/png;base64,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';
+let logoImg = null;
+function getLogo() {
+  if (logoImg) return Promise.resolve(logoImg);
+  return new Promise(res => { const im = new Image(); im.onload = () => { logoImg = im; res(im); }; im.onerror = () => res(null); im.src = LOGO_SRC; });
+}
+function drawInvoice(r, logo) {
+  const W = 1240, H = 1754, M = 80, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'), F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
+  const GOLD = '#B8902A', GOLDL = '#E0B64A', CREAM = '#FBF5E6', LINE = '#D9D2C0', INK = '#1a1a1a';
+  c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
+  const txt = (t, x, y, o = {}) => {
+    c.font = (o.w || 400) + ' ' + (o.s || 24) + 'px ' + F; c.fillStyle = o.c || INK;
+    c.textAlign = o.a || 'right'; c.direction = o.ltr ? 'ltr' : 'rtl'; c.textBaseline = 'middle';
+    let s = String(t);
+    if (o.max) while (s.length > 1 && c.measureText(s).width > o.max) s = s.slice(0, -2) + '…';
+    c.fillText(s, x, y);
+  };
+  const box = (x, y, w, h, fill) => { if (fill) { c.fillStyle = fill; c.fillRect(x, y, w, h); } c.strokeStyle = LINE; c.lineWidth = 1.5; c.strokeRect(x, y, w, h); };
+  const money = v => fmt(v) + ' ر.س';
+  // الشعار
+  if (logo) { const lh = 150, lw = lh * logo.width / logo.height; c.drawImage(logo, (W - lw) / 2, 75, lw, lh); }
+  else txt('RAX3D', W / 2, 140, { s: 90, w: 700, c: GOLD, a: 'center', ltr: true });
+  c.fillStyle = GOLD; c.fillRect(M, 250, W - 2 * M, 5);
+  txt('فاتورة', W / 2, 300, { s: 40, w: 700, c: GOLD, a: 'center' });
+  // بيانات الفاتورة
+  let y = 350; const R = W - M, rh = 50, lab = 190;
+  box(R - lab, y, lab, rh, '#F1ECE0'); txt('رقم الفاتورة', R - 14, y + rh / 2, { w: 700 });
+  box(W / 2, y, R - lab - W / 2, rh); txt(r.num, R - lab - 14, y + rh / 2, { w: 700, s: 26, c: GOLD });
+  box(W / 2 - lab, y, lab, rh, '#F1ECE0'); txt('التاريخ', W / 2 - 14, y + rh / 2, { w: 700 });
+  box(M, y, W / 2 - lab - M, rh); txt(r.date, M + (W / 2 - lab - M) / 2, y + rh / 2, { a: 'center', ltr: true, s: 26 });
+  y += rh; box(R - lab, y, lab, rh, '#F1ECE0'); txt('اسم العميل', R - 14, y + rh / 2, { w: 700 });
+  box(M, y, R - lab - M, rh, CREAM); txt(r.client || '', R - lab - 14, y + rh / 2, { max: R - lab - M - 30 });
+  y += rh; box(R - lab, y, lab, rh, '#F1ECE0'); txt('رقم الجوال', R - 14, y + rh / 2, { w: 700 });
+  box(M, y, R - lab - M, rh, CREAM); txt(r.phone || '', R - lab - 14, y + rh / 2, { ltr: true, a: 'right' });
+  // جدول القطع: # | الوصف | العدد | سعر الوحدة | الإجمالي (من اليمين)
+  y += rh + 50;
+  const cols = [80, 520, 130, 175, 175], heads = ['#', 'وصف القطعة', 'العدد', 'سعر الوحدة', 'الإجمالي'];
+  const xs = []; let x = R; cols.forEach(w => { xs.push([x - w, w]); x -= w; });
+  c.fillStyle = '#111'; c.fillRect(M, y, W - 2 * M, rh);
+  heads.forEach((h, k) => txt(h, xs[k][0] + xs[k][1] / 2, y + rh / 2, { a: 'center', c: GOLDL, w: 700 }));
+  y += rh;
+  const items = r.items && r.items.length ? r.items : [{ desc: r.desc, q: r.qty, unit: '', line: r.sub || r.total }];
+  const n = Math.max(items.length, 6);
+  for (let k = 0; k < n; k++) {
+    const it = items[k], fill = k % 2 ? CREAM : '#fff';
+    xs.forEach(([cx, cw]) => box(cx, y, cw, rh, fill));
+    txt(k + 1, xs[0][0] + xs[0][1] / 2, y + rh / 2, { a: 'center', c: '#888', ltr: true });
+    if (it) {
+      txt(it.desc, xs[1][0] + xs[1][1] - 14, y + rh / 2, { max: xs[1][1] - 28 });
+      txt(it.q, xs[2][0] + xs[2][1] / 2, y + rh / 2, { a: 'center', ltr: true });
+      if (it.unit !== '') txt(money(it.unit), xs[3][0] + xs[3][1] / 2, y + rh / 2, { a: 'center' });
+      txt(money(it.line), xs[4][0] + xs[4][1] / 2, y + rh / 2, { a: 'center' });
+    }
+    y += rh;
+  }
+  // المجاميع (يسار) + ملاحظات (يمين)
+  y += 40; const tw = 420, tl = 210;
+  const rows = [['المجموع', money(r.sub || (r.total + r.disc)), '#F1ECE0'], ['الخصومات', money(r.disc), '#F1ECE0'], ['المجموع النهائي', money(r.total), '#111']];
+  box(M + tw + 20, y, R - M - tw - 20, rh * 3); txt('ملاحظات:', R - 14, y + 26, { c: '#999', s: 21 });
+  rows.forEach(([l, v, f], k) => {
+    const last = k === 2;
+    box(M + tw - tl, y, tl, rh, f); txt(l, M + tw - tl / 2, y + rh / 2, { a: 'center', w: 700, c: last ? GOLDL : INK });
+    box(M, y, tw - tl, rh, last ? '#111' : null); txt(v, M + (tw - tl) / 2, y + rh / 2, { a: 'center', w: last ? 700 : 400, s: last ? 30 : 24, c: last ? GOLDL : INK });
+    y += rh;
+  });
+  // الفوتر
+  const fy = H - 230;
+  c.fillStyle = GOLD; c.fillRect(M, fy, W - 2 * M, 5);
+  txt('شكراً لتعاملكم مع RAX3D', W / 2, fy + 50, { a: 'center', s: 30, w: 700, c: GOLD });
+  txt('Instagram: @rax3d.sa   |   Email: rax3d.sa@hotmail.com', W / 2, fy + 100, { a: 'center', ltr: true, s: 24, c: '#444' });
+  txt('رقم وثيقة العمل الحر: \u2066FL-255870895\u2069', W / 2, fy + 145, { a: 'center', s: 23, c: '#444' });
+  c.fillStyle = '#111'; c.fillRect(M, fy + 185, W - 2 * M, 14);
+  return cv;
+}
+function jpegToPdf(jpeg, wPt, hPt) {
+  const enc = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
+  const parts = [], offs = []; let len = 0;
+  const push = u => { parts.push(u); len += u.length; };
+  push(enc('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'));
+  const content = 'q ' + wPt + ' 0 0 ' + hPt + ' 0 0 cm /Im0 Do Q';
+  const objs = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + wPt + ' ' + hPt + '] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>',
+    null,
+    '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream'
+  ];
+  objs.forEach((o, k) => {
+    offs.push(len);
+    if (o === null) {
+      push(enc('4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + jpeg.w + ' /Height ' + jpeg.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpeg.bytes.length + ' >>\nstream\n'));
+      push(jpeg.bytes); push(enc('\nendstream\nendobj\n'));
+    } else push(enc((k + 1) + ' 0 obj\n' + o + '\nendobj\n'));
+  });
+  const xref = len;
+  push(enc('xref\n0 6\n0000000000 65535 f \n' + offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('') +
+    'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF'));
+  return new Blob(parts, { type: 'application/pdf' });
+}
+function drawStamp(cv, label, sub) {   // ختم أحمر قطري من زاوية لزاوية
+  const c = cv.getContext('2d'), W = cv.width, H = cv.height, F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
+  const diag = Math.hypot(W, H), ang = -Math.atan2(H, W), RED = 'rgba(205,28,28,0.78)';
+  c.save(); c.translate(W / 2, H / 2); c.rotate(ang);
+  c.strokeStyle = RED; c.lineWidth = 7;   // خط الختم من الزاوية للزاوية
+  c.beginPath(); c.moveTo(-diag / 2 + 40, -165); c.lineTo(diag / 2 - 40, -165); c.moveTo(-diag / 2 + 40, 165); c.lineTo(diag / 2 - 40, 165); c.stroke();
+  c.lineWidth = 3; c.beginPath(); c.moveTo(-diag / 2 + 40, -148); c.lineTo(diag / 2 - 40, -148); c.moveTo(-diag / 2 + 40, 148); c.lineTo(diag / 2 - 40, 148); c.stroke();
+  c.fillStyle = RED; c.textAlign = 'center'; c.textBaseline = 'middle'; c.direction = 'rtl';
+  let size = 170; c.font = '700 ' + size + 'px ' + F;
+  while (c.measureText(label).width > diag * 0.58 && size > 60) { size -= 10; c.font = '700 ' + size + 'px ' + F; }
+  c.fillText(label, 0, -30);
+  if (sub) { c.font = '700 40px ' + F; c.fillText(sub, 0, 98); }
+  c.restore();
+}
+function invoicePdf(r, stamp) {
+  const fontReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('700 30px "IBM Plex Sans Arabic"'), document.fonts.load('400 24px "IBM Plex Sans Arabic"')]).catch(() => {}) : Promise.resolve();
+  return Promise.all([getLogo(), fontReady]).then(([logo]) => {
+    const cv = drawInvoice(r, logo); if (stamp) drawStamp(cv, stamp.label, stamp.sub);
+    const url = cv.toDataURL('image/jpeg', 0.9), bin = atob(url.split(',')[1]);
+    const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { blob: jpegToPdf({ bytes, w: cv.width, h: cv.height }, 595.28, 841.89), preview: url };
+  });
+}
+</script>
+<script>
+let S = null, DATA = null, items = [];
+let PIN = '';
+try { localStorage.removeItem('rax3d_pin'); PIN = sessionStorage.getItem('rax3d_pin') || ''; } catch (e) {}   // الرمز يُطلب كل مرة يفتح التطبيق
+function savePin(v) { PIN = v; try { v ? sessionStorage.setItem('rax3d_pin', v) : sessionStorage.removeItem('rax3d_pin'); } catch (e) {} }
+function showLock(msg) {
+  $('lock').classList.add('on'); $('pinErr').style.color = ''; $('pinErr').textContent = msg || ''; try { updateForgot(); } catch (e) {} $('pinIn').value = '';
+  setTimeout(() => $('pinIn').focus(), 50);
+}
+function pinError(err) {
+  const m = String((err && err.message) || err);
+  if (m.indexOf('LOCKED') >= 0) { savePin(''); showLock('محاولات كثيرة خاطئة، جرّب بعد 15 دقيقة'); return true; }
+  if (m.indexOf('BAD_PIN') >= 0) { savePin(''); showLock(PIN ? '' : 'الرمز غير صحيح'); return true; }
+  return false;
+}
+const $ = id => document.getElementById(id);
+const r2 = v => Math.round(v * 100) / 100;
+const fmt = v => { const n = r2(v); return Number.isInteger(n) ? String(n) : n.toFixed(2); };
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function calcItem(it) {
+  const w = +it.w || 0; if (!w) return null;
+  const q = +it.q || 1;
+  const cost = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack;
+  const sugg = Math.ceil(r2(cost * (it.type === 'مجموعة' ? S.multSet : S.multOne)) - 1e-9);
+  const pr = +it.price || 0, custom = pr > 0;
+  const unit = custom ? pr : sugg;
+  const disc = r2(unit * q * (+it.disc || 0) / 100);
+  const total = unit * q - disc;
+  return { cost, sugg, unit, custom, disc, total, profit: total - cost * q, gap: sugg * q - total };
+}
+
+function newItem() { return { desc: '', w: '', h: '', m: '', sec: '', type: 'واحدة', q: 1, disc: 0, price: '' }; }
+
+function renderItems() {
+  $('items').innerHTML = items.map((it, i) => `
+    <div class="item" data-i="${i}">
+      <div class="item-top">
+        <input data-k="desc" value="${esc(it.desc)}" placeholder="وصف القطعة" list="catList" autocomplete="off">
+        ${items.length > 1 ? `<button class="x" data-del="${i}" aria-label="حذف القطعة">×</button>` : ''}
+      </div>
+      <div class="grid g4">
+        <div><label>الوزن (جم)</label><input type="number" inputmode="decimal" data-k="w" value="${it.w}"></div>
+        <div><label>ساعات</label><input type="number" inputmode="numeric" data-k="h" value="${it.h}"></div>
+        <div><label>دقائق</label><input type="number" inputmode="numeric" data-k="m" value="${it.m}"></div>
+        <div><label>ثواني</label><input type="number" inputmode="numeric" data-k="sec" value="${it.sec}"></div>
+      </div>
+      <div class="grid g3" style="margin-top:10px;grid-template-columns:1.4fr 1fr 1fr">
+        <div><label>النوع</label><div class="seg">
+          <button data-type="واحدة" class="${it.type === 'واحدة' ? 'on' : ''}">واحدة</button>
+          <button data-type="مجموعة" class="${it.type === 'مجموعة' ? 'on' : ''}">مجموعة</button></div></div>
+        <div><label>العدد</label><input type="number" inputmode="numeric" data-k="q" value="${it.q}"></div>
+        <div><label>خصم %</label><input type="number" inputmode="decimal" data-k="disc" value="${it.disc}"></div>
+      </div>
+      <div style="margin-top:10px"><label>سعر مخصص للوحدة (اختياري — اتركه فاضي للسعر التلقائي)</label>
+        <input type="number" inputmode="decimal" data-k="price" value="${it.price || ''}" placeholder="تلقائي"></div>
+      <div class="calc" id="c${i}"></div>
+      <div class="warn" id="w${i}"></div>
+    </div>`).join('');
+  $('addBtn').disabled = items.length >= 10;
+  updateTotals();
+}
+
+function updateTotals() {
+  let t = 0, d = 0, p = 0;
+  items.forEach((it, i) => {
+    const c = calcItem(it), el = $('c' + i);
+    if (!c) { el.innerHTML = '<span>اكتب الوزن لحساب السعر</span>'; const w0 = $('w' + i); if (w0) w0.textContent = ''; return; }
+    el.innerHTML = `<span>سعر الوحدة <b>${fmt(c.unit)}</b>${c.custom ? ` <small style="color:var(--mute)">(المقترح ${fmt(c.sugg)})</small>` : ''}</span><span>الإجمالي <b>${fmt(c.total)}</b></span><span class="adm">الربح <b style="color:${c.profit < 0 ? 'var(--bad)' : 'inherit'}">${fmt(c.profit)}</b></span>`;
+    const w = $('w' + i);
+    if (w) w.textContent = c.unit < c.cost ? (DATA && DATA.role === 'partner' ? '⚠️ السعر أقل من التكلفة — راجع السعر' : `⚠️ السعر أقل من التكلفة (${fmt(c.cost)} ريال) — بتخسر في هذي القطعة`) : '';
+    t += c.total; d += c.disc; p += c.profit;
+  });
+  $('tTotal').firstChild.nodeValue = fmt(t);
+  $('tDisc').textContent = fmt(d);
+  $('tProfit').textContent = fmt(p);
+}
+
+const normName = t => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
+function findCat(desc) {
+  const n = normName(desc);
+  return n && DATA && DATA.catalog ? DATA.catalog.find(c => normName(c.desc) === n) : null;
+}
+function renderCatalog() {
+  $('catList').innerHTML = ((DATA && DATA.catalog) || []).map(c => `<option value="${esc(c.desc)}"></option>`).join('');
+}
+$('items').addEventListener('input', e => {
+  const k = e.target.dataset.k; if (!k) return;
+  const card = e.target.closest('.item'), i = +card.dataset.i;
+  items[i][k] = e.target.value;
+  if (k === 'desc') {
+    const c = findCat(e.target.value);
+    if (c) {
+      const vals = { w: c.w, h: c.h || '', m: c.m || '', sec: c.sec || '', price: c.price || '' };
+      Object.keys(vals).forEach(f => { items[i][f] = vals[f]; card.querySelector('[data-k="' + f + '"]').value = vals[f]; });
+      card.classList.add('filled'); setTimeout(() => card.classList.remove('filled'), 700);
+    }
+  }
+  updateTotals();
+});
+$('items').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const i = +b.closest('.item').dataset.i;
+  if (b.dataset.del !== undefined) { items.splice(i, 1); renderItems(); }
+  else if (b.dataset.type) { items[i].type = b.dataset.type; renderItems(); }
+});
+$('addBtn').onclick = () => { if (items.length < 10) { items.push(newItem()); renderItems(); } };
+
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === b.dataset.tab));
+  $('bar').classList.toggle('hide', b.dataset.tab !== 'new');
+  window.scrollTo(0, 0);
+});
+
+$('saveBtn').onclick = () => {
+  $('err').textContent = '';
+  const valid = items.filter(it => +it.w > 0);
+  if (!valid.length) { $('err').textContent = 'اكتب وزن قطعة واحدة على الأقل'; return; }
+  if (valid.some(it => !String(it.desc).trim())) { $('err').textContent = 'اكتب وصفاً لكل قطعة'; return; }
+  const btn = $('saveBtn'); btn.disabled = true; btn.textContent = 'جاري الحفظ…';
+  google.script.run
+    .withSuccessHandler(res => {
+      btn.disabled = false; btn.textContent = 'حفظ الفاتورة وإنشاء PDF';
+      $('doneTitle').textContent = 'تم حفظ الفاتورة رقم ' + res.num;
+      $('doneTotal').textContent = fmt(res.total) + ' ريال';
+      lastNum = res.num;
+      $('done').classList.add('on');
+      if (res.milestone) { seenGoal(res.milestone.reached); setTimeout(() => celebrate(res.milestone), 400); }
+      mailInvoice('admin:' + res.num, 'new');
+      resetForm(); load();
+    })
+    .withFailureHandler(err => {
+      btn.disabled = false; btn.textContent = 'حفظ الفاتورة وإنشاء PDF';
+      if (pinError(err)) return;
+      $('err').textContent = 'لم تُحفظ الفاتورة: ' + (err.message || err);
+    })
+    .saveFromApp({ client: $('client').value, phone: $('phone').value, items: valid }, PIN);
+};
+let lastNum = null;
+$('doneSave').onclick = () => { $('done').classList.remove('on'); if (lastNum !== null) savePdf(lastNum); };
+$('doneNew').onclick = () => $('done').classList.remove('on');
+
+function resetForm() { $('client').value = ''; $('phone').value = ''; items = [newItem()]; renderItems(); }
+
+function renderLog() {
+  const q = $('q').value.trim().toLowerCase();
+  const rows = DATA.log.slice().reverse().filter(r => !q ||
+    (r.client + ' ' + r.phone + ' ' + r.num + ' ' + r.desc).toLowerCase().includes(q));
+  $('logList').innerHTML = rows.length ? rows.map(r => `
+    <div class="row">
+      <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}</b><span class="amt">${fmt(r.total)} ريال</span></div>
+      <p>${esc(r.desc)}</p>
+      <div class="meta"><span>رقم ${esc(r.num)} &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}</span>
+      <span class="acts"><button class="pdf dl" data-ed="${esc(rk(r))}">✏️ تعديل</button><button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
+    </div>`).join('')
+    : `<div class="empty">${q ? 'لا توجد فاتورة تطابق البحث' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».'}</div>`;
+}
+$('q').oninput = renderLog;
+
+const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+const monthName = ym => { const [yy, mm] = String(ym).split('-'); return AR_MONTHS[+mm - 1] + ' ' + yy; };
+function lastMonths(n) {   // آخر n أشهر (حتى لو ما فيها مبيعات)
+  const [y, m] = DATA.today.split('-').map(Number), out = [];
+  for (let k = n - 1; k >= 0; k--) { const d = new Date(y, m - 1 - k, 1); out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
+  return out;
+}
+function monthTotals(ym) { const rs = DATA.log.filter(r => String(r.date).startsWith(ym)); return { n: rs.length, sales: rs.reduce((a, r) => a + (+r.total || 0), 0), profit: rs.reduce((a, r) => a + (+r.profit || 0), 0) }; }
+function chartSvg(labels, a, b) {   // أعمدة: المبيعات (ذهبي) وصافي الربح (أخضر)
+  const W = 340, H = 190, top = 22, base = 166, n = labels.length, slot = (W - 20) / n, bw = Math.min(18, slot / 2 - 4);
+  const max = Math.max(1, ...a, ...b), hgt = v => Math.max(0, v) / max * (base - top);
+  let g = `<line x1="10" y1="${base}" x2="${W - 10}" y2="${base}" stroke="#2a2a2a"/>`;
+  for (let k = 1; k <= 3; k++) { const yy = base - (base - top) * k / 3; g += `<line x1="10" y1="${yy}" x2="${W - 10}" y2="${yy}" stroke="#1d1d1d"/>`; }
+  labels.forEach((l, i) => {
+    const cx = W - 10 - slot * (i + 0.5), x1 = cx + 1, x2 = cx - bw - 1, ha = hgt(a[i]), hb = hgt(b[i]);
+    g += `<rect x="${x1}" y="${base - ha}" width="${bw}" height="${ha}" rx="3" fill="#E0B64A"/>`;
+    g += `<rect x="${x2}" y="${base - hb}" width="${bw}" height="${hb}" rx="3" fill="${b[i] < 0 ? '#ff7b6b' : '#7fcf8a'}"/>`;
+    if (a[i]) g += `<text x="${x1 + bw / 2}" y="${base - ha - 4}" font-size="9" fill="#f2efe6" text-anchor="middle">${fmtN(a[i])}</text>`;
+    if (b[i]) g += `<text x="${x2 + bw / 2}" y="${base - hb - 4}" font-size="9" fill="${b[i] < 0 ? '#ff7b6b' : '#9a968c'}" text-anchor="middle">${fmtN(b[i])}</text>`;
+    g += `<text x="${cx}" y="${base + 16}" font-size="10" fill="#9a968c" text-anchor="middle">${esc(l)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="رسم بياني للمبيعات وصافي الربح" style="display:block;font-family:inherit">${g}</svg>`;
+}
+function statsChartHtml() {
+  const ms = lastMonths(6), t = ms.map(monthTotals);
+  const rows = ms.slice().reverse().map((mo, i) => { const v = t[ms.length - 1 - i]; return `<tr><td>${monthName(mo)}</td><td>${v.n}</td><td>${fmt(v.sales)}</td><td style="color:${v.profit < 0 ? 'var(--bad)' : 'inherit'}">${fmt(v.profit)}</td></tr>`; }).join('');
+  return `<div class="period"><h3>📊 المبيعات وصافي الربح — آخر 6 أشهر</h3>
+    <div style="display:flex;gap:16px;font-size:12px;color:var(--mute);margin:-4px 0 6px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#E0B64A;margin-left:5px"></i>المبيعات</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#7fcf8a;margin-left:5px"></i>صافي الربح</span></div>${chartSvg(ms.map(mo => AR_MONTHS[+mo.split('-')[1] - 1]), t.map(v => r2(v.sales)), t.map(v => r2(v.profit)))}
+    <div style="overflow-x:auto;margin-top:10px"><table class="st"><thead><tr><th>الشهر</th><th>الفواتير</th><th>المبيعات</th><th>صافي الربح</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+function renderStats() {
+  const t = DATA.today, [y, m] = t.split('-');
+  const d0 = new Date(t + 'T00:00:00'); d0.setDate(d0.getDate() - 6);
+  const wk = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
+  const periods = [
+    ['اليوم', r => r.date === t],
+    ['آخر 7 أيام', r => r.date >= wk && r.date <= t],
+    ['هذا الشهر', r => r.date.startsWith(y + '-' + m)],
+    ['هذه السنة', r => r.date.startsWith(y)],
+    ['الإجمالي', () => true]
+  ];
+  $('statList').innerHTML = statsChartHtml() + periods.map(([name, f]) => {
+    const rs = DATA.log.filter(f), s = k => rs.reduce((a, r) => a + r[k], 0);
+    return `<div class="period"><h3>${name}</h3><div class="kv">
+      <div>الفواتير<b>${rs.length}</b></div><div>القطع<b>${s('qty')}</b></div><div>المبيعات<b>${fmt(s('total'))}</b></div>
+      <div>الخصومات<b>${fmt(s('disc'))}</b></div><div>صافي الربح<b>${fmt(s('profit'))}</b></div>
+      <div>متوسط الفاتورة<b>${rs.length ? fmt(s('total') / rs.length) : 0}</b></div></div></div>`;
+  }).join('');
+}
+
+
+// ================= v17: حفظ الملفات في تطبيق «الملفات» =================
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zip(files) {
+  const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
+  const u16 = v => [v & 255, (v >>> 8) & 255], u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  files.forEach(([name, text]) => {
+    const n = enc.encode(name), d = enc.encode(text), c = crc32(d);
+    const common = [...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(c), ...u32(d.length), ...u32(d.length), ...u16(n.length), ...u16(0)];
+    const head = new Uint8Array([...u32(0x04034b50), ...common]);
+    parts.push(head, n, d);
+    cen.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...common, ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), n);
+    off += head.length + n.length + d.length;
+  });
+  const cenLen = cen.reduce((a, x) => a + x.length, 0);
+  return new Blob([...parts, ...cen, new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cenLen), ...u32(off), ...u16(0)])],
+    { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+// sheets: [{name, cols:[عرض], rows:[[...]] , head:[أرقام صفوف العناوين]}]
+function makeXlsx(sheets) {
+  const x = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  const col = i => { let s = ''; i++; while (i) { s = String.fromCharCode(65 + (i - 1) % 26) + s; i = Math.floor((i - 1) / 26); } return s; };
+  const files = [
+    ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') +
+      sheets.map((sh, i) => sh.chart ? `<Override PartName="/xl/drawings/drawing${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/><Override PartName="/xl/charts/chart${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>` : '').join('') + '</Types>'],
+    ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+    ['xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+      sheets.map((sh, i) => `<sheet name="${x(sh.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets></workbook>'],
+    ['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') +
+      `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<fonts count="2"><font><sz val="11"/><name val="Arial"/><family val="2"/><charset val="178"/></font><font><b/><sz val="11"/><color rgb="FFE0B64A"/><name val="Arial"/><family val="2"/><charset val="178"/></font></fonts>' +
+      '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF111111"/></patternFill></fill></fills>' +
+      '<borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment readingOrder="2"/></xf>' +
+      '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="right" readingOrder="2"/></xf>' +
+      '<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/>' +
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" readingOrder="2"/></xf>' +
+      '<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/></cellXfs>' +
+      '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>']
+  ];
+  sheets.forEach((sh, i) => {
+    const rows = sh.rows.map((r, ri) => `<row r="${ri + 1}">` + r.map((v, ci) => {
+      const ref = col(ci) + (ri + 1), st = (sh.head || [0]).includes(ri) ? ' s="1"' : '';
+      if (v === '' || v === null || v === undefined) return st ? `<c r="${ref}"${st}/>` : '';
+      if (typeof v === 'number' && isFinite(v)) return `<c r="${ref}"${st || (Number.isInteger(v) ? ' s="2"' : ' s="4"')}><v>${v}</v></c>`;
+      return `<c r="${ref}" t="inlineStr"${st || ' s="3"'}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+    }).join('') + '</row>').join('');
+    if (sh.chart) {
+      const n = i + 1, ch = sh.chart, sq = `'${sh.name.replace(/'/g, "''")}'`;
+      const cats = ch.rows.map(r => sh.rows[r][0]);
+      const strCache = arr => `<c:strCache><c:ptCount val="${arr.length}"/>` + arr.map((v, k) => `<c:pt idx="${k}"><c:v>${x(v)}</c:v></c:pt>`).join('') + '</c:strCache>';
+      const r0 = ch.rows[0] + 1, r1 = ch.rows[ch.rows.length - 1] + 1, run = t => `<a:r><a:rPr lang="ar-SA" sz="1000"><a:latin typeface="Arial"/><a:cs typeface="Arial"/></a:rPr><a:t>${x(t)}</a:t></a:r>`;
+      const txPr = '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="1000"><a:latin typeface="Arial"/><a:cs typeface="Arial"/></a:defRPr></a:pPr><a:endParaRPr lang="ar-SA"/></a:p></c:txPr>';
+      const ser = ch.series.map((se, k) => `<c:ser><c:idx val="${k}"/><c:order val="${k}"/><c:tx><c:strRef><c:f>${sq}!$${col(se.col)}$1</c:f>${strCache([sh.rows[0][se.col]])}</c:strRef></c:tx>` +
+        `<c:spPr><a:solidFill><a:srgbClr val="${se.color}"/></a:solidFill></c:spPr><c:invertIfNegative val="0"/>` +
+        `<c:dLbls><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>${txPr}<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>` +
+        `<c:cat><c:strRef><c:f>${sq}!$A$${r0}:$A$${r1}</c:f>${strCache(cats)}</c:strRef></c:cat>` +
+        `<c:val><c:numRef><c:f>${sq}!$${col(se.col)}$${r0}:$${col(se.col)}$${r1}</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${ch.rows.length}"/>` +
+        ch.rows.map((r, k) => `<c:pt idx="${k}"><c:v>${Number(sh.rows[r][se.col]) || 0}</c:v></c:pt>`).join('') + '</c:numCache></c:numRef></c:val></c:ser>').join('');
+      files.push([`xl/charts/chart${n}.xml`, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:roundedCorners val="0"/><c:chart>' +
+        `<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="1300" b="1"/></a:pPr>${run(ch.title).replace('sz="1000"', 'sz="1300" b="1"')}</a:p></c:rich></c:tx><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/>` +
+        `<c:plotArea><c:layout/><c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>${ser}<c:gapWidth val="70"/><c:overlap val="-10"/><c:axId val="5001"/><c:axId val="5002"/></c:barChart>` +
+        `<c:catAx><c:axId val="5001"/><c:scaling><c:orientation val="maxMin"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="low"/>${txPr}<c:crossAx val="5002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>` +
+        `<c:valAx><c:axId val="5002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="r"/><c:majorGridlines><c:spPr><a:ln w="6350"><a:solidFill><a:srgbClr val="E5E5E5"/></a:solidFill></a:ln></c:spPr></c:majorGridlines><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>${txPr}<c:crossAx val="5001"/><c:crosses val="max"/><c:crossBetween val="between"/></c:valAx></c:plotArea>` +
+        `<c:legend><c:legendPos val="b"/><c:overlay val="0"/>${txPr}</c:legend><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart></c:chartSpace>`]);
+      const a = ch.at || { col: 0, row: sh.rows.length + 1, w: 7, h: 18 };
+      files.push([`xl/drawings/drawing${n}.xml`, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+        `<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>${a.col}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${a.row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>${a.col + a.w}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${a.row + a.h}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>` +
+        `<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="2" name="Chart ${n}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId1"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`]);
+      files.push([`xl/drawings/_rels/drawing${n}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart${n}.xml"/></Relationships>`]);
+      files.push([`xl/worksheets/_rels/sheet${n}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${n}.xml"/></Relationships>`]);
+    }
+    files.push([`xl/worksheets/sheet${i + 1}.xml`, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
+      (sh.cols ? '<cols>' + sh.cols.map((w, ci) => `<col min="${ci + 1}" max="${ci + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>' : '') +
+      `<sheetData>${rows}</sheetData>` + (sh.chart ? '<drawing r:id="rId1"/>' : '') + '</worksheet>']);
+  });
+  return zip(files);
+}
+
+// يحفظ الملف: في الآيفون تطلع قائمة المشاركة ← «حفظ في الملفات» ← مجلد RAX3D
+const mailedFiles = new Set();
+function fileSubject(name) {
+  const n = name.replace(/\.[a-z]+$/i, '');
+  return /\.pdf$/i.test(name) ? '📄 ' + n : /\.xlsx$/i.test(name) ? (/إحصائيات/.test(n) ? '📈 ' : '📊 ') + n : /\.json$/i.test(name) ? '📦 ' + n : '📎 ' + n;
+}
+function mailFile(blob, name, subject, fields) {   // نسخة من أي ملف يحفظه الدعم الفني تنرسل للإيميل
+  if (loadDb().role !== 'admin') return;
+  mailedFiles.add(name);
+  notify(subject || fileSubject(name), { 'الرسالة': (fields && fields.msg) || ('📎 الملف مرفق: ' + name) }, { blob: blob, name: name })
+    .then(r => toast(r === 'sent' ? '📧 انرسلت نسخة لإيميلك' : r === 'activate' ? '📧 فعّل إيميلك أول مرة (رسالة FormSubmit)' : '⚠️ ما انرسل الإيميل — تأكد من الإنترنت'));
+}
+function deliverFile(blob, name) {
+  if (!mailedFiles.has(name)) mailFile(blob, name);
+  const file = new File([blob], name, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    return navigator.share({ files: [file] }).then(() => true).catch(e => { if (e && e.name === 'AbortError') return false; throw e; });
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  return Promise.resolve(true);
+}
+const safeName = t => String(t).replace(/[\\/:*?"<>|]+/g, '-').trim();
+
+// تحميل PDF من Drive وتجهيزه (يحتاج ضغطتين لأن الآيفون يطلب أن تكون المشاركة بضغطة مباشرة)
+function fetchPdf(num, cb) {
+  const db = loadDb(), id = String(num), r = id.indexOf(':') > 0 ? db.log.find(x => rk(x) === id) : db.log.slice().reverse().find(x => String(x.num) === id);
+  if (!r) { cb(new Error('الفاتورة غير موجودة')); return; }
+  invoicePdf(r).then(o => cb(null, o.blob, safeName('فاتورة ' + r.num + (r.client ? ' - ' + r.client : '') + '.pdf'), o.preview))
+    .catch(e => cb(e));
+}
+let readyFile = null;
+function openFileSheet(title, msg) {
+  readyFile = null; $('filePrev').style.display = 'none'; $('fileTitle').textContent = title; $('fileMsg').textContent = msg || '';
+  const b = $('fileGo'); b.disabled = true; b.textContent = 'جاري التجهيز…'; $('fileSheet').classList.add('on');
+}
+function fileReady(blob, name, prev) {
+  readyFile = { blob, name }; const b = $('fileGo'); b.disabled = false; b.textContent = '💾 حفظ / مشاركة / طباعة';
+  if (prev) { $('filePrev').src = prev; $('filePrev').style.display = 'block'; }
+  $('fileMsg').textContent = name;
+}
+$('fileGo').onclick = () => {
+  if (!readyFile) return;
+  deliverFile(readyFile.blob, readyFile.name).then(ok => { if (ok) $('fileSheet').classList.remove('on'); })
+    .catch(e => { $('fileMsg').textContent = 'تعذّر الحفظ: ' + ((e && e.message) || e); });
+};
+$('fileClose').onclick = () => $('fileSheet').classList.remove('on');
+
+function invFields(r) {
+  return { 'رقم الفاتورة': r.num, 'التاريخ': r.date, 'العميل': r.client || '—', 'الجوال': r.phone || '—', 'القطع': r.desc,
+    'الخصم': fmt(r.disc) + ' ريال', 'المجموع': fmt(r.total) + ' ريال', 'صافي الربح': fmt(r.profit) + ' ريال', 'أنشأها': r.by === 'partner' ? 'مدخل البيانات' : 'الدعم الفني' };
+}
+function mailInvoice(id, kind) {
+  if (loadDb().role !== 'admin') return;
+  fetchPdf(id, (err, blob, name) => {
+    const r = loadDb().log.slice().reverse().find(x => String(id).indexOf(':') > 0 ? rk(x) === id : String(x.num) === String(id)); if (!r) return;
+    const subj = (kind === 'edit' ? '✏️ تعديل الفاتورة رقم ' : '🧾 فاتورة جديدة رقم ') + r.num + (r.client ? ' — ' + r.client : '') + ' — ' + fmt(r.total) + ' ريال';
+    if (err) { notify(subj, invFields(r)); return; }
+    mailFile(blob, name, subj, { msg: '📎 مرفق ملف الفاتورة رقم ' + r.num + ' بصيغة PDF' });
+  });
+}
+function savePdf(num) {
+  openFileSheet('فاتورة رقم ' + String(num).split(':').pop(), '');
+  fetchPdf(num, (err, blob, name, prev) => {
+    if (err) { $('fileMsg').textContent = 'تعذّر تجهيز الـ PDF: ' + ((err && err.message) || err); $('fileGo').textContent = 'غير متاح'; return; }
+    fileReady(blob, name, prev);
+  });
+}
+$('logList').addEventListener('click', e => {
+  const ed = e.target.closest('[data-ed]'); if (ed) { openEdit(ed.dataset.ed); return; }
+  const b = e.target.closest('[data-dl]'); if (!b) return;
+  savePdf(b.dataset.num);
+});
+
+// سجل الفواتير (Excel)
+$('dlLog').onclick = () => {
+  if (!DATA) return;
+  const admin = DATA.role === 'admin';
+  const head = ['رقم الفاتورة', 'التاريخ', 'اسم العميل', 'الجوال', 'الوصف', 'العدد', 'الخصم', 'المجموع النهائي'].concat(admin ? ['صافي الربح', 'السعر المقترح'] : []);
+  const rows = DATA.log.map(r => [Number(r.num) || r.num, r.date, r.client, r.phone, r.desc, r.qty, r.disc, r.total]
+    .concat(admin ? [r.profit, r.sugg || ''] : []));
+  const blob = makeXlsx([{ name: 'سجل الفواتير', rows: [head].concat(rows), cols: [11, 12, 20, 14, 40, 8, 10, 14].concat(admin ? [12, 13] : []) }]);
+  deliverFile(blob, 'سجل فواتير RAX3D ' + DATA.today + '.xlsx').catch(e => alert('تعذّر الحفظ: ' + ((e && e.message) || e)));
+};
+
+// الإحصائيات (Excel): الفترات + كل شهر
+$('dlStats').onclick = () => {
+  if (!DATA) return;
+  const sum = (rs, k) => Math.round(rs.reduce((a, r) => a + (Number(r[k]) || 0), 0) * 100) / 100;
+  const line = (name, rs) => [name, rs.length, sum(rs, 'qty'), sum(rs, 'total'), sum(rs, 'disc'), sum(rs, 'profit'), rs.length ? Math.round(sum(rs, 'total') / rs.length * 100) / 100 : 0];
+  const head = ['الفترة', 'الفواتير', 'القطع', 'المبيعات', 'الخصومات', 'صافي الربح', 'متوسط الفاتورة'];
+  const t = DATA.today, [y, m] = t.split('-');
+  const d0 = new Date(t + 'T00:00:00'); d0.setDate(d0.getDate() - 6);
+  const wk = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
+  const L = DATA.log;
+  const periods = [line('اليوم', L.filter(r => r.date === t)), line('آخر 7 أيام', L.filter(r => r.date >= wk && r.date <= t)),
+    line('هذا الشهر', L.filter(r => r.date.startsWith(y + '-' + m))), line('هذه السنة', L.filter(r => r.date.startsWith(y))), line('الإجمالي', L)];
+  const months = [...new Set(L.map(r => String(r.date).slice(0, 7)).concat(lastMonths(6)))].sort().map(mo => line(monthName(mo), L.filter(r => String(r.date).startsWith(mo))));
+  const g = DATA.goal || {};
+  const extra = [[], ['هدف المبيعات', g.goal || ''], ['الخسارة عن السعر المقترح', g.gap || 0], ['تاريخ التقرير', t]];
+  const blob = makeXlsx([
+    { name: 'الإحصائيات', rows: [head].concat(periods, extra), cols: [26, 10, 10, 13, 12, 13, 15],
+      chart: { title: 'المبيعات وصافي الربح حسب الفترة', rows: [1, 2, 3, 4, 5], series: [{ col: 3, color: 'E0B64A' }, { col: 5, color: '4CAF50' }] } },
+    { name: 'حسب الشهر', rows: [['الشهر'].concat(head.slice(1))].concat(months), cols: [16, 10, 10, 13, 12, 13, 15],
+      chart: { title: 'المبيعات وصافي الربح حسب الشهر', rows: months.map((_, k) => k + 1), series: [{ col: 3, color: 'E0B64A' }, { col: 5, color: '4CAF50' }] } }
+  ]);
+  deliverFile(blob, 'إحصائيات RAX3D ' + t + '.xlsx').catch(e => alert('تعذّر الحفظ: ' + ((e && e.message) || e)));
+};
+
+
+// ================= إعدادات، نسخ احتياطي، أول تشغيل =================
+const SET_FIELDS = [['spool', 'سعر البكرة (ريال)'], ['spoolW', 'وزن البكرة (جم)'], ['run', 'التشغيل للساعة (ريال)'], ['waste', 'الهدر (0.1 = 10%)'],
+  ['pack', 'التغليف (ريال)'], ['multOne', 'مضاعف القطعة الواحدة'], ['multSet', 'مضاعف المجموعة'], ['goalStart', 'هدف المبيعات الأول'], ['nextNum', 'رقم الفاتورة القادم']];
+function renderSettings() {
+  if (!DATA) return;
+  const v = Object.assign({}, DATA.settings, { nextNum: DATA.nextNum });
+  $('setGrid').innerHTML = SET_FIELDS.map(([k, l]) => `<div><label for="set_${k}">${l}</label><input id="set_${k}" type="number" inputmode="decimal" value="${esc(v[k])}"></div>`).join('');
+}
+$('setSave').onclick = () => {
+  const d = {}; SET_FIELDS.forEach(([k]) => d[k] = $('set_' + k).value.trim());
+  const msg = $('setMsg');
+  google.script.run.withSuccessHandler(() => { msg.style.color = 'var(--good)'; msg.textContent = 'تم الحفظ ✔'; load();
+    const f = {}; SET_FIELDS.forEach(([k, l]) => f[l] = d[k]); notify('⚙️ تحديث إعدادات التسعير والترقيم', f); })
+    .withFailureHandler(e => { if (pinError(e)) return; msg.style.color = 'var(--bad)'; msg.textContent = 'لم تُحفظ: ' + ((e && e.message) || e); })
+    .saveSettings(d, PIN);
+};
+$('backupBtn').onclick = () => {
+  const raw = localStorage.getItem(DB_KEY) || '{}';
+  deliverFile(new Blob([raw], { type: 'application/json' }), 'نسخة RAX3D ' + todayStr() + '.json')
+    .catch(e => alert('تعذّر الحفظ: ' + ((e && e.message) || e)));
+};
+$('restoreBtn').onclick = () => $('restoreIn').click();
+$('restoreIn').onchange = () => {
+  const f = $('restoreIn').files[0]; if (!f) return; const msg = $('restoreMsg');
+  f.text().then(t => {
+    const d = JSON.parse(t);
+    if (!d || !Array.isArray(d.log) || !d.settings) throw new Error('هذا ليس ملف نسخة RAX3D');
+    if (!confirm('بيتم استبدال كل بيانات هذا الجوال بـ ' + d.log.length + ' فاتورة من الملف. متأكد؟')) return;
+    localStorage.setItem(DB_KEY, JSON.stringify(d));
+    msg.style.color = 'var(--good)'; msg.textContent = 'تم الاسترجاع ✔';
+    if (!d.role && d.pins && d.pins.admin) d.role = 'admin'; localStorage.setItem(DB_KEY, JSON.stringify(d)); if (d.pins && d.pins.admin) savePin(d.pins.admin); load();
+  }).catch(e => { msg.style.color = 'var(--bad)'; msg.textContent = 'تعذّر الاسترجاع: ' + ((e && e.message) || e); })
+    .finally(() => { $('restoreIn').value = ''; });
+};
+function renderSync() {
+  const sy = getSync(), st = $('syncState');
+  $('syncRepo').value = sy ? sy.repo : ($('syncRepo').value || 'RAX3D/rax3d-data');
+  $('syncToken').placeholder = sy ? 'محفوظ ✔' : 'github_pat_…';
+  $('syncOff').style.display = sy ? '' : 'none';
+  st.style.color = sy ? 'var(--good)' : 'var(--mute)';
+  st.textContent = sy ? 'مفعّل ✔ — الجوالين يأخذون الأرقام من نفس العدّاد' : 'غير مفعّل — هذا الجوال يرقّم لحاله';
+}
+function syncCall(d) {
+  const msg = $('syncMsg'); msg.style.color = 'var(--mute)'; msg.textContent = 'جاري الاتصال…';
+  $('syncSave').disabled = true;
+  google.script.run
+    .withSuccessHandler(r => {
+      $('syncSave').disabled = false; $('syncToken').value = ''; $('syncNext').value = '';
+      msg.style.color = 'var(--good)'; msg.textContent = r === 'off' ? 'تم الإيقاف' : 'تم ✔ الفاتورة القادمة رقم ' + r;
+      renderSync(); load();
+    })
+    .withFailureHandler(e => { $('syncSave').disabled = false; if (pinError(e)) return; msg.style.color = 'var(--bad)'; msg.textContent = (e && e.message) || e; })
+    .saveSync(d, PIN);
+}
+$('syncSave').onclick = () => syncCall({ repo: $('syncRepo').value, token: $('syncToken').value, next: $('syncNext').value });
+$('syncOff').onclick = () => { if (confirm('إيقاف الترقيم المشترك على هذا الجوال؟')) syncCall({ off: true }); };
+function showNextNum(local) {
+  $('invNum').textContent = local;
+  if (!getSync()) return;
+  google.script.run.withSuccessHandler(n => { if (n) $('invNum').textContent = n; })
+    .withFailureHandler(() => { $('invNum').textContent = '—'; }).peekNumber(PIN);
+}
+function isFirstRun() { return !loadDb().role; }
+// رابط مدخل البيانات: …/#join=RAX3D-… (يُستخدم مرة وحدة للربط)
+const JOIN = (location.hash.match(/join=([^&]+)/) || [])[1] || '';
+let frMode = 'choose';
+function frShow(mode) {
+  frMode = mode;
+  $('frChoose').hidden = mode !== 'choose'; $('frAdmin').hidden = mode !== 'admin'; $('frPartner').hidden = mode !== 'partner';
+  $('pinBtn').hidden = mode === 'choose'; $('frBack').hidden = mode === 'choose'; $('pinErr').textContent = '';
+  $('lockHint').textContent = mode === 'admin' ? 'اختر رمز دخولك (أرقام من 4 إلى 12 خانة)'
+    : mode === 'partner' ? (JOIN ? 'أهلاً 👋 اختر رقمك السري واكتبه مرتين' : 'الصق رمز الربط واختر رقمك السري') : 'أول تشغيل — هذا الجوال لمين؟';
+  $('pinBtn').textContent = mode === 'partner' ? 'حفظ والدخول' : 'ابدأ';
+  if (mode === 'partner') { $('fJoinBox').hidden = !!JOIN; if (JOIN) { $('fJoin').value = JOIN; $('frBack').hidden = true; } }
+}
+function showFirstRun() {
+  $('lock').classList.add('on'); $('firstRun').style.display = ''; $('pinIn').style.display = 'none'; $('forgotBtn').hidden = true;
+  frShow(JOIN ? 'partner' : 'choose');
+}
+function endFirstRun() {
+  $('firstRun').style.display = 'none'; $('pinIn').style.display = ''; $('frBack').hidden = true; $('pinBtn').hidden = false;
+  $('lockHint').textContent = 'اكتب رمز الدخول'; $('pinBtn').textContent = 'دخول';
+}
+$('frA').onclick = () => frShow('admin');
+$('frP').onclick = () => frShow('partner');
+$('frBack').onclick = () => frShow('choose');
+function doFirstRun() {
+  if (frMode === 'partner') {
+    const p1 = $('fJ1').value.trim(), p2 = $('fJ2').value.trim();
+    if (!/^[0-9]{4,12}$/.test(p1)) { $('pinErr').textContent = 'الرقم السري لازم يكون أرقام من 4 إلى 12 خانة'; return; }
+    if (p1 !== p2) { $('pinErr').textContent = 'الرقمين مو متطابقين، اكتبه مرة ثانية'; $('fJ2').value = ''; $('fJ2').focus(); return; }
+    const btn = $('pinBtn'); btn.disabled = true; $('pinErr').style.color = ''; $('pinErr').textContent = 'جاري الربط…';
+    google.script.run
+      .withSuccessHandler(() => {
+        btn.disabled = false; endFirstRun(); savePin(p1); $('lock').classList.remove('on'); toast('تم الربط ✔ من الحين تدخل برقمك السري');
+        load(); setInterval(() => { if (!document.hidden) checkReset(); }, 45000);
+      })
+      .withFailureHandler(e => { btn.disabled = false; $('pinErr').textContent = (e && e.message) || e; })
+      .joinPartner({ code: $('fJoin').value, pin: p1, pin2: p2 });
+    return;
+  }
+  const a = $('fAdmin').value.trim(), pp = '', n = Math.floor(+$('fNum').value) || 1;
+  if (!/^[0-9]{4,12}$/.test(a)) { $('pinErr').textContent = 'رمز الدعم الفني لازم يكون أرقام من 4 إلى 12 خانة'; return; }
+  if (pp && !/^[0-9]{4,12}$/.test(pp)) { $('pinErr').textContent = 'رمز مدخل البيانات لازم يكون أرقام من 4 إلى 12 خانة'; return; }
+  if (pp && pp === a) { $('pinErr').textContent = 'رمز مدخل البيانات لازم يختلف عن رمز الدعم الفني'; return; }
+  const db = loadDb(); db.role = 'admin'; db.pins = pp ? { admin: a, partner: pp } : { admin: a }; db.nextNum = n > 0 ? n : 1; saveDb(db);
+  endFirstRun(); savePin(a); $('lock').classList.remove('on'); load();
+}
+function updateForgot() { $('forgotBtn').hidden = !loadDb().role; }
+
+let CARRY = null;
+setTimeout(() => flushOutbox(), 3000);   // رسائل وصلت مع الدخول (تظهر مرة وحدة)
+function load() {
+  google.script.run
+    .withSuccessHandler(d => {
+      DATA = d; S = d.settings; applyRole(d.role); renderCatalog(); renderGoal(d.goal); checkMilestone(d.goal);
+      showNextNum(d.nextNum);
+      if ($('boot')) { $('boot').remove(); $('new').classList.add('on'); $('bar').classList.remove('hide'); resetForm(); }
+      else updateTotals();
+      renderLog(); renderStats(); renderSettings(); renderSync(); renderPartnerBox();
+      const cy = CARRY || {}; CARRY = null;
+      if (d.pinNotice || cy.pinNotice) showOk('تم تعديل الرقم السري بنجاح', 'من الحين تدخل بالرقم الجديد');
+      if ($('recMail') && !$('recMail').value) $('recMail').value = d.recMail || '';
+    })
+    .withFailureHandler(err => {
+      if (pinError(err)) { if ($('boot')) $('boot').textContent = ''; return; }
+      if ($('boot')) $('boot').textContent = 'تعذّر تحميل البيانات: ' + (err.message || err);
+    })
+    .getAppData(PIN);
+}
+function applyRole(role) {
+  const admin = role === 'admin';
+  document.body.classList.toggle('partner', !admin);
+  if (!admin && !$('new').classList.contains('on')) document.querySelector('nav button[data-tab="new"]').click();
+  $('roleTag').hidden = false; $('roleTag').textContent = admin ? ' · الدعم الفني' : ' · مدخل البيانات';
+  $('bellBtn').hidden = !admin; $('supBtn').hidden = admin;
+  if (admin) startPoll();
+}
+$('pinSave').onclick = () => {
+  const a = $('newAdmin').value.trim(), msg = $('pinMsg');
+  msg.style.color = 'var(--bad)';
+  if (!/^[0-9]{4,12}$/.test(a)) { msg.textContent = 'الرمز لازم يكون أرقام من 4 إلى 12 خانة'; return; }
+  const btn = $('pinSave'); btn.disabled = true; msg.textContent = '';
+  google.script.run
+    .withSuccessHandler(() => { btn.disabled = false; savePin(a); $('newAdmin').value = ''; msg.style.color = 'var(--good)'; msg.textContent = 'تم الحفظ ✔'; notify('🔐 تم تغيير رمز دخول الدعم الفني', { 'التفاصيل': 'تم تغيير الرمز من داخل التطبيق (الإحصائيات)' }); })
+    .withFailureHandler(err => { btn.disabled = false; if (pinError(err)) return; msg.textContent = 'لم يُحفظ: ' + ((err && err.message) || err); })
+    .changePins({ admin: a }, PIN);
+};
+const fmtN = n => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+function renderGoal(g) {
+  const card = $('goalCard');
+  if (!g) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const pct = Math.max(0, Math.min(100, (g.sales - g.prev) / (g.goal - g.prev) * 100));
+  $('goalAmt').textContent = fmtN(g.goal) + ' ريال';
+  $('goalBar').style.width = pct.toFixed(1) + '%';
+  $('goalSales').textContent = fmtN(g.sales);
+  $('goalLeft').textContent = fmtN(g.remaining);
+  const box = $('gapBox');
+  if (!g.gapCount) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  const gap = Math.round(g.gap), stage = (g.goal - g.prev) || 1;
+  const loss = Math.max(0, gap);
+  $('gapAmt').textContent = fmtN(loss) + ' ريال';
+  $('gapBar').style.width = loss > 0 ? Math.max(2, Math.min(100, loss / stage * 100)).toFixed(1) + '%' : '0%';
+  $('gapTxt').textContent = loss > 0 ? 'يرتفع لما تبيعون أقل من المقترح، وينزل لما تبيعون أعلى منه'
+                          : gap < 0 ? 'تم التعويض ✔ وبعتوا فوق المقترح بـ ' + fmtN(-gap) + ' ريال'
+                          : 'لا توجد خسارة ✔';
+}
+function celebrate(m) {
+  $('partyAmt').textContent = fmtN(m.reached) + ' ريال';
+  $('partyReached').textContent = fmtN(m.reached);
+  $('partyNext').textContent = fmtN(m.next);
+  $('party').classList.add('on');
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = $('confetti'), ctx = cv.getContext('2d');
+  const W = cv.width = innerWidth, H = cv.height = innerHeight;
+  const cols = ['#E0B64A', '#C9A227', '#fff3c4', '#ffffff', '#b8860b'];
+  const ps = Array.from({ length: 160 }, () => ({ x: Math.random() * W, y: -20 - Math.random() * H, r: 4 + Math.random() * 6,
+    vy: 2 + Math.random() * 3, vx: -1.5 + Math.random() * 3, a: Math.random() * 6, va: -.2 + Math.random() * .4, c: cols[Math.floor(Math.random() * cols.length)] }));
+  const t0 = Date.now();
+  (function tick() {
+    ctx.clearRect(0, 0, W, H);
+    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.a += p.va;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.fillStyle = p.c; ctx.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); ctx.restore();
+      if (p.y > H + 20 && Date.now() - t0 < 4000) { p.y = -20; p.x = Math.random() * W; } });
+    if (Date.now() - t0 < 7000 && $('party').classList.contains('on')) requestAnimationFrame(tick); else ctx.clearRect(0, 0, W, H);
+  })();
+  if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+}
+$('partyBtn').onclick = () => $('party').classList.remove('on');
+// احتفال على كل جهاز لم يشاهد الإنجاز بعد (حتى لو الفاتورة انحفظت من جهاز ثاني)
+function seenGoal(v) { try { if (v === undefined) return localStorage.getItem('rax3d_goal_seen'); localStorage.setItem('rax3d_goal_seen', String(v)); } catch (e) { return null; } }
+function checkMilestone(g) {
+  if (!g) return;
+  const seen = seenGoal();
+  if (seen === null || seen === undefined) { seenGoal(g.prev); return; }
+  if (g.prev > Number(seen)) { seenGoal(g.prev); celebrate({ reached: g.prev, next: g.goal }); }
+}
+function tryPin() {
+  const v = $('pinIn').value.trim();
+  if (!v) { $('pinErr').textContent = 'اكتب الرمز'; return; }
+  $('pinBtn').disabled = true; $('pinErr').textContent = '';
+  google.script.run
+    .withSuccessHandler(d => { $('pinBtn').disabled = false; savePin(v); $('lock').classList.remove('on'); CARRY = { pinNotice: d.pinNotice }; load(); })
+    .withFailureHandler(err => {
+      $('pinBtn').disabled = false;
+      const m = String((err && err.message) || err);
+      $('pinErr').textContent = m.indexOf('LOCKED') >= 0 ? 'محاولات كثيرة خاطئة، جرّب بعد 15 دقيقة' : m.indexOf('BAD_PIN') >= 0 ? 'الرمز غير صحيح' : 'خطأ: ' + m;
+    })
+    .getAppData(v);
+}
+$('pinBtn').onclick = () => isFirstRun() ? doFirstRun() : tryPin();
+function closeSheets() { document.querySelectorAll('.sheet.on').forEach(x => x.classList.remove('on')); }
+$('pinIn').addEventListener('keydown', e => { if (e.key === 'Enter') tryPin(); });
+$('logoutBtn').onclick = () => { savePin(''); closeSheets(); showLock(''); updateForgot(); };
+// ================= v21: الدعم الفني (مدخل البيانات) والإشعارات (الدعم الفني) =================
+let toastT = null;
+function toast(t) { const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 3500); }
+const errTxt = e => String((e && e.message) || e);
+function setMsg(id, ok, t) { const m = $(id); m.style.color = ok ? 'var(--good)' : ok === null ? 'var(--mute)' : 'var(--bad)'; m.textContent = t; }
+
+// --- مدخل البيانات ---
+let supFromLock = false;
+function openSup(fromLock) {
+  supFromLock = !!fromLock;
+  $('supChoose').hidden = false; $('supForm').hidden = true; $('supMsgBtn').hidden = supFromLock; $('supMine').innerHTML = '';
+  $('supText').value = ''; $('supInv').value = ''; setMsg('supMsg', null, '');
+  $('supSheet').classList.add('on');
+  if (!supFromLock) loadMine();
+}
+function loadMine() {
+  google.script.run.withSuccessHandler(list => {
+    $('supMine').innerHTML = list.length ? '<h3 style="margin:16px 0 0;font-size:15px;color:var(--gold);font-weight:500">طلباتي الأخيرة</h3>' + list.map(x => `
+      <div class="rq ${x.status}"><div class="rq-h"><b>${x.type === 'pin' ? '🔑 الرقم السري' : '✏️ طلب'}${x.inv ? ' — فاتورة ' + esc(x.inv) : ''}</b><span>${x.status === 'new' ? '⏳ عند الدعم الفني' : x.status === 'approved' ? '✔ تمت الموافقة' : '✔ تم'}</span></div>
+      ${x.text ? `<p>${esc(x.text)}</p>` : ''}${x.reply ? `<div class="rep">رد الدعم الفني: ${esc(x.reply)}</div>` : ''}<div class="rq-h"><span>${esc(x.date || '')}</span></div></div>`).join('') : '';
+  }).withFailureHandler(() => {}).myRequests(PIN);
+}
+function sendReq(d) {
+  setMsg('supMsg', null, 'جاري الإرسال…'); $('supSend').disabled = true; $('supPin').disabled = true;
+  google.script.run
+    .withSuccessHandler(r => {
+      $('supSend').disabled = false; $('supPin').disabled = false;
+      if (r === 'exists') { setMsg('supMsg', null, 'طلبك السابق للرقم السري لسه عند الدعم الفني ⏳'); checkReset(); return; }
+      setMsg('supMsg', true, d.type === 'pin' ? 'تم إرسال الطلب ✔ أول ما يوافق الدعم الفني بيطلع لك تختار رقمك الجديد' : 'تم إرسال طلبك للدعم الفني ✔');
+      $('supForm').hidden = true; $('supChoose').hidden = false; if (!supFromLock) loadMine();
+    })
+    .withFailureHandler(e => { $('supSend').disabled = false; $('supPin').disabled = false; if (!supFromLock && pinError(e)) return; setMsg('supMsg', false, 'لم يُرسل: ' + errTxt(e)); })
+    .sendRequest(d, PIN);
+}
+$('supBtn').onclick = () => openSup(false);
+$('forgotBtn').onclick = () => { if (loadDb().role === 'admin') openRec(); else openSup(true); };
+$('supPin').onclick = () => sendReq({ type: 'pin', text: supFromLock ? 'نسيت الرقم السري' : 'أبي أغيّر الرقم السري' });
+$('supMsgBtn').onclick = () => { $('supChoose').hidden = true; $('supForm').hidden = false; setMsg('supMsg', null, ''); setTimeout(() => $('supText').focus(), 50); };
+$('supSend').onclick = () => {
+  if (!$('supText').value.trim()) { setMsg('supMsg', false, 'اكتب طلبك'); return; }
+  sendReq({ type: 'msg', text: $('supText').value, inv: $('supInv').value });
+};
+$('supClose').onclick = () => $('supSheet').classList.remove('on');
+
+// --- الدعم الفني ---
+let REQS = [], NT_ERR = '', pollT = null, lastNew = -1;
+function startPoll() {
+  if (pollT) return;
+  pollAdmin(); pollT = setInterval(() => { if (!document.hidden) pollAdmin(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollAdmin(); });
+}
+function pollAdmin() {
+  if (!DATA || DATA.role !== 'admin' || !PIN || $('lock').classList.contains('on')) return;
+  google.script.run
+    .withSuccessHandler(r => {
+      NT_ERR = r.off ? 'فعّل الترقيم المشترك من الإحصائيات عشان توصلك طلبات وفواتير مدخل البيانات' : '';
+      REQS = (r.requests || []).slice().reverse();
+      const n = REQS.filter(x => x.status === 'new').length;
+      const msgs = [];
+      if (n > lastNew && n > 0) msgs.push(lastNew < 0 ? '📩 عندك ' + n + ' طلب من مدخل البيانات' : '📩 وصلك طلب جديد من مدخل البيانات');
+      if (r.imported) msgs.push('📥 وصلت ' + r.imported + ' فاتورة من مدخل البيانات');
+      if (msgs.length) toast(msgs.join(' · '));
+      lastNew = n; renderBell();
+      if (r.imported) load();
+      if ($('ntSheet').classList.contains('on')) renderNt();
+    })
+    .withFailureHandler(e => { if (pinError(e)) return; NT_ERR = 'تعذّر التحديث: ' + errTxt(e); if ($('ntSheet').classList.contains('on')) renderNt(); })
+    .adminSync(PIN);
+}
+function renderBell() { const n = REQS.filter(x => x.status === 'new').length; $('bellN').hidden = !n; $('bellN').textContent = n; }
+function renderNt() {
+  $('ntState').textContent = NT_ERR || (REQS.length ? '' : 'ما فيه طلبات حالياً ✔');
+  $('ntList').innerHTML = REQS.map(x => {
+    const isNew = x.status === 'new', id = esc(x.id);
+    let acts = '';
+    if (isNew && x.type === 'pin') acts = `<div class="acts"><button class="save" data-approve="${id}">✔ موافقة</button><button class="ghost" data-reject="${id}">رفض</button></div>`;
+    else if (x.status === 'approved') acts = `<div class="acts"><button class="ghost" data-resend="${id}">📤 إرسال الرابط مرة ثانية</button></div>`;
+    else if (isNew) acts = `<input id="rp_${id}" placeholder="ردك على مدخل البيانات (اختياري)">
+      <div class="acts">${x.inv ? `<button class="ghost" data-open="${esc(x.inv)}">✏️ فتح الفاتورة ${esc(x.inv)}</button>` : ''}<button class="save" data-done="${id}">تم ✔</button></div>`;
+    return `<div class="rq ${x.status === 'approved' ? 'new' : x.status}"><div class="rq-h"><b>${x.type === 'pin' ? '🔑 تغيير / استعادة الرقم السري' : '✏️ طلب من مدخل البيانات'}${x.inv ? ' — فاتورة ' + esc(x.inv) : ''}</b><span>${isNew ? '🟡 جديد' : x.status === 'approved' ? '⏳ بانتظار مدخل البيانات' : '✔ تم'}</span></div>
+      ${x.text ? `<p>${esc(x.text)}</p>` : ''}${x.reply ? `<div class="rep">${x.status === 'approved' ? '' : 'ردك: '}${esc(x.reply)}</div>` : ''}<div class="rq-h"><span>${esc(x.date || '')}</span></div>${acts}</div>`;
+  }).join('');
+}
+function shareResetLink(id) {
+  google.script.run.withSuccessHandler(code => {
+    const link = location.origin + location.pathname + '#reset=' + encodeURIComponent(id) + '&join=' + encodeURIComponent(code);
+    shareText('تمت الموافقة على طلب تغيير الرقم السري ✔\nافتح الرابط، واكتب رقمك الجديد مرتين، وبعدها ادخل التطبيق من الشاشة الرئيسية:\n' + link);
+  }).withFailureHandler(e => toast(errTxt(e))).makeJoinCode(PIN);
+}
+function resolveReqX(d, done) {
+  google.script.run.withSuccessHandler(list => { REQS = (list || []).slice().reverse(); lastNew = REQS.filter(x => x.status === 'new').length; renderBell(); renderNt(); done && done(); })
+    .withFailureHandler(e => { if (pinError(e)) return; NT_ERR = 'تعذّر: ' + errTxt(e); renderNt(); })
+    .resolveRequest(d, PIN);
+}
+function resolveReq(id, reply, done) {
+  google.script.run.withSuccessHandler(list => { REQS = (list || []).slice().reverse(); lastNew = REQS.filter(x => x.status === 'new').length; renderBell(); renderNt(); done && done(); })
+    .withFailureHandler(e => { if (pinError(e)) return; NT_ERR = 'تعذّر: ' + errTxt(e); renderNt(); })
+    .resolveRequest({ id: id, reply: reply }, PIN);
+}
+$('bellBtn').onclick = () => { renderNt(); $('ntSheet').classList.add('on'); pollAdmin(); };
+$('ntClose').onclick = () => $('ntSheet').classList.remove('on');
+$('ntList').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.done) { b.disabled = true; const rp = $('rp_' + b.dataset.done); resolveReq(b.dataset.done, rp ? rp.value : ''); }
+  else if (b.dataset.open) {
+    const hit = DATA.log.slice().reverse().find(r => String(r.num) === String(b.dataset.open) && r.by === 'partner') || DATA.log.slice().reverse().find(r => String(r.num) === String(b.dataset.open));
+    if (!hit) { toast('الفاتورة ' + b.dataset.open + ' ما وصلت لجوالك بعد'); return; }
+    $('ntSheet').classList.remove('on'); openEdit(rk(hit));
+  } else if (b.dataset.approve) {
+    b.disabled = true;
+    const id = b.dataset.approve; resolveReqX({ id: id, approve: true }, () => { shareResetLink(id); notify('✔ موافقة على طلب تغيير الرقم السري — مدخل البيانات', { 'التفاصيل': 'وافقت على الطلب وانرسل له رابط اختيار الرقم الجديد (صالح 48 ساعة)' }); });
+  } else if (b.dataset.reject) {
+    b.disabled = true; resolveReqX({ id: b.dataset.reject, reply: 'تم رفض الطلب — تواصل مع الدعم الفني' });
+  } else if (b.dataset.resend) shareResetLink(b.dataset.resend);
+
+});
+function shareText(t) {
+  if (navigator.share) return navigator.share({ text: t }).catch(() => {});
+  Promise.resolve().then(() => navigator.clipboard.writeText(t)).then(() => toast('تم النسخ ✔ الصقه لمدخل البيانات في واتساب'), () => { try { prompt('انسخ الرسالة وأرسلها لمدخل البيانات:', t); } catch (e) {} });
+}
+
+// تعديل فاتورة (الدعم الفني)
+let ED = null;
+function edCalc(it) {
+  const w = +it.w || 0; if (!w) return null;
+  const cost = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack;
+  return { cost: cost, sugg: Math.ceil(r2(cost * (it.type === 'مجموعة' ? S.multSet : S.multOne)) - 1e-9) };
+}
+function openEdit(key) {
+  const r = DATA && DATA.log.find(x => rk(x) === key); if (!r) return;
+  ED = { key: key, num: r.num, items: (r.items || []).map(i => ({ desc: i.desc, q: i.q, unit: i.unit, w: i.w || '', h: i.h || '', m: i.m || '', sec: i.sec || '',
+    type: i.type || 'واحدة', auto: i.auto === true })) };
+  $('edTitle').textContent = 'تعديل الفاتورة رقم ' + r.num + (r.by === 'partner' ? ' (مدخل البيانات)' : '');
+  $('edClient').value = r.client || ''; $('edPhone').value = r.phone || ''; $('edDisc').value = r.disc || 0; setMsg('edMsg', null, '');
+  renderEdItems(); $('edSheet').classList.add('on');
+}
+function renderEdItems() {
+  $('edItems').innerHTML = ED.items.map((it, i) => `<div class="ed-it" data-i="${i}"><label>وصف القطعة</label><input data-k="desc" value="${esc(it.desc)}">
+    <div class="grid g4" style="margin-top:8px">
+      <div><label>الوزن (جم)</label><input data-k="w" type="number" inputmode="decimal" value="${esc(it.w)}"></div>
+      <div><label>ساعات</label><input data-k="h" type="number" inputmode="numeric" value="${esc(it.h)}"></div>
+      <div><label>دقائق</label><input data-k="m" type="number" inputmode="numeric" value="${esc(it.m)}"></div>
+      <div><label>ثواني</label><input data-k="sec" type="number" inputmode="numeric" value="${esc(it.sec)}"></div></div>
+    <div class="grid g3" style="margin-top:8px;grid-template-columns:1.4fr 1fr 1fr">
+      <div><label>النوع</label><div class="seg"><button data-type="واحدة" class="${it.type === 'واحدة' ? 'on' : ''}">واحدة</button><button data-type="مجموعة" class="${it.type === 'مجموعة' ? 'on' : ''}">مجموعة</button></div></div>
+      <div><label>العدد</label><input data-k="q" type="number" inputmode="numeric" value="${esc(it.q)}"></div>
+      <div><label>سعر الوحدة</label><input data-k="unit" type="number" inputmode="decimal" value="${esc(it.unit)}"></div></div>
+    <div class="hint" id="eh${i}"></div></div>`).join('');
+  edSum();
+}
+function edSum() {
+  ED.items.forEach((it, i) => {
+    const c = edCalc(it), h = $('eh' + i); if (!h) return;
+    if (c && it.auto) { it.unit = c.sugg; const u = document.querySelector('.ed-it[data-i="' + i + '"] [data-k="unit"]'); if (u && document.activeElement !== u) u.value = c.sugg; }
+    h.innerHTML = !c ? 'اكتب الوزن والوقت عشان يتحسب السعر المقترح والربح بدقة'
+      : `التكلفة ${fmt(c.cost)} · المقترح ${fmt(c.sugg)} · ${it.auto ? 'السعر تلقائي' : 'سعر مخصص'}${+it.unit < c.cost ? ' <b style="color:var(--bad)">⚠️ أقل من التكلفة</b>' : ''}`;
+  });
+  const sub = ED.items.reduce((a, i) => a + Math.max(0, Math.floor(+i.q || 0)) * Math.max(0, +i.unit || 0), 0);
+  const disc = Math.min(Math.max(0, +$('edDisc').value || 0), sub);
+  $('edSum').textContent = 'المجموع الجديد: ' + fmt(sub - disc) + ' ريال';
+}
+$('edItems').addEventListener('input', e => {
+  const k = e.target.dataset.k; if (!k) return;
+  const it = ED.items[+e.target.closest('.ed-it').dataset.i]; it[k] = e.target.value;
+  if (k === 'unit') it.auto = e.target.value === '' && !!edCalc(it);   // فاضي = يرجع للسعر التلقائي
+  edSum();
+});
+$('edItems').addEventListener('click', e => {
+  const b = e.target.closest('[data-type]'); if (!b) return;
+  ED.items[+b.closest('.ed-it').dataset.i].type = b.dataset.type; renderEdItems();
+});
+$('edDisc').oninput = edSum;
+$('edClose').onclick = () => $('edSheet').classList.remove('on');
+$('edDel').onclick = () => {
+  const n = ED.num;
+  if (!confirm('حذف الفاتورة رقم ' + n + ' نهائياً؟\n\nالفواتير اللي بعدها بتنزل رقم واحد (' + (Number(n) + 1) + ' تصير ' + n + ' وهكذا) والإحصائيات بتتحدث.\nالفواتير اللي أرسلتها للعملاء قبل تبقى بأرقامها القديمة عندهم.')) return;
+  const btn = $('edDel'); btn.disabled = true;
+  const old = DATA.log.find(x => rk(x) === ED.key);
+  google.script.run
+    .withSuccessHandler(r => { btn.disabled = false; $('edSheet').classList.remove('on'); if (r.warn) alert(r.warn); toast('🗑️ انحذفت الفاتورة ' + r.num + ' وتعدّل الترقيم'); mailedFiles.clear();
+      if (old) {   // نسخة PDF من الفاتورة المحذوفة وعليها ختم «تم الحذف»
+        const subj = '🗑️ حذف الفاتورة رقم ' + old.num + (old.client ? ' — ' + old.client : '');
+        invoicePdf(old, { label: 'تم الحذف', sub: 'تاريخ الحذف ' + todayStr() })
+          .then(o => mailFile(o.blob, safeName('فاتورة ' + old.num + (old.client ? ' - ' + old.client : '') + ' - محذوفة.pdf'), subj, { msg: '🗑️ مرفق نسخة الفاتورة رقم ' + old.num + ' المحذوفة بصيغة PDF' }))
+          .catch(() => notify(subj, { 'الرسالة': 'تم حذف الفاتورة رقم ' + old.num }));
+      }
+      load(); })
+    .withFailureHandler(e => { btn.disabled = false; if (pinError(e)) return; setMsg('edMsg', false, errTxt(e)); })
+    .deleteInvoice({ key: ED.key }, PIN);
+};
+$('edSave').onclick = () => {
+  const btn = $('edSave'); btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(() => { btn.disabled = false; $('edSheet').classList.remove('on'); toast('تم تعديل الفاتورة ✔'); mailedFiles.clear(); mailInvoice(ED.key, 'edit'); load(); })
+    .withFailureHandler(e => { btn.disabled = false; if (pinError(e)) return; setMsg('edMsg', false, errTxt(e)); })
+    .editInvoice({ key: ED.key, client: $('edClient').value, phone: $('edPhone').value, items: ED.items, disc: $('edDisc').value }, PIN);
+};
+
+// حساب مدخل البيانات (الإحصائيات)
+function renderPartnerBox() {
+  if (!DATA || DATA.role !== 'admin') return;
+  const sy = getSync(), st = $('pState');
+  st.style.color = sy ? 'var(--good)' : 'var(--mute)';
+  st.textContent = sy ? 'أرسل له الرابط، ويختار رقمه السري بنفسه أول مرة يفتحه ✔' : 'فعّل الترقيم المشترك (فوق) عشان تقدر ترسل الرابط لمدخل البيانات';
+}
+$('pSave').onclick = () => {
+  const v = $('newPartner').value.trim();
+  if (!/^[0-9]{4,12}$/.test(v)) { setMsg('pMsg', false, 'الرمز لازم يكون أرقام من 4 إلى 12 خانة'); return; }
+  $('pSave').disabled = true; setMsg('pMsg', null, 'جاري الحفظ…');
+  google.script.run
+    .withSuccessHandler(r => { $('pSave').disabled = false; $('newPartner').value = ''; DATA.partnerSet = true; renderPartnerBox();
+      notify('🔐 تعيين رقم سري جديد لمدخل البيانات', { 'التفاصيل': 'غيّرت الرقم السري لمدخل البيانات من الإحصائيات' });
+      setMsg('pMsg', true, r.synced ? 'تم ✔ الرمز الجديد يشتغل عند مدخل البيانات الحين' : 'تم الحفظ ✔ (فعّل الترقيم المشترك عشان يوصل لمدخل البيانات)'); })
+    .withFailureHandler(e => { $('pSave').disabled = false; if (pinError(e)) return; setMsg('pMsg', false, errTxt(e)); })
+    .setPartnerPin({ pin: v }, PIN);
+};
+$('joinBtn').onclick = () => {
+  setMsg('joinMsg', null, 'جاري التجهيز…');
+  google.script.run
+    .withSuccessHandler(code => {
+      const link = location.origin + location.pathname + '#join=' + encodeURIComponent(code);
+      const t = 'تطبيق فواتير RAX3D 📝\n1) افتح الرابط من Safari:\n' + link + '\n2) زر المشاركة ← «إضافة إلى الشاشة الرئيسية»\n3) افتح التطبيق من الأيقونة، واختر رقمك السري واكتبه مرتين\n\nالرابط تستخدمه مرة وحدة بس، وبعدها تدخل برقمك السري.';
+      $('joinOut').value = link; $('joinOut').hidden = false;
+      setMsg('joinMsg', true, 'جاهز ✔ أرسل الرابط لمدخل البيانات فقط');
+      shareText(t);
+    })
+    .withFailureHandler(e => { if (pinError(e)) return; setMsg('joinMsg', false, errTxt(e)); })
+    .makeJoinCode(PIN);
+};
+
+// --- مدخل البيانات: اختيار رقم سري جديد بعد موافقة الدعم الفني ---
+let RESET = null, resetSkip = null, resetBusy = false;
+function checkReset() {
+  if (resetBusy || loadDb().role !== 'partner' || $('resetSheet').classList.contains('on')) return;
+  resetBusy = true;
+  google.script.run.withSuccessHandler(r => {
+    resetBusy = false;
+    if (!r || r.id === resetSkip) return;
+    RESET = r; $('rs1').value = ''; $('rs2').value = ''; setMsg('rsMsg', null, '');
+    $('supSheet').classList.remove('on'); $('resetSheet').classList.add('on'); setTimeout(() => $('rs1').focus(), 80);
+  }).withFailureHandler(() => { resetBusy = false; }).pendingReset();
+}
+$('rsSave').onclick = () => {
+  const a = $('rs1').value.trim(), b2 = $('rs2').value.trim();
+  if (!/^[0-9]{4,12}$/.test(a)) { setMsg('rsMsg', false, 'الرقم السري لازم يكون أرقام من 4 إلى 12 خانة'); return; }
+  if (a !== b2) { setMsg('rsMsg', false, 'الرقمين مو متطابقين، اكتبه مرة ثانية'); $('rs2').value = ''; $('rs2').focus(); return; }
+  const btn = $('rsSave'); btn.disabled = true; setMsg('rsMsg', null, 'جاري الحفظ…');
+  google.script.run
+    .withSuccessHandler(() => {
+      btn.disabled = false; $('resetSheet').classList.remove('on'); RESET = null;
+      savePin(a); $('lock').classList.remove('on'); toast('تم حفظ رقمك السري الجديد ✔'); load();
+    })
+    .withFailureHandler(e => { btn.disabled = false; setMsg('rsMsg', false, errTxt(e)); })
+    .completeReset({ id: RESET && RESET.id, pin: a, pin2: b2 });
+};
+$('rsLater').onclick = () => { resetSkip = RESET && RESET.id; $('resetSheet').classList.remove('on'); };
+if (loadDb().role === 'partner' && !location.hash.includes('reset=')) {
+  checkReset();
+  setInterval(() => { if (!document.hidden) checkReset(); }, 45000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { resetSkip = null; checkReset(); } });
+}
+
+// --- رسائل لمرة وحدة ---
+function showOk(t, sub) { $('okTitle').textContent = t; $('okText').textContent = sub || ''; $('okSheet').classList.add('on'); }
+$('okBtn').onclick = () => $('okSheet').classList.remove('on');
+$('mailSave').onclick = () => {
+  setMsg('mailMsg', null, 'جاري الإرسال…'); $('mailSave').disabled = true;
+  google.script.run
+    .withSuccessHandler(r => { $('mailSave').disabled = false;
+      setMsg('mailMsg', true, r === 'activate' ? 'تم ✔ افتح إيميلك الحين واضغط Activate Form في رسالة FormSubmit (تفقد البريد غير الهام)' : 'تم ✔ الإيميل مفعّل ووصلتك رسالة تأكيد'); })
+    .withFailureHandler(e => { $('mailSave').disabled = false; if (pinError(e)) return; setMsg('mailMsg', false, errTxt(e)); })
+    .setRecMail({ email: $('recMail').value }, PIN);
+};
+// --- الدعم الفني نسي رمزه ---
+function openRec() {
+  ['rcCode', 'rc1', 'rc2'].forEach(k => $(k).value = ''); setMsg('rcMsg', null, ''); $('rcStep2').hidden = true; $('rcSend').hidden = false; $('rcSend').disabled = false;
+  google.script.run.withSuccessHandler(m => { $('rcInfo').textContent = 'بنرسل رمز تحقق على إيميلك: ' + m; }).recInfo();
+  $('recSheet').classList.add('on');
+}
+$('rcClose').onclick = () => $('recSheet').classList.remove('on');
+$('rcSend').onclick = () => {
+  $('rcSend').disabled = true; setMsg('rcMsg', null, 'جاري الإرسال…');
+  google.script.run
+    .withSuccessHandler(m => { $('rcSend').disabled = false; $('rcSend').textContent = '📧 إعادة الإرسال'; $('rcStep2').hidden = false;
+      setMsg('rcMsg', true, 'تم الإرسال ✔ افتح إيميلك ' + m + ' (تفقد Junk / البريد غير الهام)'); setTimeout(() => $('rcCode').focus(), 80); })
+    .withFailureHandler(e => { $('rcSend').disabled = false; setMsg('rcMsg', false, errTxt(e)); })
+    .sendRecovery();
+};
+$('rcSave').onclick = () => {
+  const a = $('rc1').value.trim(), b2 = $('rc2').value.trim();
+  if (!/^[0-9]{4,12}$/.test(a)) { setMsg('rcMsg', false, 'الرمز لازم يكون أرقام من 4 إلى 12 خانة'); return; }
+  if (a !== b2) { setMsg('rcMsg', false, 'الرمزين مو متطابقين، اكتبه مرة ثانية'); $('rc2').value = ''; return; }
+  $('rcSave').disabled = true;
+  google.script.run
+    .withSuccessHandler(() => { $('rcSave').disabled = false; $('recSheet').classList.remove('on'); savePin(a); $('lock').classList.remove('on'); load(); })
+    .withFailureHandler(e => { $('rcSave').disabled = false; setMsg('rcMsg', false, errTxt(e)); })
+    .adminRecover({ code: $('rcCode').value, pin: a, pin2: b2 });
+};
+
+// --- رابط تغيير الرقم السري (يفتح في Safari) ---
+const LR = (() => { const h = location.hash, r = (h.match(/reset=([^&]+)/) || [])[1], j = (h.match(/join=([^&]+)/) || [])[1]; return r && j ? { id: decodeURIComponent(r), code: j } : null; })();
+$('lrSave').onclick = () => {
+  const a = $('lr1').value.trim(), b2 = $('lr2').value.trim();
+  if (!/^[0-9]{4,12}$/.test(a)) { setMsg('lrMsg', false, 'الرقم السري لازم يكون أرقام من 4 إلى 12 خانة'); return; }
+  if (a !== b2) { setMsg('lrMsg', false, 'الرقمين مو متطابقين، اكتبه مرة ثانية'); $('lr2').value = ''; $('lr2').focus(); return; }
+  $('lrSave').disabled = true; setMsg('lrMsg', null, 'جاري التحديث…');
+  google.script.run
+    .withSuccessHandler(() => {
+      $('lrForm').hidden = true; $('lrDone').hidden = false;
+      try { history.replaceState(null, '', location.pathname); } catch (e) {}
+      if (navigator.vibrate) navigator.vibrate(80);
+    })
+    .withFailureHandler(e => { $('lrSave').disabled = false; setMsg('lrMsg', false, errTxt(e)); })
+    .resetByLink({ id: LR.id, code: LR.code, pin: a, pin2: b2 });
+};
+
+// --- تحديث التطبيق تلقائياً لما ننزّل نسخة جديدة على GitHub ---
+const formEmpty = () => !$('client').value.trim() && !$('phone').value.trim() && !items.some(it => +it.w > 0 || String(it.desc).trim());
+let updWanted = null;
+function applyUpdate() {
+  if (!updWanted) return;
+  const busy = !$('lock').classList.contains('on') && (!formEmpty() || document.querySelector('.sheet.on'));
+  if (busy) return;   // ما نقاطع فاتورة شغّال عليها، نحدّث بعدين
+  const v = updWanted; updWanted = null;
+  try { sessionStorage.setItem('rax3d_upd_try', v); localStorage.setItem('rax3d_updated', v); } catch (e) {}
+  fetch(location.pathname, { cache: 'reload' }).catch(() => {}).then(() => location.reload());
+}
+function checkUpdate() {
+  if (!/^https?:$/.test(location.protocol) || LR) return;
+  fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(t => {
+    const m = String(t).match(/const APP_VERSION = '(\d+)'/);
+    if (!m || +m[1] <= +APP_VERSION) return;
+    try { if (sessionStorage.getItem('rax3d_upd_try') === m[1]) return; } catch (e) {}   // منع التكرار
+    updWanted = m[1]; applyUpdate();
+  }).catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkUpdate(); applyUpdate(); } });
+setInterval(() => { if (!document.hidden) { checkUpdate(); applyUpdate(); } }, 5 * 60 * 1000);
+try { if (localStorage.getItem('rax3d_updated')) { localStorage.removeItem('rax3d_updated'); setTimeout(() => toast('✨ تم تحديث التطبيق لآخر نسخة'), 600); } } catch (e) {}
+
+if (LR) { $('boot').textContent = ''; $('linkReset').classList.add('on'); setTimeout(() => $('lr1').focus(), 80); }
+else {
+  checkUpdate();
+  if (isFirstRun()) { $('boot').textContent = ''; showFirstRun(); } else if (PIN) load(); else { $('boot').textContent = ''; showLock(''); }
+}
+</script>
+</body>
+</html>
