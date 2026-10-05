@@ -419,7 +419,7 @@ textarea{width:100%;background:var(--field);border:1px solid var(--line);border-
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const APP_VERSION = '33';
+const APP_VERSION = '34';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1381,18 +1381,21 @@ function makeXlsx(sheets) {
       const n = i + 1, ch = sh.chart;
       const png = chartPng(ch.title, ch.rows.map(r => String(sh.rows[r][0])), ch.series.map(se => ({ name: String(sh.rows[0][se.col]), color: '#' + se.color, vals: ch.rows.map(r => Number(sh.rows[r][se.col]) || 0) })));
       files.push([`xl/media/image${n}.png`, png.bytes]);
-      const a = ch.at || { col: 0, row: sh.rows.length + 1 }, cx = Math.round(png.w * 0.62 * 9525), cy = Math.round(png.h * 0.62 * 9525);
+      const ncol = Math.max(1, (sh.cols || []).length || sh.rows[0].length), wpx = (sh.cols || []).slice(0, ncol).reduce((t, w) => t + Math.round(w * 7 + 5), 0) || 700;
+      const nrow = Math.ceil(wpx * png.h / png.w / 20), a = { col: 0, row: sh.rows.length + 2 };
+      sh.chartRows = { from: a.row, to: a.row + nrow };   // صفوف فاضية تحت الجدول مخصصة للرسم
+      const cx = Math.round(wpx * 9525), cy = Math.round(nrow * 20 * 9525);
       files.push([`xl/drawings/drawing${n}.xml`, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-        `<xdr:oneCellAnchor><xdr:from><xdr:col>${a.col}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${a.row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="${cx}" cy="${cy}"/>` +
+        `<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>${a.col}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${a.row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>${a.col + ncol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${a.row + nrow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>` +
         `<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="Chart ${n}" descr="${x(ch.title)}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>` +
         `<xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>` +
-        `<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`]);
+        `<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`]);
       files.push([`xl/drawings/_rels/drawing${n}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${n}.png"/></Relationships>`]);
       files.push([`xl/worksheets/_rels/sheet${n}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${n}.xml"/></Relationships>`]);
     }
-    files.push([`xl/worksheets/sheet${i + 1}.xml`, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
+    files.push([`xl/worksheets/sheet${i + 1}.xml`, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView rightToLeft="1" workbookViewId="0">' + (sh.chart ? '' : '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>') + '</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>' +
       (sh.cols ? '<cols>' + sh.cols.map((w, ci) => `<col min="${ci + 1}" max="${ci + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>' : '') +
-      `<sheetData>${rows}</sheetData>` + (sh.chart ? '<drawing r:id="rId1"/>' : '') + '</worksheet>']);
+      `<sheetData>${rows}${sh.chartRows ? Array.from({ length: sh.chartRows.to - sh.chartRows.from + 1 }, (_, k) => `<row r="${sh.chartRows.from + k + 1}" ht="15" customHeight="1"/>`).join('') : ''}</sheetData>` + (sh.chart ? '<drawing r:id="rId1"/>' : '') + '</worksheet>']);
   });
   return zip(files);
 }
