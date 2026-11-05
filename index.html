@@ -283,7 +283,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
       <h3>الترقيم المشترك والربط مع مدخل البيانات</h3>
       <p id="syncState" style="font-size:14px;margin:0 0 12px"></p>
       <label for="syncRepo">اسم المستودع الخاص</label>
-      <input id="syncRepo" placeholder="RAX3D/rax3d-data" dir="ltr" autocomplete="off">
+      <input id="syncRepo" placeholder="rax3dsa/rax3d-data" dir="ltr" autocomplete="off">
       <label for="syncToken" style="margin-top:10px;display:block">رمز GitHub (Token)</label>
       <input id="syncToken" type="password" placeholder="github_pat_…" dir="ltr" autocomplete="off">
       <label for="syncNext" style="margin-top:10px;display:block">تغيير الرقم القادم (اختياري)</label>
@@ -502,7 +502,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '60';
+const APP_VERSION = '61';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1954,7 +1954,7 @@ $('restoreIn').onchange = () => {
 };
 function renderSync() {
   const sy = getSync(), st = $('syncState');
-  $('syncRepo').value = sy ? sy.repo : ($('syncRepo').value || 'RAX3D/rax3d-data');
+  $('syncRepo').value = sy ? sy.repo : ($('syncRepo').value || 'rax3dsa/rax3d-data');
   $('syncToken').placeholder = sy ? 'محفوظ ✔' : 'github_pat_…';
   $('syncOff').style.display = sy ? '' : 'none';
   st.style.color = sy ? 'var(--good)' : 'var(--mute)';
