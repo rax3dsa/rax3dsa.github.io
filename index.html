@@ -16,6 +16,8 @@ var l=m==='light'||(m==='auto'&&matchMedia('(prefers-color-scheme: light)').matc
 d.setAttribute('data-theme',l?'light':(m==='black'?'black':'dark'));
 var t=document.querySelector('meta[name=theme-color]');if(t)t.setAttribute('content',l?'#f5f0e4':(m==='black'?'#000000':'#1e1c18'));}catch(e){}})();
 </script>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://formsubmit.co https://rax3d.com; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://formsubmit.co; worker-src 'self' blob:; upgrade-insecure-requests">
+<meta name="referrer" content="no-referrer">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
