@@ -743,14 +743,7 @@ async function publishPoints() {
   // 1) النسخة الخاصة (مستودع rax3d-data): جوال ← نقاط. الـ worker يقرأ منها لما العميل يفتح المتجر، فما عاد يحتاج الموقع ملف عام فيه الأرصدة.
   const priv = {}; for (const [ph, v] of bal) if (v > 0) priv[ph] = v;
   await updateJson(sync, 'points_private.json', null, cur => (cur && cur.v === 1 && JSON.stringify(cur.p) === JSON.stringify(priv)) ? undefined : { v: 1, updated: Date.now(), p: priv }, 'تحديث أرصدة النقاط (خاص)');
-  // 2) النسخة العامة المشفرة (points.json في المتجر): مؤقتة لين يتأكد أن الموقع يقرأ من الـ worker، وبعدها تنحذف هذي الخطوة.
-  //    فشلها (مثلاً الرمز بدون صلاحية المتجر) ما يوقف النسخة الخاصة.
-  try {
-    let cache = {}; try { cache = JSON.parse(localStorage.getItem(PTS_CACHE) || '{}') || {}; } catch (e) {}
-    const p = {}; for (const [ph, v] of bal) if (v > 0) { if (!cache[ph]) cache[ph] = await ptsKey(ph); p[cache[ph]] = v; }
-    try { localStorage.setItem(PTS_CACHE, JSON.stringify(cache)); } catch (e) {}
-    await publicWritePoints(sync.token, p);
-  } catch (e) {}
+  // النسخة العامة (points.json في المتجر) أُلغيت نهائياً: الأرصدة تُقرأ من الـ worker فقط.
   try { localStorage.setItem('rax3d_pts_v', '3'); } catch (e) {}
   return Object.keys(priv).length;
 }
