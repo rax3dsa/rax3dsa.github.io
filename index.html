@@ -504,7 +504,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '64';
+const APP_VERSION = '65';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1299,7 +1299,7 @@ function drawInvoice(r, logo) {
       let ly = top + 70;
       lay.blocks.forEach(b => { b.forEach((ln, k) => { if (k === 0) txt('•', R - 20, ly, { s: lay.sz, c: GOLD, w: 700 }); txt(ln, R - 44, ly, { s: lay.sz, c: '#333' }); ly += lay.lh; }); ly += 6; });
     } else {
-      txt('الاستبدال والاسترجاع: للعيوب خلال 3 أيام من الاستلام وتطبق سياسة الاسترجاع والاستبدال، راجع التفاصيل بالموقع rax3d.com', W / 2, y + 45, { a: 'center', s: 20, c: '#444', max: W - 2 * M });
+      txt('الاستبدال والاسترجاع: للعيوب خلال 3 أيام من الاستلام وتطبق سياسة الاستبدال والاسترجاع، راجع التفاصيل بالموقع rax3d.com', W / 2, y + 45, { a: 'center', s: 20, c: '#444', max: W - 2 * M });
     }
   }
   // الفوتر
