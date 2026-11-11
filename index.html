@@ -504,11 +504,13 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '61';
+const APP_VERSION = '62';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
-const DEF_SETTINGS = { spool: 115, spoolW: 1000, run: 1.15, waste: 0.1, pack: 2.3, multSet: 3.5, multOne: 4.5, payFee: 3.2, payFix: 1.2, goalStart: 10000 };
+const DEF_SETTINGS = { spool: 115, spoolW: 1000, run: 1.15, waste: 0.1, pack: 2.3, multSet: 3.5, multOne: 4.5, payFee: 3.2, payFix: 1.2, goalStart: 10000, bankName: 'مصرف الراجحي', bankHolder: '', bankIban: '' };
+const STR_SET = ['bankName', 'bankHolder', 'bankIban'];   // إعدادات نصية (بيانات التحويل البنكي في الفاتورة)
+function ibanOk(v) { v = String(v || '').replace(/\s+/g, '').toUpperCase(); if (!/^SA\d{22}$/.test(v)) return false; const r = v.slice(4) + v.slice(0, 4); let m = 0; for (const ch of r) m = (m * (/\d/.test(ch) ? 10 : 100) + (/\d/.test(ch) ? +ch : ch.charCodeAt(0) - 55)) % 97; return m === 1; }
 function loadDb() {
   let d = null; try { d = JSON.parse(localStorage.getItem(DB_KEY) || 'null'); } catch (e) {}
   if (!d || typeof d !== 'object') d = {};
@@ -974,7 +976,9 @@ const API = {
   },
   async saveSettings(d, pin) {
     const db = await adminDb(pin);
-    Object.keys(DEF_SETTINGS).forEach(k => { if (d[k] !== undefined && d[k] !== '' && isFinite(+d[k])) db.settings[k] = +d[k]; });
+    Object.keys(DEF_SETTINGS).forEach(k => { if (STR_SET.indexOf(k) < 0 && d[k] !== undefined && d[k] !== '' && isFinite(+d[k])) db.settings[k] = +d[k]; });
+    if (d.bankIban !== undefined) { const iv = String(d.bankIban).replace(/\s+/g, '').toUpperCase(); if (iv && !ibanOk(iv)) throw new Error('رقم الآيبان غير صحيح (SA + 22 رقم)'); db.settings.bankIban = iv; }
+    ['bankName', 'bankHolder'].forEach(k => { if (d[k] !== undefined) db.settings[k] = String(d[k]).trim().slice(0, 80); });
     if (+d.nextNum > 0) db.nextNum = Math.floor(+d.nextNum);
     saveDb(db); pushSharedSoon(); return true;
   },
@@ -1232,7 +1236,7 @@ function drawInvoice(r, logo) {
   heads.forEach((h, k) => txt(h, xs[k][0] + xs[k][1] / 2, y + rh / 2, { a: 'center', c: GOLDL, w: 700 }));
   y += rh;
   const items = r.items && r.items.length ? r.items : [{ desc: r.desc, q: r.qty, unit: '', line: r.sub || r.total }];
-  const n = Math.max(items.length, 6);
+  const n = Math.max(items.length, 3);
   for (let k = 0; k < n; k++) {
     const it = items[k], fill = k % 2 ? CREAM : '#fff';
     xs.forEach(([cx, cw]) => box(cx, y, cw, rh, fill));
@@ -1257,6 +1261,19 @@ function drawInvoice(r, logo) {
     box(M, y, tw - tl, rh, last ? '#111' : null); txt(v, M + (tw - tl) / 2, y + rh / 2, { a: 'center', w: last ? 700 : 400, s: last ? 30 : 24, c: last ? GOLDL : INK });
     y += rh;
   });
+  // بيانات التحويل البنكي (من الإعدادات؛ تظهر فقط إذا الآيبان مُدخل)
+  const BS = (typeof DATA !== 'undefined' && DATA && DATA.settings) || S || {};
+  if (BS.bankIban && ibanOk(BS.bankIban)) {
+    y += 34; const bh = 228, bx = M, bw = W - 2 * M, ib = String(BS.bankIban).replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
+    c.fillStyle = '#FFFDF6'; c.fillRect(bx, y, bw, bh); c.fillStyle = GOLD; c.fillRect(bx, y, bw, 46);
+    c.strokeStyle = GOLD; c.lineWidth = 3; c.strokeRect(bx, y, bw, bh);
+    txt('بيانات التحويل البنكي', R - 20, y + 24, { w: 700, s: 26, c: '#fff' });
+    txt('Bank Transfer Details', bx + 20, y + 24, { w: 700, s: 22, c: '#fff', a: 'left', ltr: true });
+    const rowsB = [['البنك', BS.bankName || 'مصرف الراجحي', 0], ['اسم المستفيد', BS.bankHolder || '', 0], ['رقم الآيبان (IBAN)', ib, 1]];
+    rowsB.forEach(([l, v, isIban], k) => { const yy = y + 46 + 36 + k * 46; txt(l, R - 20, yy, { s: 22, c: '#666' }); txt(v, R - 260, yy, { w: 700, s: isIban ? 33 : 26, ltr: !!isIban, max: R - 260 - bx - 30 }); });
+    txt('بعد التحويل أرسل صورة الإيصال مع رقم الطلب \u2066ORD-' + r.num + '\u2069 عبر الخاص لتأكيد الطلب.', R - 20, y + bh - 22, { s: 20, c: '#777' });
+    y += bh;
+  }
   // سياسة الاستبدال والاسترجاع (تنطبع على كل فاتورة)
   const POLICY = [
     'إذا وصلتك القطعة مكسورة، أو فيها عيب طباعة، أو تختلف عن طلبك في اللون أو المقاس، راسلنا خلال 3 أيام من الاستلام مع صورة، ونعيد طباعتها أو نستبدلها مجاناً.',
@@ -1911,11 +1928,12 @@ async function checkMonthly() {   // أول ما ينفتح التطبيق في 
 
 // ================= إعدادات، نسخ احتياطي، أول تشغيل =================
 const SET_FIELDS = [['spool', 'سعر البكرة (ريال)'], ['spoolW', 'وزن البكرة (جم)'], ['run', 'التشغيل للساعة (ريال)'], ['waste', 'الهدر (0.1 = 10%)'],
-  ['pack', 'التغليف (ريال)'], ['multOne', 'مضاعف القطعة الواحدة'], ['multSet', 'مضاعف المجموعة والجملة'], ['payFee', 'رسوم الدفع الإلكتروني (% من المبلغ)'], ['payFix', 'رسوم الدفع الثابتة لكل عملية (ريال)'], ['goalStart', 'هدف المبيعات الأول'], ['nextNum', 'رقم الفاتورة القادم']];
+  ['pack', 'التغليف (ريال)'], ['multOne', 'مضاعف القطعة الواحدة'], ['multSet', 'مضاعف المجموعة والجملة'], ['payFee', 'رسوم الدفع الإلكتروني (% من المبلغ)'], ['payFix', 'رسوم الدفع الثابتة لكل عملية (ريال)'], ['goalStart', 'هدف المبيعات الأول'], ['nextNum', 'رقم الفاتورة القادم'],
+  ['bankName', 'اسم البنك (يظهر في الفاتورة)'], ['bankHolder', 'اسم صاحب الحساب (المستفيد)'], ['bankIban', 'رقم الآيبان IBAN']];
 function renderSettings() {
   if (!DATA) return;
   const v = Object.assign({}, DATA.settings, { nextNum: DATA.nextNum });
-  $('setGrid').innerHTML = SET_FIELDS.map(([k, l]) => `<div><label for="set_${k}">${l}</label><input id="set_${k}" type="number" inputmode="decimal" value="${esc(v[k])}"></div>`).join('');
+  $('setGrid').innerHTML = SET_FIELDS.map(([k, l]) => `<div><label for="set_${k}">${l}</label><input id="set_${k}" ${STR_SET.indexOf(k) < 0 ? 'type="number" inputmode="decimal"' : 'type="text" ' + (k === 'bankIban' ? 'dir="ltr" autocapitalize="characters" placeholder="SA00 0000 0000 0000 0000 0000"' : '')} value="${esc(v[k] || '')}"></div>`).join('');
 }
 $('setSave').onclick = () => {
   const d = {}; SET_FIELDS.forEach(([k]) => d[k] = $('set_' + k).value.trim());
