@@ -17,7 +17,7 @@ var l=m==='light'||(m==='auto'&&matchMedia('(prefers-color-scheme: light)').matc
 d.setAttribute('data-theme',l?'light':(m==='black'?'black':'dark'));
 var t=document.querySelector('meta[name=theme-color]');if(t)t.setAttribute('content',l?'#f5f0e4':(m==='black'?'#000000':'#1e1c18'));}catch(e){}})();
 </script>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://formsubmit.co https://rax3d.com; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://formsubmit.co; worker-src 'self' blob:; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://formsubmit.co https://rax3d.com https://rax3d-pay.rax3d.workers.dev; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://formsubmit.co; worker-src 'self' blob:; upgrade-insecure-requests">
 <meta name="referrer" content="no-referrer">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
@@ -505,7 +505,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '67';
+const APP_VERSION = '68';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -822,6 +822,12 @@ function postFileMail(to, all, file) {   // إرسال ملف (أو عدة مل�
     fm.submit();
   });
 }
+const PAY_API = 'https://rax3d-pay.rax3d.workers.dev';
+async function mailCodeViaWorker(code) {   // v68: الـ Worker يرسل رمز الاسترجاع لإيميل المالك لما يفشل FormSubmit
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 15000);
+  try { const res = await fetch(PAY_API + '/recovery', { method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code }) }); const j = await res.json().catch(() => ({})); return res.ok && j.ok ? 'sent' : null; }
+  finally { clearTimeout(t); }
+}
 async function sendMail(to, fields, file) {   // إرسال إيميل عبر خدمة FormSubmit المجانية (مع مرفق اختياري)
   const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), file ? 45000 : 15000);
   const all = Object.assign({ _template: 'box', _captcha: 'false' }, fields, { 'مع تحيات': SIGN });
@@ -996,7 +1002,9 @@ const API = {
     const r0 = db.recMail0 || {};
     if (r0.sent && Date.now() - r0.sent < 60000) throw new Error('انتظر دقيقة قبل ما تطلب رمز ثاني');
     const code = String(randCode()).slice(0, 6), m = db.recMail || DEF_MAIL;
-    const r = await sendMail(m, { _subject: '🔑 رمز استرجاع دخول الدعم الفني: ' + code, 'رمز التحقق': code, 'الوقت': nowStr(), 'ملاحظة': 'صالح لمدة 15 دقيقة. إذا ما طلبته تجاهل هذي الرسالة.' });
+    let r = null;
+    if (m === DEF_MAIL) { try { r = await mailCodeViaWorker(code); } catch (e) { r = null; } }   // v68: مسار لا يعتمد على FormSubmit، وإن فشل نرجع له
+    if (!r) r = await sendMail(m, { _subject: '🔑 رمز استرجاع دخول الدعم الفني: ' + code, 'رمز التحقق': code, 'الوقت': nowStr(), 'ملاحظة': 'صالح لمدة 15 دقيقة. إذا ما طلبته تجاهل هذي الرسالة.' });
     if (r === 'activate') throw new Error('الإيميل يحتاج تفعيل أول مرة — افتح رسالة FormSubmit في ' + maskMail(m) + ' واضغط Activate Form، وبعدها اطلب الرمز مرة ثانية');
     const db2 = loadDb(); db2.recMail0 = { hash: await hashPin('mail:' + code), exp: Date.now() + 15 * 60000, n: 0, sent: Date.now() }; saveDb(db2);
     return maskMail(m);
