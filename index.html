@@ -505,7 +505,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '66';
+const APP_VERSION = '67';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1957,11 +1957,13 @@ $('restoreIn').onchange = () => {
   f.text().then(t => {
     const d = JSON.parse(t);
     if (!d || !Array.isArray(d.log) || !d.settings) throw new Error('هذا ليس ملف نسخة RAX3D');
+    const cur = loadDb();   // v66: نقرأ بيانات هذا الجوال قبل أي كتابة. كان الملف يُكتب أولًا فتضيع رموز الدخول وينقفل الجوال
+    if (cur.role && d.role && d.role !== cur.role) throw new Error('هذي نسخة ' + (d.role === 'admin' ? 'الدعم الفني' : 'مدخل البيانات') + ' وما تنفع على هذا الجوال');
     if (!confirm('بيتم استبدال كل بيانات هذا الجوال بـ ' + d.log.length + ' فاتورة من الملف. متأكد؟')) return;
-    localStorage.setItem(DB_KEY, JSON.stringify(d));
-    msg.style.color = 'var(--good)'; msg.textContent = 'تم الاسترجاع ✔';
-    const cur = loadDb(); ['pins', 'role', 'shared', 'fails'].forEach(k => { if (d[k] === undefined || d[k] === null) d[k] = cur[k]; });   // نسخة v47 ما فيها رموز: نخلي رموز هذا الجوال
-    if (!d.role && d.pins && (d.pins.admin || d.pins.adminH)) d.role = 'admin'; localStorage.setItem(DB_KEY, JSON.stringify(d)); if (d.pins && d.pins.admin) savePin(d.pins.admin);
+    ['pins', 'role', 'shared', 'fails', 'recMail', 'recMail0', 'pinNotice', 'recHash'].forEach(k => { if (d[k] === undefined || d[k] === null) d[k] = cur[k]; });   // نسخة v47 ما فيها رموز: نخلي رموز هذا الجوال
+    if (!d.role && d.pins && (d.pins.admin || d.pins.adminH)) d.role = 'admin';
+    localStorage.setItem(DB_KEY, JSON.stringify(d)); if (d.pins && d.pins.admin) savePin(d.pins.admin);
+    msg.style.color = 'var(--good)'; msg.textContent = (d.pins && (d.pins.admin || d.pins.adminH || d.pins.partnerSH)) ? 'تم الاسترجاع ✔' : 'تم الاسترجاع ✔ — هذا الجوال بلا رمز دخول: اضغط «نسيت الرمز» لتعيين رمز جديد';
     migratePins().catch(() => {}).then(() => load());
   }).catch(e => { msg.style.color = 'var(--bad)'; msg.textContent = 'تعذّر الاسترجاع: ' + ((e && e.message) || e); })
     .finally(() => { $('restoreIn').value = ''; });
