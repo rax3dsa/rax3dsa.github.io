@@ -442,6 +442,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   </div>
   <div id="edItems"></div>
   <button type="button" class="ghost" id="edAdd" style="margin-top:10px">＋ إضافة قطعة</button>
+  <button type="button" class="ghost" id="edGift" style="margin-top:8px">🎁 إضافة هدية (اسم فقط)</button>
   <p style="color:var(--mute);font-size:12px;margin:6px 0 0">لحذف قطعة اضغط «× حذف القطعة» (أو اكتب عددها 0) — لما تغيّر الوزن أو الوقت يتحدث السعر التلقائي، وتقدر تكتب سعر بنفسك</p>
   <p class="edsum" id="edSum"></p>
   <p class="err" id="edMsg"></p>
@@ -507,7 +508,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '70';
+const APP_VERSION = '71';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1146,6 +1147,7 @@ const API = {
     const old = r.items || [], sub0 = Number(r.sub) || old.reduce((a, i) => a + (+i.line || 0), 0), cost0 = (Number(r.total) || 0) - (Number(r.profit) || 0);
     let allW = true;
     const its = (d.items || []).map((it, i) => {
+      if (it.gift) { const g = String(it.desc || '').trim(); if (!g) throw new Error('اكتب اسم الهدية'); return { desc: g, q: 1, unit: 0, line: 0, cost: 0, w: 0, h: 0, m: 0, sec: 0, type: 'واحدة', auto: false, dp: 0, gift: true, _d: 0, _s: 0 } }
       const oi = Number.isInteger(+it.oi) && it.oi !== '' && it.oi !== null ? +it.oi : -1, o = (oi >= 0 && old[oi]) || {}, isNew = !o.desc && !o.q && oi < 0, q = Math.max(0, Math.floor(+it.q || 0)), w = Math.max(0, +it.w || 0);
       const type = it.type === 'مجموعة' ? 'مجموعة' : 'واحدة';
       let cost, sugg = 0;
@@ -1160,11 +1162,12 @@ const API = {
         w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: type, auto: auto, dp: dp, _d: R2(unit * q * dp / 100), _s: sugg };
     }).filter(it => it.q > 0);
     if (!its.length) throw new Error('لازم تبقى قطعة واحدة على الأقل');
+    if (!its.some(i => !i.gift)) throw new Error('لازم تبقى قطعة مدفوعة واحدة على الأقل مع الهدية');
     const sub = R2(its.reduce((a, i) => a + i.line, 0)), disc = R2(its.reduce((a, i) => a + i._d, 0)), total = R2(sub - disc);
     const sugg = allW ? R2(its.reduce((a, i) => a + (i.auto ? 0 : i._s * i.q), 0)) : r.sugg;
     its.forEach(i => { delete i._s; delete i._d; });
     Object.assign(r, { client: String(d.client || '').trim(), phone: String(d.phone || '').trim(), items: its, sub: sub, disc: disc, total: total, sugg: sugg,
-      qty: its.reduce((a, i) => a + i.q, 0), desc: its.map(i => i.desc + ' (' + i.q + ')').join(' ، '),
+      qty: its.reduce((a, i) => a + (i.gift ? 0 : i.q), 0), desc: its.map(i => i.desc + (i.gift ? ' (هدية)' : ' (' + i.q + ')')).join(' ، '),
       profit: R2(total - its.reduce((a, i) => a + i.cost * i.q, 0)), edited: todayStr() });
     saveDb(db); publishPointsSoon(); return true;
   },
@@ -1271,8 +1274,10 @@ function drawInvoice(r, logo) {
     if (it) {
       txt(it.desc, xs[1][0] + xs[1][1] - 14, y + rh / 2, { max: xs[1][1] - 28 });
       txt(it.q, xs[2][0] + xs[2][1] / 2, y + rh / 2, { a: 'center', ltr: true });
+      if (it.gift) { txt('هدية', xs[3][0] + xs[3][1] / 2, y + rh / 2, { a: 'center', c: GOLD }); txt('هدية', xs[4][0] + xs[4][1] / 2, y + rh / 2, { a: 'center', c: GOLD }); }
+      else {
       if (it.unit !== '') txt(money(it.unit), xs[3][0] + xs[3][1] / 2, y + rh / 2, { a: 'center' });
-      txt(money(it.line), xs[4][0] + xs[4][1] / 2, y + rh / 2, { a: 'center' });
+      txt(money(it.line), xs[4][0] + xs[4][1] / 2, y + rh / 2, { a: 'center' }); }
     }
     y += rh;
   }
@@ -2437,7 +2442,7 @@ function edCalc(it) {
 }
 function openEdit(key) {
   const r = DATA && DATA.log.find(x => rk(x) === key); if (!r) return;
-  ED = { key: key, num: r.num, items: (r.items || []).map((i, oi) => ({ oi: oi, desc: i.desc, q: i.q, unit: i.unit, w: i.w || '', h: i.h || '', m: i.m || '', sec: i.sec || '',
+  ED = { key: key, num: r.num, items: (r.items || []).map((i, oi) => ({ oi: oi, gift: i.gift === true, desc: i.desc, q: i.q, unit: i.unit, w: i.w || '', h: i.h || '', m: i.m || '', sec: i.sec || '',
     type: i.type || 'واحدة', auto: i.auto === true, dp: i.dp !== undefined ? +i.dp || 0 : 0 })) };
   if (!(r.items || []).some(i => i.dp !== undefined) && +r.disc > 0) {   // فاتورة قديمة: نوزّع خصمها كنسبة واحدة على كل القطع (نفس المجموع)
     const sub = ED.items.reduce((a, i) => a + (+i.q || 0) * (+i.unit || 0), 0); if (sub > 0) ED.items.forEach(i => i.dp = +r.disc / sub * 100);
@@ -2447,7 +2452,7 @@ function openEdit(key) {
   renderEdItems(); $('edSheet').classList.add('on');
 }
 function renderEdItems() {
-  $('edItems').innerHTML = ED.items.map((it, i) => `<div class="ed-it" data-i="${i}"><div style="display:flex;justify-content:space-between;align-items:center"><label>${it.oi < 0 ? 'قطعة جديدة' : 'وصف القطعة'}</label>${ED.items.length > 1 ? '<button type="button" class="ghost" data-rm="1" style="width:auto;margin:0;padding:4px 12px;font-size:13px;color:var(--bad);border-color:rgba(255,123,107,.45)">× حذف القطعة</button>' : ''}</div><input data-k="desc" value="${esc(it.desc)}" list="catList" autocomplete="off" placeholder="وصف القطعة">
+  $('edItems').innerHTML = ED.items.map((it, i) => it.gift ? `<div class="ed-it" data-i="${i}"><div style="display:flex;justify-content:space-between;align-items:center"><label>🎁 هدية</label>${ED.items.length > 1 ? '<button type="button" class="ghost" data-rm="1" style="width:auto;margin:0;padding:4px 12px;font-size:13px;color:var(--bad);border-color:rgba(255,123,107,.45)">× حذف القطعة</button>' : ''}</div><input data-k="desc" value="${esc(it.desc)}" placeholder="اسم الهدية" autocomplete="off"><div class="hint">تظهر في الفاتورة بكلمة «هدية» بدون سعر، ولا تدخل في المجموع</div></div>` : `<div class="ed-it" data-i="${i}"><div style="display:flex;justify-content:space-between;align-items:center"><label>${it.oi < 0 ? 'قطعة جديدة' : 'وصف القطعة'}</label>${ED.items.length > 1 ? '<button type="button" class="ghost" data-rm="1" style="width:auto;margin:0;padding:4px 12px;font-size:13px;color:var(--bad);border-color:rgba(255,123,107,.45)">× حذف القطعة</button>' : ''}</div><input data-k="desc" value="${esc(it.desc)}" list="catList" autocomplete="off" placeholder="وصف القطعة">
     <div class="grid g4" style="margin-top:8px">
       <div><label>الوزن (جم)</label><input data-k="w" type="number" inputmode="decimal" value="${esc(it.w)}"></div>
       <div><label>ساعات</label><input data-k="h" type="number" inputmode="numeric" value="${esc(it.h)}"></div>
@@ -2477,7 +2482,7 @@ function edSum() {
 $('edItems').addEventListener('input', e => {
   const k = e.target.dataset.k; if (!k) return;
   const it = ED.items[+e.target.closest('.ed-it').dataset.i]; it[k] = e.target.value;
-  if (k === 'desc') {   // نفس الفاتورة الجديدة: اختيار قطعة من الكتالوج يعبّي الوزن والوقت والسعر
+  if (k === 'desc' && !it.gift) {   // نفس الفاتورة الجديدة: اختيار قطعة من الكتالوج يعبّي الوزن والوقت والسعر
     const c = findCat(e.target.value);
     if (c) { Object.assign(it, { w: c.w || '', h: c.h || '', m: c.m || '', sec: c.sec || '', unit: c.price || '', auto: !c.price && !!(+c.w) }); renderEdItems(); return; }
   }
@@ -2493,6 +2498,11 @@ $('edItems').addEventListener('click', e => {
 $('edAdd').onclick = () => {
   if (ED.items.length >= 10) { setMsg('edMsg', false, 'الحد الأقصى 10 قطع في الفاتورة'); return; }
   ED.items.push({ oi: -1, desc: '', q: 1, unit: '', w: '', h: '', m: '', sec: '', type: 'واحدة', auto: false, dp: 0 }); renderEdItems();
+  const L = document.querySelectorAll('#edItems .ed-it'); const last = L[L.length - 1]; if (last) { last.scrollIntoView({ block: 'center' }); const f = last.querySelector('[data-k="desc"]'); if (f) f.focus(); }
+};
+$('edGift').onclick = () => {
+  if (ED.items.length >= 10) { setMsg('edMsg', false, 'الحد الأقصى 10 قطع في الفاتورة'); return; }
+  ED.items.push({ oi: -1, gift: true, desc: '', q: 1, unit: 0, w: '', h: '', m: '', sec: '', type: 'واحدة', auto: false, dp: 0 }); renderEdItems();
   const L = document.querySelectorAll('#edItems .ed-it'); const last = L[L.length - 1]; if (last) { last.scrollIntoView({ block: 'center' }); const f = last.querySelector('[data-k="desc"]'); if (f) f.focus(); }
 };
 $('edClose').onclick = () => $('edSheet').classList.remove('on');
