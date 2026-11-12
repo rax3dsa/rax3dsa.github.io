@@ -447,6 +447,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   <button class="save" id="edSave">حفظ التعديل</button>
   <button class="ghost" id="edClose">إلغاء</button>
   <button class="ghost" id="edDel" style="color:var(--bad);border-color:rgba(255,123,107,.45);margin-top:22px">🚫 إلغاء الفاتورة (يبقى رقمها)</button>
+  <button class="ghost" id="edHard" style="color:var(--bad);border-color:rgba(255,123,107,.45);margin-top:10px">🗑 حذف نهائي من السجل (ويرجع الرقم لو هي الأخيرة)</button>
 </div></div>
 
 <div class="sheet" id="resetSheet" style="z-index:45"><div class="box">
@@ -505,7 +506,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '68';
+const APP_VERSION = '69';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1164,6 +1165,21 @@ const API = {
       qty: its.reduce((a, i) => a + i.q, 0), desc: its.map(i => i.desc + ' (' + i.q + ')').join(' ، '),
       profit: R2(total - its.reduce((a, i) => a + i.cost * i.q, 0)), edited: todayStr() });
     saveDb(db); publishPointsSoon(); return true;
+  },
+  async deleteInvoice(d, pin) {   // v69: حذف نهائي من السجل. لو كانت آخر فاتورة يرجع رقمها للعداد، وإلا يبقى الرقم فجوة (ما نغيّر أرقام فواتير صدرت للعملاء)
+    const db = await adminDb(pin);
+    const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
+    const n = Number(r.num), last = !db.log.some(x => x !== r && Number(x.num) >= n) && db.nextNum === n + 1;
+    db.log = db.log.filter(x => x !== r);
+    if (last) db.nextNum = n;
+    saveDb(db);
+    const sync = getSync();
+    if (sync) {
+      try { await updateJson(sync, 'partner_log.json', [], arr => { if (!Array.isArray(arr)) return undefined; const k = arr.filter(x => !(x && Number(x.num) === n)); return k.length === arr.length ? undefined : k }, 'حذف الفاتورة ' + n); } catch (e) {}
+      if (last) { try { const c = await readCounter(sync); if (c.next === n + 1) await setCounter(sync, n); } catch (e) {} }
+    }
+    publishPointsSoon();
+    return { num: n, freed: last };
   },
   async voidInvoice(d, pin) {   // v47: «إلغاء» بدل الحذف — الرقم يبقى، الحالة ملغاة، وتطلع من المجاميع والنقاط
     const db = await adminDb(pin);
@@ -2483,6 +2499,16 @@ $('edDel').onclick = () => {
       load(); })
     .withFailureHandler(e => { btn.disabled = false; if (pinError(e)) return; setMsg('edMsg', false, errTxt(e)); })
     .voidInvoice({ key: ED.key }, PIN);
+};
+$('edHard').onclick = () => {
+  const n = ED.num;
+  if (!confirm('حذف الفاتورة رقم ' + n + ' نهائيًا من السجل؟\n\nلا يمكن التراجع. لو هي آخر فاتورة يرجع رقمها وتنعاد الفاتورة التالية بنفس الرقم، وإذا بعدها فواتير يبقى رقمها فجوة (أرقام الفواتير الصادرة للعملاء ما تتغير). للإبقاء على الرقم استخدم «إلغاء».')) return;
+  if (!confirm('تأكيد أخير: حذف الفاتورة ' + n + ' نهائيًا؟')) return;
+  const btn = $('edHard'); btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(r => { btn.disabled = false; $('edSheet').classList.remove('on'); toast('🗑 انحذفت الفاتورة ' + r.num + (r.freed ? ' ورجع رقمها للعداد' : ' (الرقم صار فجوة)')); mailedFiles.clear(); load(); })
+    .withFailureHandler(e => { btn.disabled = false; if (pinError(e)) return; setMsg('edMsg', false, errTxt(e)); })
+    .deleteInvoice({ key: ED.key }, PIN);
 };
 $('edSave').onclick = () => {
   const btn = $('edSave'); btn.disabled = true;
