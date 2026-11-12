@@ -63,7 +63,15 @@ header{display:flex;align-items:center;justify-content:space-between;padding:16p
 .num b{display:block;color:var(--text);font-size:20px}
 
 nav{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:16px;position:sticky;top:env(safe-area-inset-top,0);z-index:5}
-nav button{flex:1;border:0;background:none;padding:9px 4px;border-radius:999px;font-size:15px;color:var(--mute);cursor:pointer}
+nav button{flex:1;border:0;background:none;padding:9px 2px;border-radius:999px;font-size:14px;color:var(--mute);cursor:pointer;position:relative;white-space:nowrap}
+nav button i{position:absolute;top:5px;inset-inline-end:8px;width:9px;height:9px;border-radius:50%;background:#e5484d}
+.stk-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.stk-tabs button{flex:none;border:1px solid var(--line);background:var(--field);color:var(--mute);border-radius:999px;padding:8px 14px;cursor:pointer}.stk-tabs button.on{background:var(--gold-d);color:#000;font-weight:700;border-color:var(--gold)}
+.stk-row{display:grid;grid-template-columns:1.3fr 1.1fr 1fr 28px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.stk-row.hd{color:var(--mute);font-size:12.5px;border-bottom:2px solid var(--line)}
+.stk-c{display:flex;align-items:center;gap:8px}.stk-c i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.55);flex:none}
+.stk-q{display:flex;align-items:center;gap:4px}.stk-q button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--text);cursor:pointer;font-size:18px;padding:0}.stk-q b{min-width:26px;text-align:center}
+.stk-b{border:0;border-radius:999px;padding:7px 4px;font-size:13px;font-weight:700;cursor:pointer;color:#fff}.stk-b.ok{background:#2f9a57}.stk-b.buy{background:#d64545}
+.stk-x{border:0;background:none;color:var(--mute);cursor:pointer;font-size:18px;padding:0}
+.stk-due{border:1px solid #d64545;background:rgba(214,69,69,.12);border-radius:12px;padding:10px 12px;margin:10px 0;line-height:1.8}
 nav button.on{background:var(--gold);color:#000;font-weight:700}
 section{display:none} section.on{display:block}
 
@@ -245,6 +253,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button class="on" data-tab="new">فاتورة جديدة</button>
     <button data-tab="log">السجل</button>
     <button data-tab="stats" class="adm">الإحصائيات</button>
+    <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
   </nav>
 
   <div id="boot" class="loading">جاري التحميل…</div>
@@ -286,6 +295,21 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     </div>
     <input class="search" id="q" placeholder="ابحث باسم العميل أو الجوال أو رقم الفاتورة">
     <div id="logList"></div>
+  </section>
+
+  <section id="stock">
+    <h2 style="margin:6px 0 2px;font-size:20px">🧵 جرد الفلمنت</h2>
+    <div class="hint" id="stkSync" style="margin-bottom:4px"></div>
+    <div class="stk-due" id="stkDue" hidden></div>
+    <div class="stk-tabs" id="stkTabs"></div>
+    <div class="hint" id="stkNote" style="margin:0 0 8px;line-height:1.8"></div>
+    <div id="stkBody"></div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="stkColSel" style="flex:1;min-width:130px"></select><input id="stkColTxt" placeholder="اسم اللون" hidden style="flex:1;min-width:110px"><button class="ghost" id="stkAddColor" style="margin:0;width:auto">＋ إضافة لون</button>
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px"><input id="stkTypeTxt" placeholder="نوع فلمنت جديد (مثل PETG)" style="flex:1"><button class="ghost" id="stkAddType" style="margin:0;width:auto">＋ نوع</button></div>
+    <button class="save" id="stkDone" style="margin-top:14px">✔ تم الجرد (التذكير القادم بعد أسبوعين)</button>
+    <p class="hint" id="stkMsg" style="margin:8px 0 0"></p>
   </section>
 
   <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button><button class="ghost" id="monthNow">📧 التقرير الشهري الآن</button></div><div id="statList"></div>
@@ -531,7 +555,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '79';
+const APP_VERSION = '80';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -761,6 +785,7 @@ async function updateJson(sync, path, def, fn, msg) {
 }
 async function readCounter(sync) { const c = await readJson(sync, 'counter.json', null); return { next: c.data ? Number(c.data.next) || 1 : null, sha: c.sha }; }
 function writeCounter(sync, next, sha) { return writeJson(sync, 'counter.json', { next: next }, sha, 'رقم الفاتورة القادم ' + next); }
+
 
 // ================= الحسابين: الدعم الفني ومدخل البيانات =================
 async function pullShared(db) {   // جوال مدخل البيانات يجيب الإعدادات ورمزه من الدعم الفني
@@ -1601,6 +1626,99 @@ $('items').addEventListener('click', e => {
 });
 $('addBtn').onclick = () => { if (items.length < 10) { items.push(newItem()); renderItems(); } };
 
+// ================= v80: جرد الفلمنت (مشترك بين الدعم الفني ومدخل البيانات، ومربوط بالموقع) =================
+// stock.json في المستودع الخاص: { v, types:[{name, site}], rows:[{t, c, q, buy}], next:'YYYY-MM-DD', mailedFor, u }
+// buy=true («طلب شراء») ← اللون يظهر في الموقع بخط أحمر «غير متوفر» (للأنواع المربوطة بالموقع). الموقع يقرأه عبر الـWorker (/stock).
+const STK_COLORS = SHOP_COLORS.filter(c => c[1]).map(c => c[0]), STK_HEX = Object.fromEntries(SHOP_COLORS.map(c => [c[0], c[1]]));
+const STK_START = '2026-11-26';   // أول موعد جرد: بعد أسبوعين من تاريخ الطلب (12 نوفمبر 2026)
+const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+function stkDefault() {
+  const rows = STK_COLORS.map(c => ({ t: 'PLA', c: c, q: 1, buy: c === 'بنفسجي' }));   // نفس حال الموقع اليوم: البنفسجي غير متوفر
+  return { v: 1, types: [{ name: 'PLA', site: true }, { name: 'PETG', site: false }], rows: rows, next: STK_START, mailedFor: '', u: 0 };
+}
+let STK = null, STK_TYPE = '', STK_Q = [], STK_T = null, STK_BUSY = false, STK_OK = false;
+function stkNorm(d) {
+  d = d && typeof d === 'object' ? d : stkDefault(); d.types = (Array.isArray(d.types) && d.types.length ? d.types : stkDefault().types).map(t => ({ name: String(t.name || '').slice(0, 20), site: !!t.site })).filter(t => t.name);
+  d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy })).filter(r => r.t && r.c);
+  d.next = /^\d{4}-\d{2}-\d{2}$/.test(d.next) ? d.next : STK_START; d.mailedFor = d.mailedFor || ''; return d;
+}
+const stkRow = (d, t, c) => d.rows.find(r => r.t === t && r.c === c);
+function stkLoadLocal() { try { const db = loadDb(); STK = stkNorm(db.stock); } catch (e) { STK = stkNorm(null); } }
+function stkSaveLocal() { try { const db = loadDb(); db.stock = STK; localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {} }
+async function stkSync(force) {
+  if (STK_BUSY || STK_Q.length) return; const sy = getSync(); STK_BUSY = true;
+  try {
+    if (!sy) { STK_OK = false; return; }
+    const r = await readJson(sy, 'stock.json', null);
+    if (r.data) STK = stkNorm(r.data);
+    else { STK = stkNorm(STK); await updateJson(sy, 'stock.json', null, d => d ? undefined : STK, 'إنشاء جرد الفلمنت'); }
+    STK_OK = true; stkSaveLocal();
+  } catch (e) { STK_OK = false; }
+  finally { STK_BUSY = false; }
+  stkRender(); stkDueCheck();
+}
+function stkEdit(m) {   // m(d) تُطبَّق فورًا على النسخة المحلية، وتُكتب للمستودع بعد 0.7 ثانية (تجمع الضغطات المتتالية في كتابة واحدة)
+  m(STK); stkSaveLocal(); stkRender(); STK_Q.push(m); clearTimeout(STK_T); STK_T = setTimeout(stkFlush, 700); $('stkMsg').textContent = '';
+}
+async function stkFlush() {
+  const q = STK_Q.splice(0); if (!q.length) return; const sy = getSync();
+  if (!sy) { $('stkMsg').textContent = 'محفوظ على هذا الجوال فقط: الربط المشترك غير مفعّل'; return; }
+  try {
+    const nd = await updateJson(sy, 'stock.json', null, d => { d = stkNorm(d || STK); q.forEach(m => m(d)); d.u = Date.now(); return d; }, 'تحديث جرد الفلمنت');
+    STK = stkNorm(nd); STK_OK = true; stkSaveLocal(); $('stkMsg').style.color = 'var(--good)'; $('stkMsg').textContent = 'تم الحفظ ✔ والموقع يتحدث خلال دقيقة';
+  } catch (e) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'تعذّر الحفظ، جرّب مرة ثانية: ' + ((e && e.message) || e); STK_OK = false; setTimeout(() => stkSync(true), 1500); }
+  stkRender();
+}
+function stkRender() {
+  if (!STK) stkLoadLocal(); const d = STK;
+  if (!d.types.some(t => t.name === STK_TYPE)) STK_TYPE = d.types[0].name;
+  $('stkTabs').innerHTML = d.types.map(t => `<button type="button" data-ty="${esc(t.name)}" class="${t.name === STK_TYPE ? 'on' : ''}">${esc(t.name)}${t.site ? ' 🔗' : ''}</button>`).join('');
+  const ty = d.types.find(t => t.name === STK_TYPE), rows = d.rows.filter(r => r.t === STK_TYPE);
+  $('stkNote').innerHTML = ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «طلب شراء» يظهر للعميل بخط أحمر «غير متوفر»، وإذا تحوّل لـ«لا يلزم» يرجع متوفرًا. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
+    : 'هذا النوع غير مربوط بالموقع (للجرد فقط). <button type="button" class="linkbtn" data-site="1">ربطه بالموقع</button>';
+  $('stkBody').innerHTML = '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>طلب شراء؟</span><span></span></div>' + (rows.length ? rows.map(r => `<div class="stk-row" data-c="${esc(r.c)}"><span class="stk-c"><i style="${STK_HEX[r.c] ? 'background:' + STK_HEX[r.c] : ''}"></i>${esc(r.c)}</span>
+      <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
+      <button type="button" class="stk-b ${r.buy ? 'buy' : 'ok'}" data-buy="1">${r.buy ? '🔴 اطلب شراء' : '🟢 لا يلزم'}</button>
+      <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">لا ألوان في هذا النوع، أضف من الأسفل.</p>');
+  const have = new Set(rows.map(r => r.c)), left = STK_COLORS.filter(c => !have.has(c));
+  $('stkColSel').innerHTML = left.map(c => `<option>${c}</option>`).join('') + '<option value="__o">لون آخر…</option>'; $('stkColTxt').hidden = $('stkColSel').value !== '__o';
+  $('stkSync').textContent = getSync() ? (STK_OK ? '🔄 مرتبط ومتزامن مع الجهاز الثاني والموقع' : '⚠️ تعذّر الاتصال، المعروض آخر نسخة محفوظة') : '📴 الربط المشترك غير مفعّل: الجرد على هذا الجوال فقط ولا يؤثر على الموقع';
+  const n = d.rows.filter(r => r.buy).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
+}
+function stkDueCheck() {
+  const d = STK; if (!d) return; const due = todayStr() >= d.next;
+  $('stkDue').hidden = !due; $('stockDot').hidden = !due;
+  if (due) { $('stkDue').innerHTML = '🧾 <b>موعد الجرد الدوري</b> (كل أسبوعين): راجع الكميات وحدّث «طلب شراء»، ثم اضغط «تم الجرد».'; const k = 'rax3d_stk_toast'; try { if (localStorage.getItem(k) !== todayStr()) { localStorage.setItem(k, todayStr()); toast('🧾 موعد جرد الفلمنت'); } } catch (e) {} }
+  // الإيميل: مرة وحدة لكل موعد (الـWorker يرسله تلقائيًا لو فعّلت المهمة المجدولة، وهذا احتياط لو ما فُعّلت)
+  if (due && DATA && DATA.role === 'admin' && getSync() && d.mailedFor !== d.next && STK_OK) {
+    const due0 = d.next, list = d.rows.filter(r => r.buy).map(r => r.t + ' ' + r.c).join('، ') || 'لا شيء';
+    stkEdit(x => { x.mailedFor = due0; });
+    notify('🧾 موعد جرد الفلمنت — RAX3D', { 'المطلوب': 'راجع الجرد في التطبيق ثم اضغط «تم الجرد»', 'بحاجة شراء': list });
+  }
+}
+$('stkTabs').addEventListener('click', e => { const b = e.target.closest('[data-ty]'); if (b) { STK_TYPE = b.dataset.ty; stkRender(); } });
+$('stkNote').addEventListener('click', e => { const b = e.target.closest('[data-site]'); if (!b) return; const t = STK_TYPE, v = b.dataset.site === '1'; stkEdit(d => { const x = d.types.find(y => y.name === t); if (x) x.site = v; }); });
+$('stkBody').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return; const row = b.closest('.stk-row'); if (!row || !row.dataset.c) return; const t = STK_TYPE, c = row.dataset.c, cur = stkRow(STK, t, c); if (!cur) return;
+  if (b.dataset.q) { const nq = Math.max(0, Math.min(999, cur.q + (+b.dataset.q))), was = cur.q; stkEdit(d => { const r = stkRow(d, t, c); if (!r) return; r.q = nq; if (nq === 0) r.buy = true; else if (was === 0) r.buy = false; }); }   // وصل للصفر ← طلب شراء، وأول ما يوصل مخزون يرجع «لا يلزم»
+  else if (b.dataset.buy) { const nb = !cur.buy; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.buy = nb; }); }
+  else if (b.dataset.del) { if (!confirm('حذف ' + c + ' من ' + t + '؟')) return; stkEdit(d => { d.rows = d.rows.filter(r => !(r.t === t && r.c === c)); }); }
+});
+$('stkColSel').onchange = () => { $('stkColTxt').hidden = $('stkColSel').value !== '__o'; };
+$('stkAddColor').onclick = () => {
+  const t = STK_TYPE; let c = $('stkColSel').value === '__o' ? $('stkColTxt').value.trim().slice(0, 30) : $('stkColSel').value; if (!c) return;
+  if (stkRow(STK, t, c)) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'هذا اللون موجود'; return; }
+  $('stkColTxt').value = ''; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false }); });
+};
+$('stkAddType').onclick = () => {
+  const n = $('stkTypeTxt').value.trim().slice(0, 20); if (!n) return; if (STK.types.some(t => t.name.toLowerCase() === n.toLowerCase())) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'النوع موجود'; return; }
+  $('stkTypeTxt').value = ''; STK_TYPE = n; stkEdit(d => { if (!d.types.some(t => t.name === n)) { d.types.push({ name: n, site: false }); STK_COLORS.forEach(c => d.rows.push({ t: n, c: c, q: 0, buy: false })); } });
+};
+$('stkDone').onclick = () => { const nx = addDays(todayStr(), 14); stkEdit(d => { d.next = nx; }); $('stkDue').hidden = true; $('stockDot').hidden = true; toast('✔ تم الجرد — التذكير القادم ' + nx); };
+document.querySelector('nav button[data-tab="stock"]').addEventListener('click', () => stkSync(true));
+setInterval(() => { if (document.hidden || !DATA) return; if ($('stock').classList.contains('on')) stkSync(); }, 45000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && DATA) stkSync(); });
+
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === b.dataset.tab));
@@ -2332,6 +2450,7 @@ function applyRole(role) {
   document.body.classList.toggle('partner', !admin);
   if (!admin && !$('new').classList.contains('on')) document.querySelector('nav button[data-tab="new"]').click();
   $('roleTag').hidden = false; $('roleTag').textContent = admin ? ' · الدعم الفني' : ' · مدخل البيانات';
+  stkLoadLocal(); stkRender(); stkDueCheck(); setTimeout(() => stkSync(), 600);
   $('bellBtn').hidden = !admin; $('supBtn').hidden = admin;
   if (admin) startPoll();
 }
