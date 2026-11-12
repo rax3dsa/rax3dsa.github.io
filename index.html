@@ -514,13 +514,28 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '75';
+const APP_VERSION = '76';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
 const DEF_SETTINGS = { spool: 115, spoolW: 1000, run: 1.15, waste: 0.1, pack: 2.3, multSet: 3.5, multOne: 4.5, payFee: 3.2, payFix: 1.2, goalStart: 10000, bankName: 'مصرف الراجحي', bankHolder: '', bankIban: '' };
 const STR_SET = ['bankName', 'bankHolder', 'bankIban'];   // إعدادات نصية (بيانات التحويل البنكي في الفاتورة)
 function ibanOk(v) { v = String(v || '').replace(/\s+/g, '').toUpperCase(); if (!/^SA\d{22}$/.test(v)) return false; const r = v.slice(4) + v.slice(0, 4); let m = 0; for (const ch of r) m = (m * (/\d/.test(ch) ? 10 : 100) + (/\d/.test(ch) ? +ch : ch.charCodeAt(0) - 55)) % 97; return m === 1; }
+// v76: فواتير محفوظة قبل حقل اللون: اللون المكتوب بعد اسم القطعة (« — أسود ») ينتقل لحقل اللون، والوصف الملخّص يتحدث
+function migrateColors(d) {
+  const C = ['أبيض', 'أسود', 'رمادي', 'أحمر', 'برتقالي', 'أصفر', 'أخضر', 'أزرق', 'بنفسجي', 'وردي', 'ذهبي', 'بني'], re = new RegExp('^(.*?)\\s+[—–]\\s+(' + C.join('|') + ')(?:\\s*·\\s*(.*))?$');
+  let n = 0;
+  d.log.forEach(r => {
+    let ch = false;
+    (r.items || []).forEach(i => {
+      if (!i || i.gift || (i.color !== undefined && i.color !== null)) return;
+      const m = re.exec(String(i.desc || ''));
+      if (m) { i.color = m[2]; i.desc = m[1] + (m[3] ? ' — ' + m[3] : ''); ch = true; } else i.color = '';
+    });
+    if (ch) { r.desc = r.items.map(i => i.desc + (i.color ? ' — ' + i.color : '') + (i.gift ? ' (هدية)' : ' (' + i.q + ')')).join(' ، '); n++; }
+  });
+  return n;
+}
 function loadDb() {
   let d = null; try { d = JSON.parse(localStorage.getItem(DB_KEY) || 'null'); } catch (e) {}
   if (!d || typeof d !== 'object') d = {};
@@ -530,6 +545,7 @@ function loadDb() {
   d.role = d.role || (d.pins && (d.pins.admin || d.pins.adminH) ? 'admin' : null);   // جوال الدعم الفني أو جوال مدخل البيانات
   d.shared = d.shared || null; d.pending = Array.isArray(d.pending) ? d.pending : []; d.redeems = Array.isArray(d.redeems) ? d.redeems : [];
   if (d.recMail === 'rax3d.sa@gmail.com' || d.recMail === 'rashid.aw@hotmail.com') d.recMail = null;   // الإيميل المعتمد الجديد
+  if (migrateColors(d)) { try { saveDb(d); } catch (e) {} }   // يحفظها مرة وحدة (والنسخة السحابية تلحقها)
   return d;
 }
 function saveDb(d) { localStorage.setItem(DB_KEY, JSON.stringify(d)); try { cloudBackupSoon(); } catch (e) {} }
