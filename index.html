@@ -322,6 +322,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
       <button class="ghost" id="runUse" type="button" hidden style="margin-top:6px"></button>
       <p class="err" id="setMsg" style="margin:10px 0 0"></p>
       <button class="save" id="setSave" style="margin-top:8px;font-size:16px;padding:12px">حفظ الإعدادات</button>
+      <button class="ghost" id="renumBtn" type="button" style="margin-top:8px">🔢 سد فجوات الترقيم</button>
     </div>
     <div class="period">
       <h3>الترقيم المشترك والربط مع مدخل البيانات</h3>
@@ -558,7 +559,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '81';
+const APP_VERSION = '82';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -792,6 +793,18 @@ async function updateJson(sync, path, def, fn, msg) {
     await sleep(600 + Math.random() * 900);
   }
   throw new Error('الجوال الثاني يكتب الحين — جرّب مرة ثانية');
+}
+const ghFile = async (sync, path) => { const r = await gh(sync, 'GET', null, path); if (r.status === 404) return null; if (!r.ok) throw ghErr(r); const j = await r.json(); return { data: JSON.parse(b64d(j.content)), sha: j.sha }; };
+async function ghPut(sync, path, data, msg) {
+  for (let i = 0; i < 4; i++) { const cur = await ghFile(sync, path), body = { message: msg, content: b64e(JSON.stringify(data)) }; if (cur) body.sha = cur.sha; const res = await gh(sync, 'PUT', body, path); if (res.ok) return; if (res.status !== 409 && res.status !== 422) throw ghErr(res); await sleep(500); }
+  throw new Error('تعذّرت الكتابة: ' + path);
+}
+async function ghDel(sync, path, msg) { const cur = await ghFile(sync, path); if (!cur) return; const res = await gh(sync, 'DELETE', { message: msg, sha: cur.sha }, path); if (!res.ok && res.status !== 404) throw ghErr(res); }
+function renumberPlan(log) {   // الفواتير بالترتيب من أول رقم موجود: أي رقم ناقص ينسدّ بتحريك اللي بعده
+  const xs = log.map(r => ({ r: r, n: Number(r.num) })).filter(x => Number.isInteger(x.n) && x.n > 0).sort((a, b) => a.n - b.n);
+  let expect = xs.length ? xs[0].n : 1; const plan = [];
+  xs.forEach(x => { if (x.n !== expect) plan.push({ r: x.r, from: x.n, to: expect }); expect++; });
+  return { plan: plan, next: expect };
 }
 async function readCounter(sync) { const c = await readJson(sync, 'counter.json', null); return { next: c.data ? Number(c.data.next) || 1 : null, sha: c.sha }; }
 function writeCounter(sync, next, sha) { return writeJson(sync, 'counter.json', { next: next }, sha, 'رقم الفاتورة القادم ' + next); }
@@ -1283,6 +1296,27 @@ const API = {
     }
     publishPointsSoon();
     return { num: n, freed: last };
+  },
+  async renumberGaps(d, pin) {   // v82: سد فجوات الترقيم (مثل ما بقي رقم 5 ناقص بعد حذف فاتورة تجريبية). الأرقام اللي أُرسلت للعملاء قبل تبقى على رسائلهم القديمة.
+    const db = await adminDb(pin), sync = getSync(), pl = renumberPlan(db.log), plan = pl.plan;
+    if (!plan.length) return { moved: 0, next: db.nextNum, map: [] };
+    if (plan.some(x => x.r.by === 'partner')) throw new Error('فيه فواتير من مدخل البيانات بعد الفجوة، ما تنتقل تلقائيًا');
+    if (sync) {
+      const inbox = await readJson(sync, 'partner_log.json', []);
+      if (Array.isArray(inbox.data) && inbox.data.length) throw new Error('فيه فواتير ما انستلمت من مدخل البيانات: افتح الإحصائيات ثم أعد المحاولة');
+      const targets = new Set(plan.map(x => x.to));
+      for (const x of plan) {   // 1) ملفات الطلبات (المتجر) تنكتب برقمها الجديد، وعلامة الطلب تتحدث
+        if (!x.r.online) continue;
+        const o = await ghFile(sync, 'online/ORD-' + x.from + '.json'); if (o) { o.data.num = x.to; await ghPut(sync, 'online/ORD-' + x.to + '.json', o.data, 'ترقيم الطلب ORD-' + x.to); }
+        const pid = String(x.r.payId || ''), mk = pid ? 'online/' + (pid.startsWith('cod_') ? pid : 'pay_' + pid) + '.json' : '';
+        if (mk) { const m = await ghFile(sync, mk); if (m) { m.data.num = x.to; await ghPut(sync, mk, m.data, 'تحديث رقم الطلب ' + x.to); } }
+      }
+      for (const x of plan) if (x.r.online && !targets.has(x.from)) await ghDel(sync, 'online/ORD-' + x.from + '.json', 'حذف الرقم القديم ORD-' + x.from);   // 2) الأرقام القديمة اللي ما أحد ينتقل لها
+    }
+    plan.forEach(x => { x.r.was = x.from; x.r.num = x.to; });
+    db.log.sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0)); db.nextNum = pl.next; saveDb(db);
+    if (sync) await setCounter(sync, pl.next);
+    publishPointsSoon(); return { moved: plan.length, next: pl.next, map: plan.map(x => [x.from, x.to]) };
   },
   async voidInvoice(d, pin) {   // v47: «إلغاء» بدل الحذف — الرقم يبقى، الحالة ملغاة، وتطلع من المجاميع والنقاط
     const db = await adminDb(pin);
@@ -2206,6 +2240,17 @@ function runHintUI() {
 }
 $('setGrid').addEventListener('input', runHintUI);
 $('runUse').onclick = () => { $('set_run').value = $('runUse').dataset.v; runHintUI(); const m = $('setMsg'); m.style.color = 'var(--mute)'; m.textContent = 'اضغط «حفظ الإعدادات» لتثبيت ساعة التشغيل الجديدة'; };
+$('renumBtn').onclick = () => {
+  const pl = renumberPlan(DATA.log), msg = $('setMsg');
+  if (!pl.plan.length) { msg.style.color = 'var(--good)'; msg.textContent = 'الترقيم متسلسل ما فيه فجوات ✔'; return; }
+  const lines = pl.plan.map(x => x.from + ' ← ' + x.to + (x.r.online ? ' (طلب من المتجر)' : '') + (x.r.client ? ' — ' + x.r.client : '')).join('\n');
+  if (!confirm('بتنتقل هذي الفواتير لأرقام أقل:\n\n' + lines + '\n\nالفاتورة القادمة تصير ' + pl.next + '.\nأرقام الطلبات اللي وصلت للعملاء (إيميل أو إيصال) تبقى عندهم بالرقم القديم. نكمل؟')) return;
+  const btn = $('renumBtn'); btn.disabled = true; msg.style.color = 'var(--mute)'; msg.textContent = 'جاري الترقيم…';
+  google.script.run.withSuccessHandler(r => { btn.disabled = false; msg.style.color = 'var(--good)'; msg.textContent = 'تم ✔ ' + r.map.map(m => m[0] + '←' + m[1]).join('، ') + ' · القادمة ' + r.next; mailedFiles.clear(); load();
+      notify('🔢 سد فجوات ترقيم الفواتير', { 'التغييرات': r.map.map(m => m[0] + ' ← ' + m[1]).join('، '), 'الفاتورة القادمة': String(r.next) }); })
+    .withFailureHandler(e => { btn.disabled = false; if (pinError(e)) return; msg.style.color = 'var(--bad)'; msg.textContent = 'لم يتم: ' + ((e && e.message) || e); })
+    .renumberGaps({}, PIN);
+};
 $('setSave').onclick = () => {
   const d = {}; SET_FIELDS.forEach(([k]) => d[k] = $('set_' + k).value.trim());
   const msg = $('setMsg');
