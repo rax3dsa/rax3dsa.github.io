@@ -524,7 +524,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '77';
+const APP_VERSION = '78';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -656,6 +656,7 @@ const isBulk = it => it.type === 'مجموعة' || (+it.q || 1) >= bulkQ(it.w);
 // ألوان المتجر (نفس قائمة الموقع). اللون يطلع في الفاتورة بجانب اسم القطعة
 const SHOP_COLORS = [['كما بالصورة', ''], ['أبيض', '#f3f1ec'], ['أسود', '#242424'], ['رمادي', '#8f969a'], ['أحمر', '#cc2f2f'], ['برتقالي', '#ee7a1f'], ['أصفر', '#f2c22c'], ['أخضر', '#2f9a57'], ['أزرق', '#2a5cc8'], ['بنفسجي', '#7a4cc2'], ['وردي', '#ee6f9e'], ['ذهبي', '#c79a32'], ['بني', '#6e4a2e']];
 const colorChips = sel => '<div class="cchips" role="group" aria-label="اللون">' + SHOP_COLORS.map(([n, h]) => `<button type="button" class="cchip${sel === n ? ' on' : ''}" data-color="${n}" aria-pressed="${sel === n}"><i style="${h ? 'background:' + h : ''}"></i>${n}</button>`).join('') + '</div>';
+const EN_COL = { white: 'أبيض', black: 'أسود', grey: 'رمادي', gray: 'رمادي', red: 'أحمر', orange: 'برتقالي', yellow: 'أصفر', green: 'أخضر', blue: 'أزرق', purple: 'بنفسجي', pink: 'وردي', gold: 'ذهبي', brown: 'بني' };
 const colSet = v => String(v || '').split('،').map(x => x.trim()).filter(Boolean);
 const colorBtn = sel => `<button type="button" class="cpick" data-cpick="1">🎨 ${sel ? '<b>' + String(sel).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) + '</b>' : 'اختر اللون (اختياري)'} <span>▾</span></button>`;
 const withColor = i => i.desc + (i.color ? ' — ' + i.color : '');
@@ -2181,9 +2182,17 @@ async function pieceInfo(id) {
 async function fillFromOrder(o) {
   const out = [];
   for (const x of o.i.slice(0, 10)) {
-    const [id, name, color, q, g, size, note] = x, info = await pieceInfo(id);
-    const extra = [size ? 'مقاس ' + size : '', note || ''].filter(Boolean).join(' · ');
-    out.push(Object.assign(newItem(), { desc: name + (extra ? ' — ' + extra : ''), color: (color && color !== 'كما بالصورة' && color !== 'اللون الأساسي' && SHOP_COLORS.some(c => c[0] === color)) ? color : '', q: +q || 1,
+    const [id, name, color0, q, g, size, note0] = x, info = await pieceInfo(id);
+    let color = color0, note = note0 || '';
+    // v78: طلب خاص من المتجر (ألوان مختلفة): الألوان تنتقل لخانة اللون، ويبقى في الوصف توضيح العميل فقط
+    const sp = /^🎨\s*طلب خاص\s*[—–-]\s*ألوان مختلفة:\s*([^|]+?)(?:\s*\|\s*(.*))?$/.exec(note);
+    if (sp) { color = sp[1]; note = (sp[2] || '').trim(); }
+    // أسماء الألوان بالإنجليزي (رسالة عميل يستخدم النسخة الإنجليزية) تتحول للعربي. أي لون غير معروف يبقى في الوصف حتى لا تضيع معلومة كتبها العميل
+    const names = colSet(String(color || '').replace(/,/g, '،')).map(n => EN_COL[n.toLowerCase()] || n);
+    const okCol = names.filter(n => n !== 'كما بالصورة' && SHOP_COLORS.some(c => c[0] === n)).slice(0, 5).join('، ');
+    const odd = names.filter(n => !SHOP_COLORS.some(c => c[0] === n) && !/^(اللون الأساسي|ألوان متعددة|original colou?r|multiple colou?rs)$/i.test(n)).join('، ');
+    const extra = [odd, size ? 'مقاس ' + size : '', note].filter(Boolean).join(' · ');
+    out.push(Object.assign(newItem(), { desc: name + (extra ? ' — ' + extra : ''), color: okCol, q: +q || 1,
       w: info && info.weight ? info.weight : (g || ''), h: info ? info.h || '' : '', m: info ? info.m || '' : '', sec: info ? info.sec || '' : '', pid: id, pinfo: !!info }));
   }
   items = out.length ? out : [newItem()]; ORDER = { o, at: Date.now() }; renderItems();
