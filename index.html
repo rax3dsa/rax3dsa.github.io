@@ -567,7 +567,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '84';
+const APP_VERSION = '85';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2387,7 +2387,8 @@ const B62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 function b62bytes(s) { let n = 0n; for (const ch of s) { const v = B62.indexOf(ch); if (v < 0) throw new Error('bad'); n = n * 62n + BigInt(v); } const out = []; while (n > 0n) { out.unshift(Number(n % 256n)); n /= 256n; } return new Uint8Array(out.slice(1)); }
 async function inflateRaw(bytes) { const ds = new DecompressionStream('deflate-raw'); const s = new Blob([bytes]).stream().pipeThrough(ds); return new Uint8Array(await new Response(s).arrayBuffer()); }
 let CATALOG = null;
-async function catalog() { if (CATALOG) return CATALOG; for (const u of ['https://rax3d.com/catalog.json', '/shop/catalog.json']) { try { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) continue; CATALOG = await r.json(); if (CATALOG && CATALOG.items) return CATALOG; } catch (e) {} } CATALOG = { items: {}, colors: [] }; return CATALOG; }
+async function catalog() { if (CATALOG) return CATALOG; for (const u of ['https://rax3d.com/catalog.json'])   // (كان فيه نسخة قديمة احتياطية في /shop/ بأسماء وأوزان قديمة، حُذفت: الأفضل يفشل الاستيراد من تعبئة غلط)
+   { try { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) continue; CATALOG = await r.json(); if (CATALOG && CATALOG.items) return CATALOG; } catch (e) {} } CATALOG = { items: {}, colors: [] }; return CATALOG; }
 function parseMsg(text, cat) {   // رسالة الطلب الجديدة (بدون رابط): نقرأ الخانات سطر سطر
   const s = String(text || ''); if (!/(القطعة|القطعه|Piece)\s*:/.test(s)) return null;
   const val = (blk, keys) => { for (const k of keys) { const m = blk.match(new RegExp('\\*?\\s*' + k + '\\s*:\\s*(.*)')); if (m) return m[1].trim(); } return ''; };
