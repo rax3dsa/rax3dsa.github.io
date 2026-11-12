@@ -81,6 +81,10 @@ input[type=number]{direction:ltr;text-align:center}
 .x{border:0;background:none;color:var(--mute);font-size:22px;width:36px;height:36px;border-radius:50%;cursor:pointer}
 .seg{display:flex;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
 .seg button{flex:1;border:0;background:var(--field);padding:11px 0;cursor:pointer;color:var(--mute)}
+.cchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.cchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--field);color:var(--mute);border-radius:999px;padding:6px 11px;font-size:13px;cursor:pointer}
+.cchip i{width:14px;height:14px;border-radius:50%;border:1px solid rgba(128,128,128,.5);display:inline-block}
+.cchip.on{background:var(--gold-d);color:#000;border-color:var(--gold);font-weight:700}
 .seg button.on{background:var(--gold-d);color:#000;font-weight:700}
 .calc{display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);font-size:14px;color:var(--mute)}
 .calc b{color:var(--text);font-weight:500}
@@ -510,7 +514,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '74';
+const APP_VERSION = '75';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -623,6 +627,10 @@ function askLinkPass() {
 const bulkQ = w => (+w || 0) >= 100 ? 6 : 12;
 const isBulk = it => it.type === 'مجموعة' || (+it.q || 1) >= bulkQ(it.w);
 // عربون الجملة: طلب جملة (أي قطعة بسعر الجملة/المجموعة) ← 25% من قيمة الطلب تنحسب تلقائيًا (تقريب لأعلى ريال). فواتير المتجر الأونلاين مدفوعة أصلًا فما لها عربون
+// ألوان المتجر (نفس قائمة الموقع). اللون يطلع في الفاتورة بجانب اسم القطعة
+const SHOP_COLORS = [['كما بالصورة', ''], ['أبيض', '#f3f1ec'], ['أسود', '#242424'], ['رمادي', '#8f969a'], ['أحمر', '#cc2f2f'], ['برتقالي', '#ee7a1f'], ['أصفر', '#f2c22c'], ['أخضر', '#2f9a57'], ['أزرق', '#2a5cc8'], ['بنفسجي', '#7a4cc2'], ['وردي', '#ee6f9e'], ['ذهبي', '#c79a32'], ['بني', '#6e4a2e']];
+const colorChips = sel => '<div class="cchips" role="group" aria-label="اللون">' + SHOP_COLORS.map(([n, h]) => `<button type="button" class="cchip${sel === n ? ' on' : ''}" data-color="${n}" aria-pressed="${sel === n}"><i style="${h ? 'background:' + h : ''}"></i>${n}</button>`).join('') + '</div>';
+const withColor = i => i.desc + (i.color ? ' — ' + i.color : '');
 const DEP_PCT = 25;
 const depositFor = (items, total) => { const its = (items || []).filter(i => i && !i.gift && +i.q > 0); return its.some(isBulk) && total > 0 ? Math.ceil(total * DEP_PCT / 100 - 1e-9) : 0; };
 const invDeposit = r => (!r || r.online || !isLive(r)) ? 0 : depositFor(r.items, +r.total || 0);
@@ -930,14 +938,14 @@ const API = {
     }
     else if (sync) { num = await reserveNumber(sync, db.nextNum); db = loadDb(); }
     else { num = db.nextNum; while (db.log.some(r => Number(r.num) === num)) num++; }
-    const lines = its.map(it => { const c = calcLocal(S, it); return { desc: String(it.desc).trim(), q: c.q, unit: c.unit, line: c.line, disc: c.disc, total: c.total, profit: c.profit, cost: R2(c.cost), sugg: (+it.price > 0) ? c.sugg * c.q : 0, w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: it.type === 'مجموعة' ? 'مجموعة' : 'واحدة', auto: !(+it.price > 0), dp: Math.min(100, Math.max(0, +it.disc || 0)) }; });
+    const lines = its.map(it => { const c = calcLocal(S, it); return { desc: String(it.desc).trim(), color: String(it.color || '').slice(0, 20), q: c.q, unit: c.unit, line: c.line, disc: c.disc, total: c.total, profit: c.profit, cost: R2(c.cost), sugg: (+it.price > 0) ? c.sugg * c.q : 0, w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: it.type === 'مجموعة' ? 'مجموعة' : 'واحدة', auto: !(+it.price > 0), dp: Math.min(100, Math.max(0, +it.disc || 0)) }; });
     const before = db.log.filter(isLive).reduce((a, r) => a + (Number(r.total) || 0), 0);
     const rec = {
       num: num, date: todayStr(), by: role, client: String(data.client || '').trim(), phone: String(data.phone || '').trim(), code: String(data.code || '').trim().slice(0, 20),
-      desc: lines.map(l => l.desc + ' (' + l.q + ')').join(' ، '), qty: lines.reduce((a, l) => a + l.q, 0),
+      desc: lines.map(l => withColor(l) + ' (' + l.q + ')').join(' ، '), qty: lines.reduce((a, l) => a + l.q, 0),
       disc: R2(lines.reduce((a, l) => a + l.disc, 0)), total: R2(lines.reduce((a, l) => a + l.total, 0)),
       profit: R2(lines.reduce((a, l) => a + l.profit, 0)), sugg: R2(lines.reduce((a, l) => a + l.sugg, 0)),
-      sub: R2(lines.reduce((a, l) => a + l.line, 0)), items: lines.map(l => ({ desc: l.desc, q: l.q, unit: l.unit, line: l.line, cost: l.cost, w: l.w, h: l.h, m: l.m, sec: l.sec, type: l.type, auto: l.auto, dp: l.dp }))
+      sub: R2(lines.reduce((a, l) => a + l.line, 0)), items: lines.map(l => ({ desc: l.desc, color: l.color, q: l.q, unit: l.unit, line: l.line, cost: l.cost, w: l.w, h: l.h, m: l.m, sec: l.sec, type: l.type, auto: l.auto, dp: l.dp }))
     };
     if (role === 'admin') applyLoyalty(db, rec);   // v56: خصم/قطعة مجانية من نقاط الولاء تنضاف تلقائياً
     const cats = its.map(it => ({ desc: String(it.desc).trim(), w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, price: +it.price > 0 ? +it.price : 0 }));
@@ -1164,7 +1172,7 @@ const API = {
       const auto = !!it.auto && w > 0, unit = auto ? sugg : Math.max(0, +it.unit || 0);
       if (isNew && q > 0) { if (!String(it.desc || '').trim()) throw new Error('اكتب وصف القطعة المضافة'); if (!(unit > 0)) throw new Error('اكتب سعر القطعة المضافة «' + String(it.desc).trim() + '»'); }
       const dp = Math.min(100, Math.max(0, +it.dp || 0));   // v47: الخصم % لكل قطعة (نفس منطق إنشاء الفاتورة)
-      return { desc: String(it.desc || '').trim() || o.desc || 'قطعة', q: q, unit: R2(unit), line: R2(unit * q), cost: R2(cost),
+      return { desc: String(it.desc || '').trim() || o.desc || 'قطعة', color: String(it.color || '').slice(0, 20), q: q, unit: R2(unit), line: R2(unit * q), cost: R2(cost),
         w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: type, auto: auto, dp: dp, _d: R2(unit * q * dp / 100), _s: sugg };
     }).filter(it => it.q > 0);
     if (!its.length) throw new Error('لازم تبقى قطعة واحدة على الأقل');
@@ -1173,7 +1181,7 @@ const API = {
     const sugg = allW ? R2(its.reduce((a, i) => a + (i.auto ? 0 : i._s * i.q), 0)) : r.sugg;
     its.forEach(i => { delete i._s; delete i._d; });
     Object.assign(r, { client: String(d.client || '').trim(), phone: String(d.phone || '').trim(), items: its, sub: sub, disc: disc, total: total, sugg: sugg,
-      qty: its.reduce((a, i) => a + (i.gift ? 0 : i.q), 0), desc: its.map(i => i.desc + (i.gift ? ' (هدية)' : ' (' + i.q + ')')).join(' ، '),
+      qty: its.reduce((a, i) => a + (i.gift ? 0 : i.q), 0), desc: its.map(i => withColor(i) + (i.gift ? ' (هدية)' : ' (' + i.q + ')')).join(' ، '),
       profit: R2(total - its.reduce((a, i) => a + i.cost * i.q, 0)), edited: todayStr() });
     saveDb(db); publishPointsSoon(); return true;
   },
@@ -1278,7 +1286,7 @@ function drawInvoice(r, logo) {
     xs.forEach(([cx, cw]) => box(cx, y, cw, rh, fill));
     txt(k + 1, xs[0][0] + xs[0][1] / 2, y + rh / 2, { a: 'center', c: '#888', ltr: true });
     if (it) {
-      txt(it.desc, xs[1][0] + xs[1][1] - 14, y + rh / 2, { max: xs[1][1] - 28 });
+      txt(withColor(it), xs[1][0] + xs[1][1] - 14, y + rh / 2, { max: xs[1][1] - 28 });
       txt(it.q, xs[2][0] + xs[2][1] / 2, y + rh / 2, { a: 'center', ltr: true });
       if (it.gift) { txt('هدية', xs[3][0] + xs[3][1] / 2, y + rh / 2, { a: 'center', c: GOLD }); txt('هدية', xs[4][0] + xs[4][1] / 2, y + rh / 2, { a: 'center', c: GOLD }); }
       else {
@@ -1463,7 +1471,7 @@ function calcItem(it) {
   return { cost, sugg, shop: Math.ceil((sugg + (S.payFix || 0)) / (1 - (S.payFee || 0) / 100) - 1e-9), unit, custom, disc, total, profit: total - cost * q, gap: sugg * q - total };
 }
 
-function newItem() { return { desc: '', w: '', h: '', m: '', sec: '', type: 'واحدة', q: 1, disc: 0, price: '' }; }
+function newItem() { return { color: '', desc: '', w: '', h: '', m: '', sec: '', type: 'واحدة', q: 1, disc: 0, price: '' }; }
 
 function renderItems() {
   $('items').innerHTML = items.map((it, i) => `
@@ -1485,6 +1493,7 @@ function renderItems() {
         <div><label>العدد</label><input type="number" inputmode="numeric" data-k="q" value="${it.q}"></div>
         <div><label>خصم %</label><input type="number" inputmode="decimal" data-k="disc" value="${it.disc}"></div>
       </div>
+      <div style="margin-top:10px"><label>اللون (اختياري — يطلع في الفاتورة)</label>${colorChips(it.color || '')}</div>
       <div style="margin-top:10px"><label>سعر مخصص للوحدة (اختياري — اتركه فاضي للسعر التلقائي)</label>
         <input type="number" inputmode="decimal" data-k="price" value="${it.price || ''}" placeholder="تلقائي"></div>
       <div class="calc" id="c${i}"></div>
@@ -1536,7 +1545,8 @@ $('items').addEventListener('input', e => {
 $('items').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const i = +b.closest('.item').dataset.i;
-  if (b.dataset.del !== undefined) { items.splice(i, 1); renderItems(); }
+  if (b.dataset.color !== undefined) { items[i].color = items[i].color === b.dataset.color ? '' : b.dataset.color; renderItems(); }
+  else if (b.dataset.del !== undefined) { items.splice(i, 1); renderItems(); }
   else if (b.dataset.type) { items[i].type = b.dataset.type; renderItems(); }
 });
 $('addBtn').onclick = () => { if (items.length < 10) { items.push(newItem()); renderItems(); } };
@@ -2144,8 +2154,8 @@ async function fillFromOrder(o) {
   const out = [];
   for (const x of o.i.slice(0, 10)) {
     const [id, name, color, q, g, size, note] = x, info = await pieceInfo(id);
-    const extra = [color && color !== 'كما بالصورة' ? color : '', size ? 'مقاس ' + size : '', note || ''].filter(Boolean).join(' · ');
-    out.push(Object.assign(newItem(), { desc: name + (extra ? ' — ' + extra : ''), q: +q || 1,
+    const extra = [size ? 'مقاس ' + size : '', note || ''].filter(Boolean).join(' · ');
+    out.push(Object.assign(newItem(), { desc: name + (extra ? ' — ' + extra : ''), color: (color && color !== 'كما بالصورة' && color !== 'اللون الأساسي' && SHOP_COLORS.some(c => c[0] === color)) ? color : '', q: +q || 1,
       w: info && info.weight ? info.weight : (g || ''), h: info ? info.h || '' : '', m: info ? info.m || '' : '', sec: info ? info.sec || '' : '', pid: id, pinfo: !!info }));
   }
   items = out.length ? out : [newItem()]; ORDER = { o, at: Date.now() }; renderItems();
@@ -2460,7 +2470,7 @@ function edCalc(it) {
 }
 function openEdit(key) {
   const r = DATA && DATA.log.find(x => rk(x) === key); if (!r) return;
-  ED = { key: key, num: r.num, items: (r.items || []).map((i, oi) => ({ oi: oi, gift: i.gift === true, desc: i.desc, q: i.q, unit: i.unit, w: i.w || '', h: i.h || '', m: i.m || '', sec: i.sec || '',
+  ED = { key: key, num: r.num, items: (r.items || []).map((i, oi) => ({ oi: oi, gift: i.gift === true, color: i.color || '', desc: i.desc, q: i.q, unit: i.unit, w: i.w || '', h: i.h || '', m: i.m || '', sec: i.sec || '',
     type: i.type || 'واحدة', auto: i.auto === true, dp: i.dp !== undefined ? +i.dp || 0 : 0 })) };
   if (!(r.items || []).some(i => i.dp !== undefined) && +r.disc > 0) {   // فاتورة قديمة: نوزّع خصمها كنسبة واحدة على كل القطع (نفس المجموع)
     const sub = ED.items.reduce((a, i) => a + (+i.q || 0) * (+i.unit || 0), 0); if (sub > 0) ED.items.forEach(i => i.dp = +r.disc / sub * 100);
@@ -2480,6 +2490,7 @@ function renderEdItems() {
       <div><label>النوع</label><div class="seg"><button data-type="واحدة" class="${it.type === 'واحدة' ? 'on' : ''}">واحدة</button><button data-type="مجموعة" class="${it.type === 'مجموعة' ? 'on' : ''}">مجموعة / جملة</button></div></div>
       <div><label>العدد</label><input data-k="q" type="number" inputmode="numeric" value="${esc(it.q)}"></div>
       <div><label>سعر مخصص للوحدة</label><input data-k="unit" type="number" inputmode="decimal" value="${esc(it.unit)}" placeholder="${esc(edCalc(it) ? edCalc(it).sugg : '')}"></div></div>
+    <div style="margin-top:8px"><label>اللون</label>${colorChips(it.color || '')}</div>
     <div style="margin-top:8px"><label>خصم %</label><input data-k="dp" type="number" inputmode="decimal" value="${esc(fmt(+it.dp || 0))}"></div>
     <div class="hint" id="eh${i}"></div></div>`).join('');
   edSum();
@@ -2509,6 +2520,8 @@ $('edItems').addEventListener('input', e => {
   edSum();
 });
 $('edItems').addEventListener('click', e => {
+  const cc = e.target.closest('[data-color]');
+  if (cc) { const it = ED.items[+cc.closest('.ed-it').dataset.i]; it.color = it.color === cc.dataset.color ? '' : cc.dataset.color; renderEdItems(); return; }
   const rm = e.target.closest('[data-rm]');
   if (rm) { if (ED.items.length > 1) { ED.items.splice(+rm.closest('.ed-it').dataset.i, 1); renderEdItems(); } return; }
   const b = e.target.closest('[data-type]'); if (!b) return;
@@ -2516,7 +2529,7 @@ $('edItems').addEventListener('click', e => {
 });
 $('edAdd').onclick = () => {
   if (ED.items.length >= 10) { setMsg('edMsg', false, 'الحد الأقصى 10 قطع في الفاتورة'); return; }
-  ED.items.push({ oi: -1, desc: '', q: 1, unit: '', w: '', h: '', m: '', sec: '', type: 'واحدة', auto: false, dp: 0 }); renderEdItems();
+  ED.items.push({ oi: -1, color: '', desc: '', q: 1, unit: '', w: '', h: '', m: '', sec: '', type: 'واحدة', auto: false, dp: 0 }); renderEdItems();
   const L = document.querySelectorAll('#edItems .ed-it'); const last = L[L.length - 1]; if (last) { last.scrollIntoView({ block: 'center' }); const f = last.querySelector('[data-k="desc"]'); if (f) f.focus(); }
 };
 $('edGift').onclick = () => {
