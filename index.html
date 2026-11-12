@@ -70,6 +70,7 @@ nav button i{position:absolute;top:5px;inset-inline-end:8px;width:9px;height:9px
 .stk-c{display:flex;align-items:center;gap:8px}.stk-c i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.55);flex:none}
 .stk-q{display:flex;align-items:center;gap:4px}.stk-q button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--text);cursor:pointer;font-size:18px;padding:0}.stk-q b{min-width:26px;text-align:center}
 .stk-b{border:0;border-radius:999px;padding:7px 4px;font-size:13px;font-weight:700;cursor:pointer;color:#fff}.stk-b.ok{background:#2f9a57}.stk-b.buy{background:#d64545}
+.stk-q button,.stk-b,.stk-x,.stk-tabs button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .stk-x{border:0;background:none;color:var(--mute);cursor:pointer;font-size:18px;padding:0}
 .stk-due{border:1px solid #d64545;background:rgba(214,69,69,.12);border-radius:12px;padding:10px 12px;margin:10px 0;line-height:1.8}
 nav button.on{background:var(--gold);color:#000;font-weight:700}
@@ -282,6 +283,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
       <div><label for="client">اسم العميل</label><input id="client" autocomplete="off"></div>
       <div><label for="phone">الجوال</label><input id="phone" inputmode="tel" autocomplete="off" style="direction:ltr;text-align:right"><small id="ptsHint" style="color:var(--gold-t);display:block;margin-top:4px;min-height:1em">⭐ نقاط الولاء تظهر هنا</small></div>
     </div>
+    <div style="margin-bottom:10px"><label for="payM">طريقة الدفع (تظهر في الفاتورة)</label><select id="payM"><option value="">غير محدد</option><option value="bank">تحويل بنكي</option><option value="cod">الدفع عند الاستلام</option><option value="cash">نقدًا (مدفوعة)</option><option value="online">دفع إلكتروني (مدفوعة)</option></select></div>
     <div id="items"></div>
     <datalist id="catList"></datalist>
     <button class="add" id="addBtn">+ إضافة قطعة</button>
@@ -305,7 +307,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div class="hint" id="stkNote" style="margin:0 0 8px;line-height:1.8"></div>
     <div id="stkBody"></div>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <select id="stkColSel" style="flex:1;min-width:130px"></select><input id="stkColTxt" placeholder="اسم اللون" hidden style="flex:1;min-width:110px"><button class="ghost" id="stkAddColor" style="margin:0;width:auto">＋ إضافة لون</button>
+      <select id="stkTySel" style="flex:1;min-width:90px" aria-label="نوع الفلمنت"></select><input id="stkColTxt" list="stkColList" placeholder="اسم اللون" style="flex:1.4;min-width:110px" autocomplete="off"><datalist id="stkColList"><option>أبيض</option><option>أسود</option><option>رمادي</option><option>أحمر</option><option>برتقالي</option><option>أصفر</option><option>أخضر</option><option>أزرق</option><option>بنفسجي</option><option>وردي</option><option>ذهبي</option><option>بني</option></datalist><button class="ghost" id="stkAddColor" style="margin:0;width:auto">＋ إضافة</button>
     </div>
     <div style="margin-top:8px;display:flex;gap:8px"><input id="stkTypeTxt" placeholder="نوع فلمنت جديد (مثل PETG)" style="flex:1"><button class="ghost" id="stkAddType" style="margin:0;width:auto">＋ نوع</button></div>
     <button class="save" id="stkDone" style="margin-top:14px">✔ تم الجرد (التذكير القادم بعد أسبوعين)</button>
@@ -487,6 +489,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div><label for="edClient">اسم العميل</label><input id="edClient" autocomplete="off"></div>
     <div><label for="edPhone">الجوال</label><input id="edPhone" inputmode="tel" autocomplete="off" style="direction:ltr;text-align:right"></div>
   </div>
+  <div style="margin-top:8px"><label for="edPay">طريقة الدفع</label><select id="edPay"><option value="">غير محدد</option><option value="bank">تحويل بنكي</option><option value="cod">الدفع عند الاستلام</option><option value="cash">نقدًا (مدفوعة)</option><option value="online">دفع إلكتروني (مدفوعة)</option></select></div>
   <div id="edItems"></div>
   <button type="button" class="ghost" id="edAdd" style="margin-top:10px">＋ إضافة قطعة</button>
   <button type="button" class="ghost" id="edGift" style="margin-top:8px">🎁 إضافة هدية (اسم فقط)</button>
@@ -555,7 +558,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '80';
+const APP_VERSION = '81';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -691,6 +694,13 @@ const EN_COL = { white: 'أبيض', black: 'أسود', grey: 'رمادي', gray:
 const colSet = v => String(v || '').split('،').map(x => x.trim()).filter(Boolean);
 const colorBtn = sel => `<button type="button" class="cpick" data-cpick="1">🎨 ${sel ? '<b>' + String(sel).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) + '</b>' : 'اختر اللون (اختياري)'} <span>▾</span></button>`;
 const withColor = i => i.desc + (i.color ? ' — ' + i.color : '');
+const PAYS = ['bank', 'cod', 'cash', 'online'];
+// طريقة الدفع على الفاتورة: المحددة يدويًا، وإلا من نوع الطلب (طلب المتجر: دفع عند الاستلام أو إلكتروني)
+function payInfo(r) {
+  const k = r.pay || (r.cod ? 'cod' : r.online ? 'online' : ''); if (!k) return null; const total = Math.round((+r.total || 0) * 100) / 100;
+  return { bank: { t: 'طريقة الدفع: تحويل بنكي', s: 'بعد التحويل أرسل صورة الإيصال لتأكيد الطلب' }, cod: { t: 'طريقة الدفع: الدفع عند الاستلام', s: 'المطلوب دفعه عند الاستلام: ' + total + ' ر.س' },
+           cash: { t: 'طريقة الدفع: نقدًا ✓ مدفوعة', s: '' }, online: { t: 'طريقة الدفع: دفع إلكتروني ✓ مدفوعة', s: '' } }[k];
+}
 const DEP_PCT = 25;
 const depositFor = (items, total) => { const its = (items || []).filter(i => i && !i.gift && +i.q > 0); return its.some(isBulk) && total > 0 ? Math.ceil(total * DEP_PCT / 100 - 1e-9) : 0; };
 const invDeposit = r => (!r || r.online || !isLive(r)) ? 0 : depositFor(r.items, +r.total || 0);
@@ -1012,7 +1022,7 @@ const API = {
     const lines = its.map(it => { const c = calcLocal(S, it); return { desc: String(it.desc).trim(), color: String(it.color || '').slice(0, 60), q: c.q, unit: c.unit, line: c.line, disc: c.disc, total: c.total, profit: c.profit, cost: R2(c.cost), sugg: (+it.price > 0) ? c.sugg * c.q : 0, acc: Math.max(0, +it.acc || 0), w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: it.type === 'مجموعة' ? 'مجموعة' : 'واحدة', auto: !(+it.price > 0), dp: Math.min(100, Math.max(0, +it.disc || 0)) }; });
     const before = db.log.filter(isLive).reduce((a, r) => a + (Number(r.total) || 0), 0);
     const rec = {
-      num: num, date: todayStr(), by: role, client: String(data.client || '').trim(), phone: String(data.phone || '').trim(), code: String(data.code || '').trim().slice(0, 20),
+      num: num, date: todayStr(), by: role, pay: PAYS.indexOf(data.pay) >= 0 ? data.pay : undefined, client: String(data.client || '').trim(), phone: String(data.phone || '').trim(), code: String(data.code || '').trim().slice(0, 20),
       desc: lines.map(l => withColor(l) + ' (' + l.q + ')').join(' ، '), qty: lines.reduce((a, l) => a + l.q, 0),
       disc: R2(lines.reduce((a, l) => a + l.disc, 0)), total: R2(lines.reduce((a, l) => a + l.total, 0)),
       profit: R2(lines.reduce((a, l) => a + l.profit, 0)), sugg: R2(lines.reduce((a, l) => a + l.sugg, 0)),
@@ -1253,6 +1263,7 @@ const API = {
     const sub = R2(its.reduce((a, i) => a + i.line, 0)), disc = R2(its.reduce((a, i) => a + i._d, 0)), total = R2(sub - disc);
     const sugg = allW ? R2(its.reduce((a, i) => a + (i.auto ? 0 : i._s * i.q), 0)) : r.sugg;
     its.forEach(i => { delete i._s; delete i._d; });
+    if (d.pay !== undefined) { if (PAYS.indexOf(d.pay) >= 0) r.pay = d.pay; else delete r.pay; }
     Object.assign(r, { client: String(d.client || '').trim(), phone: String(d.phone || '').trim(), items: its, sub: sub, disc: disc, total: total, sugg: sugg,
       qty: its.reduce((a, i) => a + (i.gift ? 0 : i.q), 0), desc: its.map(i => withColor(i) + (i.gift ? ' (هدية)' : ' (' + i.q + ')')).join(' ، '),
       profit: R2(total - its.reduce((a, i) => a + i.cost * i.q, 0)), edited: todayStr() });
@@ -1380,6 +1391,10 @@ function drawInvoice(r, logo) {
     box(M, y, tw - tl, rh, last ? '#111' : null); txt(v, M + (tw - tl) / 2, y + rh / 2, { a: 'center', w: last ? 700 : 400, s: last ? 30 : 24, c: last ? GOLDL : INK });
     y += rh;
   });
+  { const pi = payInfo(r); if (pi) {   // طريقة الدفع (دفع عند الاستلام / تحويل / مدفوعة)
+    y += 22; const bh = pi.s ? 92 : 62, bx = M, bw = W - 2 * M; c.fillStyle = '#F4F7EE'; c.fillRect(bx, y, bw, bh); c.strokeStyle = GOLD; c.lineWidth = 2; c.strokeRect(bx, y, bw, bh);
+    txt(pi.t, R - 20, y + 31, { w: 700, s: 26, c: INK }); if (pi.s) txt(pi.s, R - 20, y + 68, { s: 23, c: '#555' });
+    y += bh; } }
   { const dep = invDeposit(r); if (dep > 0) {   // طلب جملة: عربون 25% يُدفع قبل بدء التجهيز
     y += 26; const bh = 112, bx = M, bw = W - 2 * M; c.fillStyle = '#FFF6DC'; c.fillRect(bx, y, bw, bh); c.strokeStyle = GOLD; c.lineWidth = 3; c.strokeRect(bx, y, bw, bh);
     txt('طلب جملة: عربون ' + DEP_PCT + '% من قيمة الطلب', R - 20, y + 32, { w: 700, s: 26, c: GOLD });
@@ -1640,11 +1655,14 @@ let STK = null, STK_TYPE = '', STK_Q = [], STK_T = null, STK_BUSY = false, STK_O
 function stkNorm(d) {
   d = d && typeof d === 'object' ? d : stkDefault(); d.types = (Array.isArray(d.types) && d.types.length ? d.types : stkDefault().types).map(t => ({ name: String(t.name || '').slice(0, 20), site: !!t.site })).filter(t => t.name);
   d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy })).filter(r => r.t && r.c);
-  d.next = /^\d{4}-\d{2}-\d{2}$/.test(d.next) ? d.next : STK_START; d.mailedFor = d.mailedFor || ''; return d;
+  d.next = /^\d{4}-\d{2}-\d{2}$/.test(d.next) ? d.next : STK_START; d.mailedFor = d.mailedFor || '';
+  if (!(d.v >= 2)) { d.v = 2; d.types.slice(1).forEach(t => { const rs = d.rows.filter(r => r.t === t.name); if (rs.length === STK_COLORS.length && rs.every(r => r.q === 0 && !r.buy)) d.rows = d.rows.filter(r => r.t !== t.name); }); }   // تنظيف مرة وحدة: النوع الجديد كان يتعبّى بكل الألوان تلقائيًا بالغلط
+  return d;
 }
 const stkRow = (d, t, c) => d.rows.find(r => r.t === t && r.c === c);
-function stkLoadLocal() { try { const db = loadDb(); STK = stkNorm(db.stock); } catch (e) { STK = stkNorm(null); } }
-function stkSaveLocal() { try { const db = loadDb(); db.stock = STK; localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {} }
+function stkLoadLocal() { try { STK = stkNorm(JSON.parse(localStorage.getItem('rax3d_stock') || 'null')); } catch (e) { STK = stkNorm(null); } }
+let STK_SV = null;
+function stkSaveLocal() { clearTimeout(STK_SV); STK_SV = setTimeout(() => { try { localStorage.setItem('rax3d_stock', JSON.stringify(STK)); } catch (e) {} }, 400); }   // مفتاح مستقل وبعد توقف الضغط: ما نحمّل ونكتب قاعدة الفواتير كاملة مع كل ضغطة
 async function stkSync(force) {
   if (STK_BUSY || STK_Q.length) return; const sy = getSync(); STK_BUSY = true;
   try {
@@ -1657,8 +1675,8 @@ async function stkSync(force) {
   finally { STK_BUSY = false; }
   stkRender(); stkDueCheck();
 }
-function stkEdit(m) {   // m(d) تُطبَّق فورًا على النسخة المحلية، وتُكتب للمستودع بعد 0.7 ثانية (تجمع الضغطات المتتالية في كتابة واحدة)
-  m(STK); stkSaveLocal(); stkRender(); STK_Q.push(m); clearTimeout(STK_T); STK_T = setTimeout(stkFlush, 700); $('stkMsg').textContent = '';
+function stkEdit(m, quick) {   // m(d) تُطبَّق فورًا على النسخة المحلية، وتُكتب للمستودع بعد 0.7 ثانية (تجمع الضغطات المتتالية في كتابة واحدة)
+  m(STK); stkSaveLocal(); if (quick) stkRowUI(quick[0], quick[1]); else stkRender(); STK_Q.push(m); clearTimeout(STK_T); STK_T = setTimeout(stkFlush, 700); $('stkMsg').textContent = '';
 }
 async function stkFlush() {
   const q = STK_Q.splice(0); if (!q.length) return; const sy = getSync();
@@ -1669,6 +1687,11 @@ async function stkFlush() {
   } catch (e) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'تعذّر الحفظ، جرّب مرة ثانية: ' + ((e && e.message) || e); STK_OK = false; setTimeout(() => stkSync(true), 1500); }
   stkRender();
 }
+function stkRowUI(t, c) {   // تحديث الصف المتغيّر فقط (أسرع بكثير من إعادة رسم الجدول كله)
+  const r = stkRow(STK, t, c), el = [...document.querySelectorAll('#stkBody .stk-row')].find(x => x.dataset.c === c); if (!r || !el || STK_TYPE !== t) return stkRender();
+  el.querySelector('.stk-q b').textContent = r.q; const b = el.querySelector('.stk-b'); b.className = 'stk-b ' + (r.buy ? 'buy' : 'ok'); b.textContent = r.buy ? '🔴 اطلب شراء' : '🟢 لا يلزم';
+  const n = STK.rows.filter(x => x.buy).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
+}
 function stkRender() {
   if (!STK) stkLoadLocal(); const d = STK;
   if (!d.types.some(t => t.name === STK_TYPE)) STK_TYPE = d.types[0].name;
@@ -1676,12 +1699,12 @@ function stkRender() {
   const ty = d.types.find(t => t.name === STK_TYPE), rows = d.rows.filter(r => r.t === STK_TYPE);
   $('stkNote').innerHTML = ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «طلب شراء» يظهر للعميل بخط أحمر «غير متوفر»، وإذا تحوّل لـ«لا يلزم» يرجع متوفرًا. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
     : 'هذا النوع غير مربوط بالموقع (للجرد فقط). <button type="button" class="linkbtn" data-site="1">ربطه بالموقع</button>';
+  $('stkNote').innerHTML += ' · <button type="button" class="linkbtn" data-deltype="1" style="color:var(--bad)">🗑 حذف هذا النوع</button>';
   $('stkBody').innerHTML = '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>طلب شراء؟</span><span></span></div>' + (rows.length ? rows.map(r => `<div class="stk-row" data-c="${esc(r.c)}"><span class="stk-c"><i style="${STK_HEX[r.c] ? 'background:' + STK_HEX[r.c] : ''}"></i>${esc(r.c)}</span>
       <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
       <button type="button" class="stk-b ${r.buy ? 'buy' : 'ok'}" data-buy="1">${r.buy ? '🔴 اطلب شراء' : '🟢 لا يلزم'}</button>
       <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">لا ألوان في هذا النوع، أضف من الأسفل.</p>');
-  const have = new Set(rows.map(r => r.c)), left = STK_COLORS.filter(c => !have.has(c));
-  $('stkColSel').innerHTML = left.map(c => `<option>${c}</option>`).join('') + '<option value="__o">لون آخر…</option>'; $('stkColTxt').hidden = $('stkColSel').value !== '__o';
+  const tsel = $('stkTySel'); if (document.activeElement !== tsel) tsel.innerHTML = d.types.map(t => `<option${t.name === STK_TYPE ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
   $('stkSync').textContent = getSync() ? (STK_OK ? '🔄 مرتبط ومتزامن مع الجهاز الثاني والموقع' : '⚠️ تعذّر الاتصال، المعروض آخر نسخة محفوظة') : '📴 الربط المشترك غير مفعّل: الجرد على هذا الجوال فقط ولا يؤثر على الموقع';
   const n = d.rows.filter(r => r.buy).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
 }
@@ -1697,22 +1720,24 @@ function stkDueCheck() {
   }
 }
 $('stkTabs').addEventListener('click', e => { const b = e.target.closest('[data-ty]'); if (b) { STK_TYPE = b.dataset.ty; stkRender(); } });
-$('stkNote').addEventListener('click', e => { const b = e.target.closest('[data-site]'); if (!b) return; const t = STK_TYPE, v = b.dataset.site === '1'; stkEdit(d => { const x = d.types.find(y => y.name === t); if (x) x.site = v; }); });
+$('stkNote').addEventListener('click', e => {
+  const dt = e.target.closest('[data-deltype]');
+  if (dt) { const t = STK_TYPE; if (STK.types.length < 2) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'لازم يبقى نوع واحد على الأقل'; return; } if (!confirm('حذف نوع الفلمنت «' + t + '» بكل ألوانه؟')) return; stkEdit(d => { d.types = d.types.filter(x => x.name !== t); d.rows = d.rows.filter(r => r.t !== t); }); return; }
+  const b = e.target.closest('[data-site]'); if (!b) return; const t = STK_TYPE, v = b.dataset.site === '1'; stkEdit(d => { const x = d.types.find(y => y.name === t); if (x) x.site = v; }); });
 $('stkBody').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return; const row = b.closest('.stk-row'); if (!row || !row.dataset.c) return; const t = STK_TYPE, c = row.dataset.c, cur = stkRow(STK, t, c); if (!cur) return;
-  if (b.dataset.q) { const nq = Math.max(0, Math.min(999, cur.q + (+b.dataset.q))), was = cur.q; stkEdit(d => { const r = stkRow(d, t, c); if (!r) return; r.q = nq; if (nq === 0) r.buy = true; else if (was === 0) r.buy = false; }); }   // وصل للصفر ← طلب شراء، وأول ما يوصل مخزون يرجع «لا يلزم»
-  else if (b.dataset.buy) { const nb = !cur.buy; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.buy = nb; }); }
+  if (b.dataset.q) { const nq = Math.max(0, Math.min(999, cur.q + (+b.dataset.q))), was = cur.q; stkEdit(d => { const r = stkRow(d, t, c); if (!r) return; r.q = nq; if (nq === 0) r.buy = true; else if (was === 0) r.buy = false; }, [t, c]); }   // وصل للصفر ← طلب شراء، وأول ما يوصل مخزون يرجع «لا يلزم»
+  else if (b.dataset.buy) { const nb = !cur.buy; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.buy = nb; }, [t, c]); }
   else if (b.dataset.del) { if (!confirm('حذف ' + c + ' من ' + t + '؟')) return; stkEdit(d => { d.rows = d.rows.filter(r => !(r.t === t && r.c === c)); }); }
 });
-$('stkColSel').onchange = () => { $('stkColTxt').hidden = $('stkColSel').value !== '__o'; };
 $('stkAddColor').onclick = () => {
-  const t = STK_TYPE; let c = $('stkColSel').value === '__o' ? $('stkColTxt').value.trim().slice(0, 30) : $('stkColSel').value; if (!c) return;
-  if (stkRow(STK, t, c)) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'هذا اللون موجود'; return; }
-  $('stkColTxt').value = ''; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false }); });
+  const t = $('stkTySel').value || STK_TYPE, c = $('stkColTxt').value.trim().slice(0, 30); if (!c) { $('stkColTxt').focus(); return; }
+  if (stkRow(STK, t, c)) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'هذا اللون موجود في ' + t; return; }
+  $('stkColTxt').value = ''; STK_TYPE = t; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false }); });
 };
 $('stkAddType').onclick = () => {
   const n = $('stkTypeTxt').value.trim().slice(0, 20); if (!n) return; if (STK.types.some(t => t.name.toLowerCase() === n.toLowerCase())) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'النوع موجود'; return; }
-  $('stkTypeTxt').value = ''; STK_TYPE = n; stkEdit(d => { if (!d.types.some(t => t.name === n)) { d.types.push({ name: n, site: false }); STK_COLORS.forEach(c => d.rows.push({ t: n, c: c, q: 0, buy: false })); } });
+  $('stkTypeTxt').value = ''; STK_TYPE = n; stkEdit(d => { if (!d.types.some(t => t.name === n)) d.types.push({ name: n, site: false }); });   // النوع الجديد فاضي: تضيف ألوانه بنفسك
 };
 $('stkDone').onclick = () => { const nx = addDays(todayStr(), 14); stkEdit(d => { d.next = nx; }); $('stkDue').hidden = true; $('stockDot').hidden = true; toast('✔ تم الجرد — التذكير القادم ' + nx); };
 document.querySelector('nav button[data-tab="stock"]').addEventListener('click', () => stkSync(true));
@@ -1748,13 +1773,13 @@ $('saveBtn').onclick = () => {
       if (pinError(err)) return;
       $('err').textContent = 'لم تُحفظ الفاتورة: ' + (err.message || err);
     })
-    .saveFromApp({ client: $('client').value, phone: $('phone').value, items: valid, code: ORDER && ORDER.o && ORDER.o.ref || '', num: ORDER && ORDER.o && ORDER.o.num || 0 }, PIN);
+    .saveFromApp({ client: $('client').value, phone: $('phone').value, pay: $('payM').value, items: valid, code: ORDER && ORDER.o && ORDER.o.ref || '', num: ORDER && ORDER.o && ORDER.o.num || 0 }, PIN);
 };
 let lastNum = null;
 $('doneSave').onclick = () => { $('done').classList.remove('on'); if (lastNum !== null) savePdf(lastNum); };
 $('doneNew').onclick = () => $('done').classList.remove('on');
 
-function resetForm() { ORDER = null; if ($('ptsHint')) $('ptsHint').textContent = '⭐ نقاط الولاء تظهر هنا'; $('client').value = ''; $('phone').value = ''; items = [newItem()]; renderItems(); }
+function resetForm() { ORDER = null; if ($('ptsHint')) $('ptsHint').textContent = '⭐ نقاط الولاء تظهر هنا'; $('client').value = ''; $('phone').value = ''; if ($('payM')) $('payM').value = ''; items = [newItem()]; renderItems(); }
 
 const pts = r => isLive(r) && normPhone(r.phone).length >= 9 ? Math.floor(+r.total || 0) : 0;   // نقاط الفاتورة: ريال = نقطة (للفواتير اللي فيها جوال)
 function loyaltyCard() {   // ترتيب العملاء حسب رصيد نقاط الولاء
@@ -2682,7 +2707,7 @@ function openEdit(key) {
     const sub = ED.items.reduce((a, i) => a + (+i.q || 0) * (+i.unit || 0), 0); if (sub > 0) ED.items.forEach(i => i.dp = +r.disc / sub * 100);
   }
   $('edTitle').textContent = 'تعديل الفاتورة رقم ' + r.num + (r.by === 'partner' ? ' (مدخل البيانات)' : '');
-  $('edClient').value = r.client || ''; $('edPhone').value = r.phone || ''; setMsg('edMsg', null, '');
+  $('edClient').value = r.client || ''; $('edPhone').value = r.phone || ''; $('edPay').value = r.pay || (r.cod ? 'cod' : r.online ? 'online' : ''); setMsg('edMsg', null, '');
   renderEdItems(); $('edSheet').classList.add('on');
 }
 function renderEdItems() {
@@ -2793,7 +2818,7 @@ $('edSave').onclick = () => {
   google.script.run
     .withSuccessHandler(() => { btn.disabled = false; $('edSheet').classList.remove('on'); toast('تم تعديل الفاتورة ✔'); mailedFiles.clear(); mailInvoice(ED.key, 'edit'); load(); })
     .withFailureHandler(e => { btn.disabled = false; if (pinError(e)) return; setMsg('edMsg', false, errTxt(e)); })
-    .editInvoice({ key: ED.key, client: $('edClient').value, phone: $('edPhone').value, items: ED.items }, PIN);
+    .editInvoice({ key: ED.key, client: $('edClient').value, phone: $('edPhone').value, pay: $('edPay').value, items: ED.items }, PIN);
 };
 
 // حساب مدخل البيانات (الإحصائيات)
