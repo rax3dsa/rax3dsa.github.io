@@ -259,6 +259,11 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
         <div class="loss-bar"><i id="gapBar"></i></div>
         <div class="loss-sub" id="gapTxt"></div>
       </div>
+      <div class="loss" id="prnBox" style="display:none">
+        <div class="loss-top"><span>🖨 استرداد سعر الطابعة</span><b id="prnAmt"></b></div>
+        <div class="loss-bar"><i id="prnBar" style="background:linear-gradient(90deg,var(--gold-d),var(--gold))"></i></div>
+        <div class="loss-sub" id="prnTxt" style="line-height:1.8"></div>
+      </div>
     </div>
     <div class="grid g2" style="margin-bottom:10px">
       <button class="add" id="ordBtn" type="button">📥 طلب من الموقع</button>
@@ -287,6 +292,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div class="period">
       <h3>إعدادات التسعير والترقيم</h3>
       <div class="grid g2" id="setGrid"></div>
+      <div class="hint" id="runHint" style="margin-top:10px;line-height:1.9"></div>
+      <button class="ghost" id="runUse" type="button" hidden style="margin-top:6px"></button>
       <p class="err" id="setMsg" style="margin:10px 0 0"></p>
       <button class="save" id="setSave" style="margin-top:8px;font-size:16px;padding:12px">حفظ الإعدادات</button>
     </div>
@@ -524,11 +531,11 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '78';
+const APP_VERSION = '79';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
-const DEF_SETTINGS = { spool: 115, spoolW: 1000, run: 1.15, waste: 0.1, pack: 2.3, multSet: 3.5, multOne: 4.5, payFee: 3.2, payFix: 1.2, goalStart: 10000, bankName: 'مصرف الراجحي', bankHolder: '', bankIban: '' };
+const DEF_SETTINGS = { spool: 115, spoolW: 1000, run: 1.15, waste: 0.1, pack: 2.3, multSet: 3.5, multOne: 4.5, payFee: 3.2, payFix: 1.2, printer: 5521.74, printerLife: 4000, watt: 150, kwh: 0.18, goalStart: 10000, bankName: 'مصرف الراجحي', bankHolder: '', bankIban: '' };
 const STR_SET = ['bankName', 'bankHolder', 'bankIban'];   // إعدادات نصية (بيانات التحويل البنكي في الفاتورة)
 function ibanOk(v) { v = String(v || '').replace(/\s+/g, '').toUpperCase(); if (!/^SA\d{22}$/.test(v)) return false; const r = v.slice(4) + v.slice(0, 4); let m = 0; for (const ch of r) m = (m * (/\d/.test(ch) ? 10 : 100) + (/\d/.test(ch) ? +ch : ch.charCodeAt(0) - 55)) % 97; return m === 1; }
 // v76: فواتير محفوظة قبل حقل اللون: اللون المكتوب بعد اسم القطعة (« — أسود ») ينتقل لحقل اللون، والوصف الملخّص يتحدث
@@ -666,12 +673,21 @@ const invDeposit = r => (!r || r.online || !isLive(r)) ? 0 : depositFor(r.items,
 function goalFor(sales, start) { let g = start || 10000; while (sales >= g) g *= 2; return g; }
 
 function calcLocal(S, it) {
-  const w = +it.w || 0, q = +it.q || 1;
-  const cost = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack;
-  const sugg = Math.ceil(R2(cost * (isBulk(it) ? S.multSet : S.multOne)) - 1e-9);
+  const w = +it.w || 0, q = +it.q || 1, acc = Math.max(0, +it.acc || 0);   // acc: قطع إضافية للحبة (طقم LED، ميكانيزم ساعة...) تنضاف بسعرها بدون مضاعف
+  const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = base + acc;
+  const sugg = Math.ceil(R2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, unit = pr > 0 ? pr : sugg;
   const disc = R2(unit * q * (+it.disc || 0) / 100);
   return { cost, sugg, unit, q, disc, line: R2(unit * q), total: R2(unit * q - disc), profit: R2(unit * q - disc - cost * q) };
+}
+// استرداد سعر الطابعة: صافي ربح الفواتير مقابل سعرها، وساعات الطباعة المسجلة مقابل عمرها المفترض
+function printerStats(db) {
+  const S = db.settings, price = Math.max(0, +S.printer || 0); if (!(price > 0)) return null;
+  const life = +S.printerLife > 0 ? +S.printerLife : DEF_SETTINGS.printerLife, live = db.log.filter(isLive);
+  const hrs = i => (+i.h || 0) + (+i.m || 0) / 60 + (+i.sec || 0) / 3600;
+  let hours = 0, noTime = 0;
+  live.forEach(r => { const its = (r.items || []).filter(i => i && !i.gift); let miss = !its.length; its.forEach(i => { const t = hrs(i); if (t > 0) hours += t * (+i.q || 1); else miss = true; }); if (miss) noTime++; });
+  return { price: price, life: life, profit: R2(live.reduce((a, r) => a + (Number(r.profit) || 0), 0)), hours: R2(hours), noTime: noTime, count: live.length };
 }
 // فاتورة جاية من المتجر (دفع إلكتروني): نحسب التكلفة من القطع المحفوظة عندك لو عندك وزنها ووقتها، وإلا من الوزن فقط
 function fillOnlineCost(db, rec) {
@@ -681,7 +697,7 @@ function fillOnlineCost(db, rec) {
     const src = k && +k.w > 0 ? k : (+it.w > 0 ? it : null);
     if (!src) { est = true; return; }
     if (!k) est = true;
-    const c = calcLocal(S, { w: +src.w || 0, h: +src.h || 0, m: +src.m || 0, sec: +src.sec || 0, q: 1 });
+    const c = calcLocal(S, { w: +src.w || 0, h: +src.h || 0, m: +src.m || 0, sec: +src.sec || 0, acc: k ? +k.acc || 0 : 0, q: 1 });
     it.cost = R2(c.cost); it.w = +src.w || 0; it.h = +src.h || 0; it.m = +src.m || 0; it.sec = +src.sec || 0;
     cost += c.cost * (+it.q || 1);
   });
@@ -948,7 +964,8 @@ const API = {
       settings: S, nextNum: db.nextNum, today: todayStr(), role: role, catalog: db.catalog, partnerSet: !!(db.pins && (db.pins.partner || db.pins.partnerSH)), pinNotice: notice, recMail: db.recMail || DEF_MAIL,
       log: db.log.map(r => Object.assign({}, r, { pdf: 'local' })),
       goal: { sales: R2(sales), goal: goal, prev: prev, remaining: R2(goal - sales), reached: prev,
-              gap: R2(db.log.filter(isLive).reduce((a, r) => a + (r.sugg > 0 ? r.sugg - r.total : 0), 0)), gapCount: db.log.filter(r => isLive(r) && r.sugg > 0).length }
+              gap: R2(db.log.filter(isLive).reduce((a, r) => a + (r.sugg > 0 ? r.sugg - r.total : 0), 0)), gapCount: db.log.filter(r => isLive(r) && r.sugg > 0).length,
+              printer: printerStats(db) }
     };
   },
   async saveFromApp(data, pin) {
@@ -967,17 +984,17 @@ const API = {
     }
     else if (sync) { num = await reserveNumber(sync, db.nextNum); db = loadDb(); }
     else { num = db.nextNum; while (db.log.some(r => Number(r.num) === num)) num++; }
-    const lines = its.map(it => { const c = calcLocal(S, it); return { desc: String(it.desc).trim(), color: String(it.color || '').slice(0, 60), q: c.q, unit: c.unit, line: c.line, disc: c.disc, total: c.total, profit: c.profit, cost: R2(c.cost), sugg: (+it.price > 0) ? c.sugg * c.q : 0, w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: it.type === 'مجموعة' ? 'مجموعة' : 'واحدة', auto: !(+it.price > 0), dp: Math.min(100, Math.max(0, +it.disc || 0)) }; });
+    const lines = its.map(it => { const c = calcLocal(S, it); return { desc: String(it.desc).trim(), color: String(it.color || '').slice(0, 60), q: c.q, unit: c.unit, line: c.line, disc: c.disc, total: c.total, profit: c.profit, cost: R2(c.cost), sugg: (+it.price > 0) ? c.sugg * c.q : 0, acc: Math.max(0, +it.acc || 0), w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: it.type === 'مجموعة' ? 'مجموعة' : 'واحدة', auto: !(+it.price > 0), dp: Math.min(100, Math.max(0, +it.disc || 0)) }; });
     const before = db.log.filter(isLive).reduce((a, r) => a + (Number(r.total) || 0), 0);
     const rec = {
       num: num, date: todayStr(), by: role, client: String(data.client || '').trim(), phone: String(data.phone || '').trim(), code: String(data.code || '').trim().slice(0, 20),
       desc: lines.map(l => withColor(l) + ' (' + l.q + ')').join(' ، '), qty: lines.reduce((a, l) => a + l.q, 0),
       disc: R2(lines.reduce((a, l) => a + l.disc, 0)), total: R2(lines.reduce((a, l) => a + l.total, 0)),
       profit: R2(lines.reduce((a, l) => a + l.profit, 0)), sugg: R2(lines.reduce((a, l) => a + l.sugg, 0)),
-      sub: R2(lines.reduce((a, l) => a + l.line, 0)), items: lines.map(l => ({ desc: l.desc, color: l.color, q: l.q, unit: l.unit, line: l.line, cost: l.cost, w: l.w, h: l.h, m: l.m, sec: l.sec, type: l.type, auto: l.auto, dp: l.dp }))
+      sub: R2(lines.reduce((a, l) => a + l.line, 0)), items: lines.map(l => Object.assign({ desc: l.desc, color: l.color, q: l.q, unit: l.unit, line: l.line, cost: l.cost, w: l.w, h: l.h, m: l.m, sec: l.sec, type: l.type, auto: l.auto, dp: l.dp }, l.acc > 0 ? { acc: l.acc } : {}))
     };
     if (role === 'admin') applyLoyalty(db, rec);   // v56: خصم/قطعة مجانية من نقاط الولاء تنضاف تلقائياً
-    const cats = its.map(it => ({ desc: String(it.desc).trim(), w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, price: +it.price > 0 ? +it.price : 0 }));
+    const cats = its.map(it => Object.assign({ desc: String(it.desc).trim(), w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, price: +it.price > 0 ? +it.price : 0 }, +it.acc > 0 ? { acc: +it.acc } : {}));
     db.log.push(rec); db.nextNum = Math.max(db.nextNum, num + 1);
     cats.forEach(c => upsertCat(db.catalog, c));   // القطع المحفوظة للتعبئة التلقائية
     if (role === 'partner') {
@@ -1030,6 +1047,8 @@ const API = {
   async saveSettings(d, pin) {
     const db = await adminDb(pin);
     Object.keys(DEF_SETTINGS).forEach(k => { if (STR_SET.indexOf(k) < 0 && d[k] !== undefined && d[k] !== '' && isFinite(+d[k])) db.settings[k] = +d[k]; });
+    if (d.printer === '') db.settings.printer = 0;   // خانة فاضية = بدون طابعة (تختفي بطاقة الاسترداد)
+    if (!(db.settings.printerLife > 0)) db.settings.printerLife = DEF_SETTINGS.printerLife;
     if (d.bankIban !== undefined) { const iv = String(d.bankIban).replace(/\s+/g, '').toUpperCase(); if (iv && !ibanOk(iv)) throw new Error('رقم الآيبان غير صحيح (SA + 22 رقم)'); db.settings.bankIban = iv; }
     ['bankName', 'bankHolder'].forEach(k => { if (d[k] !== undefined) db.settings[k] = String(d[k]).trim().slice(0, 80); });
     if (+d.nextNum > 0) db.nextNum = Math.floor(+d.nextNum);
@@ -1195,14 +1214,14 @@ const API = {
       const type = it.type === 'مجموعة' ? 'مجموعة' : 'واحدة';
       let cost, sugg = 0;
       if (w > 0) {   // وزن ووقت معروفين ← نحسب التكلفة والسعر المقترح من جديد
-        const c = calcLocal(S, { w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: type, q: 1 });
+        const c = calcLocal(S, { w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, acc: +it.acc || 0, type: type, q: 1 });
         cost = c.cost; sugg = c.sugg;
       } else { allW = false; cost = o.cost !== undefined ? +o.cost : (sub0 > 0 && +o.q ? cost0 * (+o.line || 0) / sub0 / +o.q : 0); }
       const auto = !!it.auto && w > 0, unit = auto ? sugg : Math.max(0, +it.unit || 0);
       if (isNew && q > 0) { if (!String(it.desc || '').trim()) throw new Error('اكتب وصف القطعة المضافة'); if (!(unit > 0)) throw new Error('اكتب سعر القطعة المضافة «' + String(it.desc).trim() + '»'); }
       const dp = Math.min(100, Math.max(0, +it.dp || 0));   // v47: الخصم % لكل قطعة (نفس منطق إنشاء الفاتورة)
-      return { desc: String(it.desc || '').trim() || o.desc || 'قطعة', color: String(it.color || '').slice(0, 60), q: q, unit: R2(unit), line: R2(unit * q), cost: R2(cost),
-        w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: type, auto: auto, dp: dp, _d: R2(unit * q * dp / 100), _s: sugg };
+      return Object.assign({ desc: String(it.desc || '').trim() || o.desc || 'قطعة', color: String(it.color || '').slice(0, 60), q: q, unit: R2(unit), line: R2(unit * q), cost: R2(cost),
+        w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: type, auto: auto, dp: dp, _d: R2(unit * q * dp / 100), _s: sugg }, w > 0 && +it.acc > 0 ? { acc: R2(+it.acc) } : {});
     }).filter(it => it.q > 0);
     if (!its.length) throw new Error('لازم تبقى قطعة واحدة على الأقل');
     if (!its.some(i => !i.gift)) throw new Error('لازم تبقى قطعة مدفوعة واحدة على الأقل مع الهدية');
@@ -1490,9 +1509,9 @@ const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 
 function calcItem(it) {
   const w = +it.w || 0; if (!w) return null;
-  const q = +it.q || 1;
-  const cost = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack;
-  const sugg = Math.ceil(r2(cost * (isBulk(it) ? S.multSet : S.multOne)) - 1e-9);
+  const q = +it.q || 1, acc = Math.max(0, +it.acc || 0);
+  const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = base + acc;
+  const sugg = Math.ceil(r2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, custom = pr > 0;
   const unit = custom ? pr : sugg;
   const disc = r2(unit * q * (+it.disc || 0) / 100);
@@ -1500,7 +1519,7 @@ function calcItem(it) {
   return { cost, sugg, shop: Math.ceil((sugg + (S.payFix || 0)) / (1 - (S.payFee || 0) / 100) - 1e-9), unit, custom, disc, total, profit: total - cost * q, gap: sugg * q - total };
 }
 
-function newItem() { return { color: '', desc: '', w: '', h: '', m: '', sec: '', type: 'واحدة', q: 1, disc: 0, price: '' }; }
+function newItem() { return { acc: '', color: '', desc: '', w: '', h: '', m: '', sec: '', type: 'واحدة', q: 1, disc: 0, price: '' }; }
 
 function renderItems() {
   $('items').innerHTML = items.map((it, i) => `
@@ -1525,6 +1544,8 @@ function renderItems() {
       <div style="margin-top:10px"><label>اللون (اختياري — يطلع في الفاتورة)</label>${colorBtn(it.color)}</div>
       <div style="margin-top:10px"><label>سعر مخصص للوحدة (اختياري — اتركه فاضي للسعر التلقائي)</label>
         <input type="number" inputmode="decimal" data-k="price" value="${it.price || ''}" placeholder="تلقائي"></div>
+      <div style="margin-top:10px"><label>قطع إضافية للحبة (ريال، اختياري — مثل طقم LED أو ميكانيزم ساعة)</label>
+        <input type="number" inputmode="decimal" data-k="acc" value="${it.acc || ''}" placeholder="0"></div>
       <div class="calc" id="c${i}"></div>
       <div class="warn" id="w${i}"></div>
     </div>`).join('');
@@ -1564,7 +1585,7 @@ $('items').addEventListener('input', e => {
   if (k === 'desc') {
     const c = findCat(e.target.value);
     if (c) {
-      const vals = { w: c.w, h: c.h || '', m: c.m || '', sec: c.sec || '', price: c.price || '' };
+      const vals = { w: c.w, h: c.h || '', m: c.m || '', sec: c.sec || '', price: c.price || '', acc: c.acc || '' };
       Object.keys(vals).forEach(f => { items[i][f] = vals[f]; card.querySelector('[data-k="' + f + '"]').value = vals[f]; });
       card.classList.add('filled'); setTimeout(() => card.classList.remove('filled'), 700);
     }
@@ -2016,14 +2037,32 @@ async function checkMonthly() {   // أول ما ينفتح التطبيق في 
 }
 
 // ================= إعدادات، نسخ احتياطي، أول تشغيل =================
-const SET_FIELDS = [['spool', 'سعر البكرة (ريال)'], ['spoolW', 'وزن البكرة (جم)'], ['run', 'التشغيل للساعة (ريال)'], ['waste', 'الهدر (0.1 = 10%)'],
+const SET_FIELDS = [['spool', 'سعر البكرة (ريال)'], ['spoolW', 'وزن البكرة (جم)'], ['run', 'التشغيل للساعة (ريال)'], ['printer', 'سعر الطابعة (ريال)'], ['printerLife', 'عمر الطابعة (ساعة طباعة)'], ['watt', 'استهلاك الطابعة (واط)'], ['kwh', 'سعر الكهرباء (ريال/ك.و.س)'], ['waste', 'الهدر (0.1 = 10%)'],
   ['pack', 'التغليف (ريال)'], ['multOne', 'مضاعف القطعة الواحدة'], ['multSet', 'مضاعف المجموعة والجملة'], ['payFee', 'رسوم الدفع الإلكتروني (% من المبلغ)'], ['payFix', 'رسوم الدفع الثابتة لكل عملية (ريال)'], ['goalStart', 'هدف المبيعات الأول'], ['nextNum', 'رقم الفاتورة القادم'],
   ['bankName', 'اسم البنك (يظهر في الفاتورة)'], ['bankHolder', 'اسم صاحب الحساب (المستفيد)'], ['bankIban', 'رقم الآيبان IBAN']];
 function renderSettings() {
   if (!DATA) return;
   const v = Object.assign({}, DATA.settings, { nextNum: DATA.nextNum });
   $('setGrid').innerHTML = SET_FIELDS.map(([k, l]) => `<div><label for="set_${k}">${l}</label><input id="set_${k}" ${STR_SET.indexOf(k) < 0 ? 'type="number" inputmode="decimal"' : 'type="text" ' + (k === 'bankIban' ? 'dir="ltr" autocapitalize="characters" placeholder="SA00 0000 0000 0000 0000 0000"' : '')} value="${esc(v[k] || '')}"></div>`).join('');
+  runHintUI();
 }
+// ساعة التشغيل مقابل سعر الطابعة: إهلاك (السعر ÷ العمر) + كهرباء. للعرض فقط، وما تتغير «التشغيل للساعة» إلا لو ضغطت الزر ثم حفظت
+function runParts(v) {
+  const price = Math.max(0, +v.printer || 0), life = +v.printerLife > 0 ? +v.printerLife : 0, dep = price > 0 && life > 0 ? price / life : 0, elec = Math.max(0, +v.watt || 0) / 1000 * Math.max(0, +v.kwh || 0);
+  return { price: price, life: life, dep: dep, elec: elec, calc: dep + elec, run: +v.run || 0 };
+}
+function runHintUI() {
+  const h = $('runHint'), b = $('runUse'); if (!h || !$('set_run')) return;
+  const g = k => $('set_' + k) ? $('set_' + k).value : '', x = runParts({ printer: g('printer'), printerLife: g('printerLife'), watt: g('watt'), kwh: g('kwh'), run: g('run') });
+  if (!(x.dep > 0)) { h.textContent = 'اكتب سعر الطابعة وعمرها بالساعات ليظهر كم تأخذ الطابعة من كل ساعة طباعة.'; b.hidden = true; return; }
+  const calc = Math.round(x.calc * 100) / 100, net = x.run - x.elec;
+  h.innerHTML = '🖨 ساعة التشغيل المحسوبة من سعر الطابعة: إهلاك <b>' + fmt(x.dep) + '</b> + كهرباء <b>' + fmt(x.elec) + '</b> = <b>' + fmt(calc) + '</b> ريال. المسجّل عندك: <b>' + fmt(x.run) + '</b>.'
+    + (net > 0 ? '<br>بالمسجّل تُسترد الطابعة بعد نحو <b>' + fmtN(x.price / net) + '</b> ساعة طباعة مباعة.' : '<br>المسجّل لا يغطي حتى الكهرباء.')
+    + '<br>تغيير ساعة التشغيل يغيّر التكلفة والأسعار المقترحة للفواتير الجديدة فقط، ولا يغيّر أسعار المتجر.';
+  const same = Math.abs(calc - x.run) < 0.005; b.hidden = same; if (!same) { b.textContent = 'اعتمد ' + fmt(calc) + ' ريال لساعة التشغيل (ثم احفظ)'; b.dataset.v = String(calc); }
+}
+$('setGrid').addEventListener('input', runHintUI);
+$('runUse').onclick = () => { $('set_run').value = $('runUse').dataset.v; runHintUI(); const m = $('setMsg'); m.style.color = 'var(--mute)'; m.textContent = 'اضغط «حفظ الإعدادات» لتثبيت ساعة التشغيل الجديدة'; };
 $('setSave').onclick = () => {
   const d = {}; SET_FIELDS.forEach(([k]) => d[k] = $('set_' + k).value.trim());
   const msg = $('setMsg');
@@ -2192,7 +2231,7 @@ async function fillFromOrder(o) {
     const okCol = names.filter(n => n !== 'كما بالصورة' && SHOP_COLORS.some(c => c[0] === n)).slice(0, 5).join('، ');
     const odd = names.filter(n => !SHOP_COLORS.some(c => c[0] === n) && !/^(اللون الأساسي|ألوان متعددة|original colou?r|multiple colou?rs)$/i.test(n)).join('، ');
     const extra = [odd, size ? 'مقاس ' + size : '', note].filter(Boolean).join(' · ');
-    out.push(Object.assign(newItem(), { desc: name + (extra ? ' — ' + extra : ''), color: okCol, q: +q || 1,
+    out.push(Object.assign(newItem(), { desc: name + (extra ? ' — ' + extra : ''), color: okCol, acc: (findCat(name) || {}).acc || '', q: +q || 1,
       w: info && info.weight ? info.weight : (g || ''), h: info ? info.h || '' : '', m: info ? info.m || '' : '', sec: info ? info.sec || '' : '', pid: id, pinfo: !!info }));
   }
   items = out.length ? out : [newItem()]; ORDER = { o, at: Date.now() }; renderItems();
@@ -2316,6 +2355,7 @@ function renderGoal(g) {
   $('goalBar').style.width = pct.toFixed(1) + '%';
   $('goalSales').textContent = fmtN(g.sales);
   $('goalLeft').textContent = fmtN(g.remaining);
+  renderPrinter(g.printer);
   const box = $('gapBox');
   if (!g.gapCount) { box.style.display = 'none'; return; }
   box.style.display = '';
@@ -2326,6 +2366,16 @@ function renderGoal(g) {
   $('gapTxt').textContent = loss > 0 ? 'يرتفع لما تبيعون أقل من المقترح، وينزل لما تبيعون أعلى منه'
                           : gap < 0 ? 'تم التعويض ✔ وبعتوا فوق المقترح بـ ' + fmtN(-gap) + ' ريال'
                           : 'لا توجد خسارة ✔';
+}
+function renderPrinter(pr) {
+  const box = $('prnBox'); if (!box) return;
+  if (!pr || !(pr.price > 0)) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  const got = Math.max(0, pr.profit), pct = Math.min(100, got / pr.price * 100), left = Math.max(0, pr.price - got), dep = pr.hours * pr.price / pr.life;
+  $('prnAmt').textContent = (pct >= 100 ? '100' : pct.toFixed(1)) + '%';
+  $('prnBar').style.width = pct > 0 ? Math.max(2, pct).toFixed(1) + '%' : '0%';
+  $('prnTxt').innerHTML = (pct >= 100 ? 'تم استرداد سعر الطابعة ✔ من صافي الربح (' + fmtN(got) + ' ريال)' : 'صافي ربح الفواتير <b>' + fmtN(got) + '</b> من <b>' + fmtN(pr.price) + '</b> ريال · باقي <b>' + fmtN(left) + '</b>')
+    + '<br>ساعات الطباعة المسجلة <b>' + fmtN(pr.hours) + '</b> من ' + fmtN(pr.life) + ' (إهلاك ' + fmtN(dep) + ' ريال)' + (pr.noTime ? ' · ' + pr.noTime + ' فاتورة بلا وقت طباعة' : '');
 }
 function celebrate(m) {
   $('partyAmt').textContent = fmtN(m.reached) + ' ريال';
@@ -2502,12 +2552,12 @@ function shareText(t) {
 let ED = null;
 function edCalc(it) {
   const w = +it.w || 0; if (!w) return null;
-  const cost = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack;
-  return { cost: cost, sugg: Math.ceil(r2(cost * (isBulk(it) ? S.multSet : S.multOne)) - 1e-9) };
+  const acc = Math.max(0, +it.acc || 0), base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack;
+  return { cost: base + acc, sugg: Math.ceil(r2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9) };
 }
 function openEdit(key) {
   const r = DATA && DATA.log.find(x => rk(x) === key); if (!r) return;
-  ED = { key: key, num: r.num, items: (r.items || []).map((i, oi) => ({ oi: oi, gift: i.gift === true, color: i.color || '', desc: i.desc, q: i.q, unit: i.unit, w: i.w || '', h: i.h || '', m: i.m || '', sec: i.sec || '',
+  ED = { key: key, num: r.num, items: (r.items || []).map((i, oi) => ({ oi: oi, gift: i.gift === true, acc: i.acc || '', color: i.color || '', desc: i.desc, q: i.q, unit: i.unit, w: i.w || '', h: i.h || '', m: i.m || '', sec: i.sec || '',
     type: i.type || 'واحدة', auto: i.auto === true, dp: i.dp !== undefined ? +i.dp || 0 : 0 })) };
   if (!(r.items || []).some(i => i.dp !== undefined) && +r.disc > 0) {   // فاتورة قديمة: نوزّع خصمها كنسبة واحدة على كل القطع (نفس المجموع)
     const sub = ED.items.reduce((a, i) => a + (+i.q || 0) * (+i.unit || 0), 0); if (sub > 0) ED.items.forEach(i => i.dp = +r.disc / sub * 100);
@@ -2528,6 +2578,7 @@ function renderEdItems() {
       <div><label>العدد</label><input data-k="q" type="number" inputmode="numeric" value="${esc(it.q)}"></div>
       <div><label>سعر مخصص للوحدة</label><input data-k="unit" type="number" inputmode="decimal" value="${esc(it.unit)}" placeholder="${esc(edCalc(it) ? edCalc(it).sugg : '')}"></div></div>
     <div style="margin-top:8px"><label>اللون</label>${colorBtn(it.color)}</div>
+    <div style="margin-top:8px"><label>قطع إضافية للحبة (ريال)</label><input data-k="acc" type="number" inputmode="decimal" value="${esc(it.acc || '')}" placeholder="0"></div>
     <div style="margin-top:8px"><label>خصم %</label><input data-k="dp" type="number" inputmode="decimal" value="${esc(fmt(+it.dp || 0))}"></div>
     <div class="hint" id="eh${i}"></div></div>`).join('');
   edSum();
@@ -2551,7 +2602,7 @@ $('edItems').addEventListener('input', e => {
   const it = ED.items[+e.target.closest('.ed-it').dataset.i]; it[k] = e.target.value;
   if (k === 'desc' && !it.gift) {   // نفس الفاتورة الجديدة: اختيار قطعة من الكتالوج يعبّي الوزن والوقت والسعر
     const c = findCat(e.target.value);
-    if (c) { Object.assign(it, { w: c.w || '', h: c.h || '', m: c.m || '', sec: c.sec || '', unit: c.price || '', auto: !c.price && !!(+c.w) }); renderEdItems(); return; }
+    if (c) { Object.assign(it, { w: c.w || '', h: c.h || '', m: c.m || '', sec: c.sec || '', acc: c.acc || '', unit: c.price || '', auto: !c.price && !!(+c.w) }); renderEdItems(); return; }
   }
   if (k === 'unit') it.auto = e.target.value === '' && !!edCalc(it);   // أي كتابة = سعر مخصص، وفاضي = يرجع للسعر التلقائي
   edSum();
@@ -2582,7 +2633,7 @@ $('colOk').onclick = () => {
 };
 $('edAdd').onclick = () => {
   if (ED.items.length >= 10) { setMsg('edMsg', false, 'الحد الأقصى 10 قطع في الفاتورة'); return; }
-  ED.items.push({ oi: -1, color: '', desc: '', q: 1, unit: '', w: '', h: '', m: '', sec: '', type: 'واحدة', auto: false, dp: 0 }); renderEdItems();
+  ED.items.push({ oi: -1, acc: '', color: '', desc: '', q: 1, unit: '', w: '', h: '', m: '', sec: '', type: 'واحدة', auto: false, dp: 0 }); renderEdItems();
   const L = document.querySelectorAll('#edItems .ed-it'); const last = L[L.length - 1]; if (last) { last.scrollIntoView({ block: 'center' }); const f = last.querySelector('[data-k="desc"]'); if (f) f.focus(); }
 };
 $('edGift').onclick = () => {
