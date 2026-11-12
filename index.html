@@ -152,6 +152,7 @@ input[type=number]{direction:ltr;text-align:center}
 .pdf{border:1px solid var(--gold-d);color:var(--gold-t);background:none;border-radius:999px;padding:5px 14px;font-size:13px;text-decoration:none}
 .empty{text-align:center;color:var(--mute);padding:40px 10px}
 
+.nfcrow{display:flex;align-items:center;gap:8px}.nfcrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--mute);text-align:left}.nfcrow .ghost{width:auto;padding:9px 12px;font-size:14px;flex:none}
 .period{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;margin-bottom:10px}
 .period h3{margin:0 0 10px;font-size:15px;color:var(--gold-t);font-weight:500}
 .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px}
@@ -297,6 +298,13 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     </div>
     <input class="search" id="q" placeholder="ابحث باسم العميل أو الجوال أو رقم الفاتورة">
     <div id="logList"></div>
+    <div class="period" id="nfcCard" style="margin-top:14px">
+      <h3>🏷 رابط NFC</h3>
+      <p class="hint" style="margin:0 0 8px">الرابط المكتوب على استيكر NFC (تفتح صفحة RAX3D للعميل):</p>
+      <div class="nfcrow"><span id="nfcLinkTxt" dir="ltr"></span><button class="ghost" id="nfcLinkCp" type="button">📋 نسخ</button><button class="ghost" id="nfcLinkOp" type="button">🔗 فتح</button></div>
+      <p class="hint" style="margin:12px 0 8px">لكتابة الرابط على الاستيكر حمّل تطبيق NFC Tools (مجاني):</p>
+      <div class="nfcrow"><span id="nfcAppTxt" dir="ltr"></span><button class="ghost" id="nfcAppCp" type="button">📋 نسخ</button><button class="ghost" id="nfcAppOp" type="button">⬇️ تحميل</button></div>
+    </div>
   </section>
 
   <section id="stock">
@@ -559,12 +567,12 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '83';
+const APP_VERSION = '84';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
-const DEF_SETTINGS = { spool: 115, spoolW: 1000, run: 1.15, waste: 0.1, pack: 2.3, multSet: 3.5, multOne: 4.5, payFee: 3.2, payFix: 1.2, printer: 5521.74, printerLife: 4000, watt: 150, kwh: 0.18, goalStart: 10000, bankName: 'مصرف الراجحي', bankHolder: '', bankIban: '' };
-const STR_SET = ['bankName', 'bankHolder', 'bankIban'];   // إعدادات نصية (بيانات التحويل البنكي في الفاتورة)
+const DEF_SETTINGS = { spool: 115, spoolW: 1000, run: 1.15, waste: 0.1, pack: 2.3, multSet: 3.5, multOne: 4.5, payFee: 3.2, payFix: 1.2, printer: 5521.74, printerLife: 4000, watt: 150, kwh: 0.18, goalStart: 10000, bankName: 'مصرف الراجحي', bankHolder: '', bankIban: '', nfcLink: 'https://rax3d.com/links', nfcApp: 'https://apps.apple.com/sa/app/nfc-tools/id1252962749' };
+const STR_SET = ['bankName', 'bankHolder', 'bankIban', 'nfcLink', 'nfcApp'];   // إعدادات نصية (بيانات التحويل البنكي في الفاتورة)
 function ibanOk(v) { v = String(v || '').replace(/\s+/g, '').toUpperCase(); if (!/^SA\d{22}$/.test(v)) return false; const r = v.slice(4) + v.slice(0, 4); let m = 0; for (const ch of r) m = (m * (/\d/.test(ch) ? 10 : 100) + (/\d/.test(ch) ? +ch : ch.charCodeAt(0) - 55)) % 97; return m === 1; }
 // v76: فواتير محفوظة قبل حقل اللون: اللون المكتوب بعد اسم القطعة (« — أسود ») ينتقل لحقل اللون، والوصف الملخّص يتحدث
 function migrateColors(d) {
@@ -1099,6 +1107,7 @@ const API = {
     if (!(db.settings.printerLife > 0)) db.settings.printerLife = DEF_SETTINGS.printerLife;
     if (d.bankIban !== undefined) { const iv = String(d.bankIban).replace(/\s+/g, '').toUpperCase(); if (iv && !ibanOk(iv)) throw new Error('رقم الآيبان غير صحيح (SA + 22 رقم)'); db.settings.bankIban = iv; }
     ['bankName', 'bankHolder'].forEach(k => { if (d[k] !== undefined) db.settings[k] = String(d[k]).trim().slice(0, 80); });
+    ['nfcLink', 'nfcApp'].forEach(k => { if (d[k] !== undefined) { const u = String(d[k]).trim().slice(0, 200); if (u && !/^https:\/\/[^\s]+$/i.test(u)) throw new Error('الرابط لازم يبدأ بـ https://'); db.settings[k] = u || DEF_SETTINGS[k]; } });
     if (+d.nextNum > 0) db.nextNum = Math.floor(+d.nextNum);
     saveDb(db); pushSharedSoon(); return true;
   },
@@ -2216,11 +2225,19 @@ async function checkMonthly() {   // أول ما ينفتح التطبيق في 
 // ================= إعدادات، نسخ احتياطي، أول تشغيل =================
 const SET_FIELDS = [['spool', 'سعر البكرة (ريال)'], ['spoolW', 'وزن البكرة (جم)'], ['run', 'التشغيل للساعة (ريال)'], ['printer', 'سعر الطابعة (ريال)'], ['printerLife', 'عمر الطابعة (ساعة طباعة)'], ['watt', 'استهلاك الطابعة (واط)'], ['kwh', 'سعر الكهرباء (ريال/ك.و.س)'], ['waste', 'الهدر (0.1 = 10%)'],
   ['pack', 'التغليف (ريال)'], ['multOne', 'مضاعف القطعة الواحدة'], ['multSet', 'مضاعف المجموعة والجملة'], ['payFee', 'رسوم الدفع الإلكتروني (% من المبلغ)'], ['payFix', 'رسوم الدفع الثابتة لكل عملية (ريال)'], ['goalStart', 'هدف المبيعات الأول'], ['nextNum', 'رقم الفاتورة القادم'],
-  ['bankName', 'اسم البنك (يظهر في الفاتورة)'], ['bankHolder', 'اسم صاحب الحساب (المستفيد)'], ['bankIban', 'رقم الآيبان IBAN']];
+  ['bankName', 'اسم البنك (يظهر في الفاتورة)'], ['bankHolder', 'اسم صاحب الحساب (المستفيد)'], ['bankIban', 'رقم الآيبان IBAN'],
+  ['nfcLink', 'رابط NFC (المكتوب على الاستيكر)'], ['nfcApp', 'رابط تطبيق NFC Tools (للتحميل)']];
+function nfcUrls() { const S0 = (DATA && DATA.settings) || {}; return { link: S0.nfcLink || DEF_SETTINGS.nfcLink, app: S0.nfcApp || DEF_SETTINGS.nfcApp }; }
+function renderNfc() { const u = nfcUrls(); if ($('nfcLinkTxt')) { $('nfcLinkTxt').textContent = u.link; $('nfcAppTxt').textContent = u.app; } }
+[['nfcLink', 'link'], ['nfcApp', 'app']].forEach(([id, k]) => {
+  $(id + 'Cp').onclick = () => { const t = nfcUrls()[k]; Promise.resolve().then(() => navigator.clipboard.writeText(t)).then(() => toast('تم النسخ ✔'), () => { try { prompt('انسخ الرابط:', t); } catch (e) {} }); };
+  $(id + 'Op').onclick = () => { window.open(nfcUrls()[k], '_blank', 'noopener'); };
+});
 function renderSettings() {
+  renderNfc();
   if (!DATA) return;
   const v = Object.assign({}, DATA.settings, { nextNum: DATA.nextNum });
-  $('setGrid').innerHTML = SET_FIELDS.map(([k, l]) => `<div><label for="set_${k}">${l}</label><input id="set_${k}" ${STR_SET.indexOf(k) < 0 ? 'type="number" inputmode="decimal"' : 'type="text" ' + (k === 'bankIban' ? 'dir="ltr" autocapitalize="characters" placeholder="SA00 0000 0000 0000 0000 0000"' : '')} value="${esc(v[k] || '')}"></div>`).join('');
+  $('setGrid').innerHTML = SET_FIELDS.map(([k, l]) => `<div><label for="set_${k}">${l}</label><input id="set_${k}" ${STR_SET.indexOf(k) < 0 ? 'type="number" inputmode="decimal"' : 'type="text" ' + (k === 'bankIban' ? 'dir="ltr" autocapitalize="characters" placeholder="SA00 0000 0000 0000 0000 0000"' : (k === 'nfcLink' || k === 'nfcApp') ? 'dir="ltr" inputmode="url" autocapitalize="off" placeholder="https://"' : '')} value="${esc(v[k] || '')}"></div>`).join('');
   runHintUI();
 }
 // ساعة التشغيل مقابل سعر الطابعة: إهلاك (السعر ÷ العمر) + كهرباء. للعرض فقط، وما تتغير «التشغيل للساعة» إلا لو ضغطت الزر ثم حفظت
