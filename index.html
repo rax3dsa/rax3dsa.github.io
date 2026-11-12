@@ -335,6 +335,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   <div class="sum">
     <div class="sub">الخصم <span id="tDisc">0</span><span class="adm"><br>صافي الربح <b id="tProfit">0</b></span></div>
     <div class="big" id="tTotal">0<span>ريال</span></div>
+    <div class="sub" id="tDep" style="color:var(--gold-t);font-weight:700" hidden></div>
   </div>
   <p class="err" id="err"></p>
   <button class="save" id="saveBtn">حفظ الفاتورة وإنشاء PDF</button>
@@ -508,7 +509,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '72';
+const APP_VERSION = '73';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -620,6 +621,10 @@ function askLinkPass() {
 // سعر الجملة = سعر المجموعة: من 12 حبة لو القطعة أقل من 100 غرام، ومن 6 حبات لو 100 غرام أو أكثر
 const bulkQ = w => (+w || 0) >= 100 ? 6 : 12;
 const isBulk = it => it.type === 'مجموعة' || (+it.q || 1) >= bulkQ(it.w);
+// عربون الجملة: طلب جملة (أي قطعة بسعر الجملة/المجموعة) ← 25% من قيمة الطلب تنحسب تلقائيًا (تقريب لأعلى ريال). فواتير المتجر الأونلاين مدفوعة أصلًا فما لها عربون
+const DEP_PCT = 25;
+const depositFor = (items, total) => { const its = (items || []).filter(i => i && !i.gift && +i.q > 0); return its.some(isBulk) && total > 0 ? Math.ceil(total * DEP_PCT / 100 - 1e-9) : 0; };
+const invDeposit = r => (!r || r.online || !isLive(r)) ? 0 : depositFor(r.items, +r.total || 0);
 function goalFor(sales, start) { let g = start || 10000; while (sales >= g) g *= 2; return g; }
 
 function calcLocal(S, it) {
@@ -1293,6 +1298,11 @@ function drawInvoice(r, logo) {
     box(M, y, tw - tl, rh, last ? '#111' : null); txt(v, M + (tw - tl) / 2, y + rh / 2, { a: 'center', w: last ? 700 : 400, s: last ? 30 : 24, c: last ? GOLDL : INK });
     y += rh;
   });
+  { const dep = invDeposit(r); if (dep > 0) {   // طلب جملة: عربون 25% يُدفع قبل بدء التجهيز
+    y += 26; const bh = 112, bx = M, bw = W - 2 * M; c.fillStyle = '#FFF6DC'; c.fillRect(bx, y, bw, bh); c.strokeStyle = GOLD; c.lineWidth = 3; c.strokeRect(bx, y, bw, bh);
+    txt('طلب جملة: عربون ' + DEP_PCT + '% من قيمة الطلب', R - 20, y + 32, { w: 700, s: 26, c: GOLD });
+    txt('العربون المطلوب الحين: ' + money(dep) + '  ·  المتبقي عند التسليم: ' + money(Math.max(0, r.total - dep)), R - 20, y + 78, { w: 700, s: 27 });
+    y += bh; } }
   // بيانات التحويل البنكي (من الإعدادات؛ تظهر فقط إذا الآيبان مُدخل)
   const BS = (typeof DATA !== 'undefined' && DATA && DATA.settings) || S || {};
   if (BS.bankIban && ibanOk(BS.bankIban)) {
@@ -1491,6 +1501,8 @@ function updateTotals() {
   $('tTotal').firstChild.nodeValue = fmt(t);
   $('tDisc').textContent = fmt(d);
   $('tProfit').textContent = fmt(p);
+  const dep = depositFor(items.map(i => ({ q: i.q, w: i.w, type: i.type })), t - 0), de = $('tDep');   // t هو المجموع بعد الخصم
+  if (de) { de.hidden = !(dep > 0); de.textContent = dep > 0 ? '🤝 طلب جملة — عربون ' + DEP_PCT + '%: ' + fmt(dep) + ' ريال · المتبقي ' + fmt(t - dep) : ''; }
 }
 
 const normName = t => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -2477,7 +2489,8 @@ function edSum() {
   const ln = i => Math.max(0, Math.floor(+i.q || 0)) * Math.max(0, +i.unit || 0);
   const sub = ED.items.reduce((a, i) => a + ln(i), 0);
   const disc = ED.items.reduce((a, i) => a + r2(ln(i) * Math.min(100, Math.max(0, +i.dp || 0)) / 100), 0);
-  $('edSum').textContent = 'المجموع الجديد: ' + fmt(sub - disc) + ' ريال';
+  const dp0 = depositFor(ED.items, sub - disc);
+  $('edSum').textContent = 'المجموع الجديد: ' + fmt(sub - disc) + ' ريال' + (dp0 > 0 ? ' · عربون الجملة ' + DEP_PCT + '%: ' + fmt(dp0) + ' ريال' : '');
 }
 $('edItems').addEventListener('input', e => {
   const k = e.target.dataset.k; if (!k) return;
