@@ -345,6 +345,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   <div class="brand">RAX3D</div>
   <p id="lockHint">اكتب رمز الدخول</p>
   <input id="pinIn" type="password" inputmode="numeric" autocomplete="off" maxlength="12">
+  <label id="remBox" style="display:flex;align-items:center;gap:8px;justify-content:center;margin:12px 0 0;font-size:14px;color:var(--mute);cursor:pointer"><input type="checkbox" id="remMe" style="width:20px;height:20px;margin:0"> تذكرني على هذا الجهاز (30 يومًا)</label>
   <div id="firstRun" style="display:none;text-align:right">
     <div id="frChoose">
       <button class="save" id="frA">📱 هذا جوال الدعم الفني</button>
@@ -509,7 +510,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '73';
+const APP_VERSION = '74';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1428,8 +1429,13 @@ addEventListener('online', () => cloudBackupSoon());
 <script>
 let S = null, DATA = null, items = [];
 let PIN = '';
-try { localStorage.removeItem('rax3d_pin'); PIN = sessionStorage.getItem('rax3d_pin') || ''; } catch (e) {}   // الرمز يُطلب كل مرة يفتح التطبيق
-function savePin(v) { PIN = v; try { v ? sessionStorage.setItem('rax3d_pin', v) : sessionStorage.removeItem('rax3d_pin'); } catch (e) {} }
+// «تذكرني على هذا الجهاز»: بدونها الرمز يُطلب كل مرة يفتح التطبيق. معها يُحفظ الرمز على هذا الجهاز 30 يومًا، ويُمسح بزر «قفل التطبيق» أو عند أي رمز خاطئ
+const REM_KEY = 'rax3d_pin_mem', REM_DAYS = 30;
+function remGet() { try { const j = JSON.parse(localStorage.getItem(REM_KEY) || 'null'); if (j && /^[0-9]{4,12}$/.test(j.p) && j.exp > Date.now()) return j.p; localStorage.removeItem(REM_KEY); } catch (e) {} return ''; }
+function remSet(p) { try { localStorage.setItem(REM_KEY, JSON.stringify({ p: p, exp: Date.now() + REM_DAYS * 864e5 })); } catch (e) {} }
+function remClear() { try { localStorage.removeItem(REM_KEY); } catch (e) {} }
+try { localStorage.removeItem('rax3d_pin'); PIN = sessionStorage.getItem('rax3d_pin') || remGet(); } catch (e) {}
+function savePin(v) { PIN = v; if (!v) remClear(); try { v ? sessionStorage.setItem('rax3d_pin', v) : sessionStorage.removeItem('rax3d_pin'); } catch (e) {} }
 function showLock(msg) {
   $('lock').classList.add('on'); $('pinErr').style.color = ''; $('pinErr').textContent = msg || ''; try { updateForgot(); } catch (e) {} $('pinIn').value = '';
   setTimeout(() => $('pinIn').focus(), 50);
@@ -2053,11 +2059,11 @@ function frShow(mode) {
   if (mode === 'partner') { $('fJoinBox').hidden = !!JOIN; if (JOIN) { $('fJoin').value = JOIN; $('frBack').hidden = true; } }
 }
 function showFirstRun() {
-  $('lock').classList.add('on'); $('firstRun').style.display = ''; $('pinIn').style.display = 'none'; $('forgotBtn').hidden = true;
+  $('lock').classList.add('on'); $('firstRun').style.display = ''; $('pinIn').style.display = 'none'; $('remBox').style.display = 'none'; $('forgotBtn').hidden = true;
   frShow(JOIN ? 'partner' : 'choose');
 }
 function endFirstRun() {
-  $('firstRun').style.display = 'none'; $('pinIn').style.display = ''; $('frBack').hidden = true; $('pinBtn').hidden = false;
+  $('firstRun').style.display = 'none'; $('pinIn').style.display = ''; $('remBox').style.display = 'flex'; $('frBack').hidden = true; $('pinBtn').hidden = false;
   $('lockHint').textContent = 'اكتب رمز الدخول'; $('pinBtn').textContent = 'دخول';
 }
 $('frA').onclick = () => frShow('admin');
@@ -2309,7 +2315,7 @@ function tryPin() {
   if (!v) { $('pinErr').textContent = 'اكتب الرمز'; return; }
   $('pinBtn').disabled = true; $('pinErr').textContent = '';
   google.script.run
-    .withSuccessHandler(d => { $('pinBtn').disabled = false; savePin(v); $('lock').classList.remove('on'); CARRY = { pinNotice: d.pinNotice }; load(); })
+    .withSuccessHandler(d => { $('pinBtn').disabled = false; savePin(v); if ($('remMe').checked) remSet(v); $('lock').classList.remove('on'); CARRY = { pinNotice: d.pinNotice }; load(); })
     .withFailureHandler(err => {
       $('pinBtn').disabled = false;
       const m = String((err && err.message) || err);
