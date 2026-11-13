@@ -67,6 +67,7 @@ nav button{flex:1;border:0;background:none;padding:9px 2px;border-radius:999px;f
 nav button i{position:absolute;top:5px;inset-inline-end:8px;width:9px;height:9px;border-radius:50%;background:#e5484d}
 .stk-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.stk-tabs button{flex:none;border:1px solid var(--line);background:var(--field);color:var(--mute);border-radius:999px;padding:8px 14px;cursor:pointer}.stk-tabs button.on{background:var(--gold-d);color:#000;font-weight:700;border-color:var(--gold)}
 .stk-row{display:grid;grid-template-columns:1.3fr 1.1fr 1fr 28px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.stk-row.hd{color:var(--mute);font-size:12.5px;border-bottom:2px solid var(--line)}
+.stk-code{display:block;font-size:11px;color:var(--mute);cursor:pointer;direction:ltr;text-align:right}.stk-code:not(:empty){margin-top:1px}
 .stk-c{display:flex;align-items:center;gap:8px}.stk-c i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.55);flex:none}
 .stk-q{display:flex;align-items:center;gap:4px}.stk-q button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--text);cursor:pointer;font-size:18px;padding:0}.stk-q b{min-width:26px;text-align:center}
 .stk-b{border:0;border-radius:999px;padding:7px 4px;font-size:13px;font-weight:700;cursor:pointer;color:#fff}.stk-b.ok{background:#2f9a57}.stk-b.buy{background:#d64545}
@@ -316,7 +317,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div id="stkBody"></div>
     <div id="stkQuick" style="margin-top:12px"></div>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <select id="stkTySel" style="flex:1;min-width:90px" aria-label="نوع الفلمنت"></select><input id="stkColTxt" list="stkColList" placeholder="اسم اللون" style="flex:1.4;min-width:110px" autocomplete="off"><datalist id="stkColList"><option>أبيض</option><option>أسود</option><option>رمادي</option><option>أحمر</option><option>برتقالي</option><option>أصفر</option><option>أخضر</option><option>أزرق</option><option>بنفسجي</option><option>وردي</option><option>ذهبي</option><option>بني</option></datalist><button class="ghost" id="stkAddColor" style="margin:0;width:auto">＋ إضافة</button>
+      <select id="stkTySel" style="flex:1;min-width:90px" aria-label="نوع الفلمنت"></select><input id="stkColTxt" list="stkColList" placeholder="اسم اللون" style="flex:1.4;min-width:110px" autocomplete="off"><datalist id="stkColList"><option>أبيض</option><option>أسود</option><option>رمادي</option><option>أحمر</option><option>برتقالي</option><option>أصفر</option><option>أخضر</option><option>أزرق</option><option>بنفسجي</option><option>وردي</option><option>ذهبي</option><option>بني</option></datalist><input id="stkCodeTxt" placeholder="رمز الاستكر (اختياري) مثل BROWN 10100" style="flex:1 1 100%" autocomplete="off" dir="ltr"><button class="ghost" id="stkAddColor" style="margin:0;width:auto">＋ إضافة</button>
     </div>
     <div style="margin-top:8px;display:flex;gap:8px"><input id="stkTypeTxt" placeholder="نوع فلمنت جديد (مثل PETG)" style="flex:1"><button class="ghost" id="stkAddType" style="margin:0;width:auto">＋ نوع</button></div>
     <button class="save" id="stkDone" style="margin-top:14px">✔ تم الجرد (التذكير القادم بعد أسبوعين)</button>
@@ -1699,6 +1700,8 @@ function stkCanon(c, loose) {   // الاسم الرسمي في الموقع، �
   const n = CN(c); if (STK_BYN[n]) return STK_BYN[n]; if (STK_ALIAS[n]) return STK_ALIAS[n];
   if (loose) { const w = n.split(' ')[0]; if (STK_BYN[w]) return STK_BYN[w]; if (STK_ALIAS[w]) return STK_ALIAS[w]; const hit = [...new Set(n.toLowerCase().split(/[^a-z]+/).map(x => STK_EN[x]).filter(Boolean))]; if (hit.length === 1) return hit[0]; }   // لونان (Blue Green) = جرد فقط، بدون ربط بالموقع return '';   // الإنجليزي كما في استكر الفلمنت: Matte Ice Blue 10100 ← أزرق
 }
+const stkRC = r => stkCanon(r.c, true) || stkCanon(r.code, true);   // لون الموقع للصف: من الاسم، وإلا من رمز الاستكر (BROWN 10100)
+const stkHexR = r => STK_HEX[stkRC(r)] || stkHex(r.c);
 const stkHex = c => STK_HEX[c] || STK_HEX_X[c] || STK_HEX[stkCanon(c, true)] || '';
 const STK_START = '2026-11-26';   // أول موعد جرد: بعد أسبوعين من تاريخ الطلب (12 نوفمبر 2026)
 const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
@@ -1709,8 +1712,8 @@ function stkDefault() {
 let STK = null, STK_TYPE = '', STK_Q = [], STK_T = null, STK_BUSY = false, STK_OK = false;
 function stkNorm(d) {
   d = d && typeof d === 'object' ? d : stkDefault(); d.types = (Array.isArray(d.types) && d.types.length ? d.types : stkDefault().types).map(t => ({ name: String(t.name || '').slice(0, 20), site: !!t.site })).filter(t => t.name);
-  d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy })).filter(r => r.t && r.c);
-  const seen = new Map(); d.rows = d.rows.reduce((a, r) => { const k = stkCanon(r.c); if (k) r.c = k; const id = r.t + '|' + r.c, o = seen.get(id); if (o) { o.q = Math.min(999, o.q + r.q); o.buy = o.buy && r.buy; } else { seen.set(id, r); a.push(r); } return a; }, []);   // اسود → أسود (ودمج المكرر)
+  d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy, code: String(r.code || '').slice(0, 30) })).filter(r => r.t && r.c);
+  const seen = new Map(); d.rows = d.rows.reduce((a, r) => { const k = stkCanon(r.c); if (k) r.c = k; const id = r.t + '|' + r.c, o = seen.get(id); if (o) { o.q = Math.min(999, o.q + r.q); o.buy = o.buy && r.buy; o.code = o.code || r.code; } else { seen.set(id, r); a.push(r); } return a; }, []);   // اسود → أسود (ودمج المكرر)
   d.next = /^\d{4}-\d{2}-\d{2}$/.test(d.next) ? d.next : STK_START; d.mailedFor = d.mailedFor || '';
   if (!(d.v >= 2)) { d.v = 2; d.types.slice(1).forEach(t => { const rs = d.rows.filter(r => r.t === t.name); if (rs.length === STK_COLORS.length && rs.every(r => r.q === 0 && !r.buy)) d.rows = d.rows.filter(r => r.t !== t.name); }); }   // تنظيف مرة وحدة: النوع الجديد كان يتعبّى بكل الألوان تلقائيًا بالغلط
   return d;
@@ -1756,11 +1759,11 @@ function stkRender() {
   $('stkNote').innerHTML = ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «طلب شراء» يظهر للعميل بخط أحمر «غير متوفر»، وإذا تحوّل لـ«لا يلزم» يرجع متوفرًا. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
     : 'هذا النوع غير مربوط بالموقع (للجرد فقط). <button type="button" class="linkbtn" data-site="1">ربطه بالموقع</button>';
   $('stkNote').innerHTML += ' · <button type="button" class="linkbtn" data-deltype="1" style="color:var(--bad)">🗑 حذف هذا النوع</button>';
-  $('stkBody').innerHTML = '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>طلب شراء؟</span><span></span></div>' + (rows.length ? rows.map(r => `<div class="stk-row" data-c="${esc(r.c)}"><span class="stk-c"><i style="${stkHex(r.c) ? 'background:' + stkHex(r.c) : ''}"></i>${esc(r.c)}</span>
+  $('stkBody').innerHTML = '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>طلب شراء؟</span><span></span></div>' + (rows.length ? rows.map(r => `<div class="stk-row" data-c="${esc(r.c)}"><span class="stk-c"><i style="${stkHexR(r) ? 'background:' + stkHexR(r) : ''}"></i><span>${esc(r.c)}<small class="stk-code" data-code="1">${r.code ? esc(r.code) : '＋ رمز الاستكر'}</small></span></span>
       <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
       <button type="button" class="stk-b ${r.buy ? 'buy' : 'ok'}" data-buy="1">${r.buy ? '🔴 اطلب شراء' : '🟢 لا يلزم'}</button>
       <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">لا ألوان في هذا النوع، أضف من الأسفل.</p>');
-  const have = new Set(rows.map(r => stkCanon(r.c, true))), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(r => stkCanon(r.c, true)));
+  const have = new Set(rows.map(stkRC)), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(stkRC));
   const gone = SHOP_COLORS.filter(c => c[1] && !linked.has(c[0])).map(c => c[0]);
   $('stkQuick').innerHTML = (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => `<button type="button" class="cchip" data-qc="${c[0]}"><i style="background:${c[1]}"></i>${c[0]}</button>`).join('') + '</div>' : '');
   const tsel = $('stkTySel'); if (document.activeElement !== tsel) tsel.innerHTML = d.types.map(t => `<option${t.name === STK_TYPE ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
@@ -1784,6 +1787,7 @@ $('stkNote').addEventListener('click', e => {
   if (dt) { const t = STK_TYPE; if (STK.types.length < 2) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'لازم يبقى نوع واحد على الأقل'; return; } if (!confirm('حذف نوع الفلمنت «' + t + '» بكل ألوانه؟')) return; stkEdit(d => { d.types = d.types.filter(x => x.name !== t); d.rows = d.rows.filter(r => r.t !== t); }); return; }
   const b = e.target.closest('[data-site]'); if (!b) return; const t = STK_TYPE, v = b.dataset.site === '1'; stkEdit(d => { const x = d.types.find(y => y.name === t); if (x) x.site = v; }); });
 $('stkBody').addEventListener('click', e => {
+  const cd = e.target.closest('[data-code]'); if (cd) { const rw = cd.closest('.stk-row'), t0 = STK_TYPE, c0 = rw && rw.dataset.c, r0 = c0 && stkRow(STK, t0, c0); if (r0) { const v = prompt('رمز / اسم اللون كما في الاستكر (مثل: BROWN 10100)', r0.code || ''); if (v !== null) stkEdit(d => { const r = stkRow(d, t0, c0); if (r) r.code = v.trim().slice(0, 30); }); } return; }
   const b = e.target.closest('button'); if (!b) return; const row = b.closest('.stk-row'); if (!row || !row.dataset.c) return; const t = STK_TYPE, c = row.dataset.c, cur = stkRow(STK, t, c); if (!cur) return;
   if (b.dataset.q) { const nq = Math.max(0, Math.min(999, cur.q + (+b.dataset.q))), was = cur.q; stkEdit(d => { const r = stkRow(d, t, c); if (!r) return; r.q = nq; if (nq === 0) r.buy = true; else if (was === 0) r.buy = false; }, [t, c]); }   // وصل للصفر ← طلب شراء، وأول ما يوصل مخزون يرجع «لا يلزم»
   else if (b.dataset.buy) { const nb = !cur.buy; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.buy = nb; }, [t, c]); }
@@ -1791,9 +1795,9 @@ $('stkBody').addEventListener('click', e => {
 });
 $('stkQuick').addEventListener('click', e => { const b = e.target.closest('[data-qc]'); if (!b) return; const t = STK_TYPE, c = b.dataset.qc; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false }); }); });
 $('stkAddColor').onclick = () => {
-  const t = $('stkTySel').value || STK_TYPE; let c = $('stkColTxt').value.trim().slice(0, 30); c = stkCanon(c) || c; if (!c) { $('stkColTxt').focus(); return; }
+  const t = $('stkTySel').value || STK_TYPE; let c = $('stkColTxt').value.trim().slice(0, 30); c = stkCanon(c) || c; const code = ($('stkCodeTxt').value || '').trim().slice(0, 30); if (!c) { $('stkColTxt').focus(); return; }
   if (stkRow(STK, t, c)) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'هذا اللون موجود في ' + t; return; }
-  $('stkColTxt').value = ''; STK_TYPE = t; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false }); });
+  $('stkColTxt').value = ''; $('stkCodeTxt').value = ''; STK_TYPE = t; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false, code: code }); });
 };
 $('stkAddType').onclick = () => {
   const n = $('stkTypeTxt').value.trim().slice(0, 20); if (!n) return; if (STK.types.some(t => t.name.toLowerCase() === n.toLowerCase())) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'النوع موجود'; return; }
