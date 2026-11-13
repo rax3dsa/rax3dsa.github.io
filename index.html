@@ -569,7 +569,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '87';
+const APP_VERSION = '88';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1713,7 +1713,7 @@ let STK = null, STK_TYPE = '', STK_Q = [], STK_T = null, STK_BUSY = false, STK_O
 function stkNorm(d) {
   d = d && typeof d === 'object' ? d : stkDefault(); d.types = (Array.isArray(d.types) && d.types.length ? d.types : stkDefault().types).map(t => ({ name: String(t.name || '').slice(0, 20), site: !!t.site })).filter(t => t.name);
   d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy, code: String(r.code || '').slice(0, 30) })).filter(r => r.t && r.c);
-  const seen = new Map(); d.rows = d.rows.reduce((a, r) => { const k = stkCanon(r.c); if (k) r.c = k; const id = r.t + '|' + r.c, o = seen.get(id); if (o) { o.q = Math.min(999, o.q + r.q); o.buy = o.buy && r.buy; o.code = o.code || r.code; } else { seen.set(id, r); a.push(r); } return a; }, []);   // اسود → أسود (ودمج المكرر)
+  const seen = new Map(); d.rows = d.rows.reduce((a, r) => { const k = STK_BYN[CN(r.c)]; if (k) r.c = k; const id = r.t + '|' + r.c, o = seen.get(id); if (o) { o.q = Math.min(999, o.q + r.q); o.buy = o.buy && r.buy; o.code = o.code || r.code; } else { seen.set(id, r); a.push(r); } return a; }, []);   // اسود → أسود (ودمج المكرر)
   d.next = /^\d{4}-\d{2}-\d{2}$/.test(d.next) ? d.next : STK_START; d.mailedFor = d.mailedFor || '';
   if (!(d.v >= 2)) { d.v = 2; d.types.slice(1).forEach(t => { const rs = d.rows.filter(r => r.t === t.name); if (rs.length === STK_COLORS.length && rs.every(r => r.q === 0 && !r.buy)) d.rows = d.rows.filter(r => r.t !== t.name); }); }   // تنظيف مرة وحدة: النوع الجديد كان يتعبّى بكل الألوان تلقائيًا بالغلط
   return d;
@@ -1727,7 +1727,7 @@ async function stkSync(force) {
   try {
     if (!sy) { STK_OK = false; return; }
     const r = await readJson(sy, 'stock.json', null);
-    if (r.data) STK = stkNorm(r.data);
+    if (r.data) { const odd = (Array.isArray(r.data.rows) ? r.data.rows : []).some(x => x && STK_BYN[CN(x.c)] && STK_BYN[CN(x.c)] !== x.c); STK = stkNorm(r.data); if (odd) setTimeout(() => stkEdit(() => {}), 300); }   // أسماء بلا همزة (اسود) ← تُكتب تلقائيًا بالاسم الرسمي (أسود)
     else { STK = stkNorm(STK); await updateJson(sy, 'stock.json', null, d => d ? undefined : STK, 'إنشاء جرد الفلمنت'); }
     STK_OK = true; stkSaveLocal();
   } catch (e) { STK_OK = false; }
