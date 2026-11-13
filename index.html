@@ -1697,7 +1697,7 @@ const STK_EN = { white: 'أبيض', black: 'أسود', gray: 'رمادي', grey:
 const STK_BYN = Object.fromEntries(STK_COLORS.map(c => [CN(c), c]));
 function stkCanon(c, loose) {   // الاسم الرسمي في الموقع، أو '' لو غير معروف. loose = يقبل «اخضر ريميدي» (أول كلمة)
   const n = CN(c); if (STK_BYN[n]) return STK_BYN[n]; if (STK_ALIAS[n]) return STK_ALIAS[n];
-  if (loose) { const w = n.split(' ')[0]; if (STK_BYN[w]) return STK_BYN[w]; if (STK_ALIAS[w]) return STK_ALIAS[w]; for (const x of n.toLowerCase().split(/[^a-z]+/)) if (STK_EN[x]) return STK_EN[x]; } return '';   // الإنجليزي كما في استكر الفلمنت: Matte Ice Blue 10100 ← أزرق
+  if (loose) { const w = n.split(' ')[0]; if (STK_BYN[w]) return STK_BYN[w]; if (STK_ALIAS[w]) return STK_ALIAS[w]; const hit = [...new Set(n.toLowerCase().split(/[^a-z]+/).map(x => STK_EN[x]).filter(Boolean))]; if (hit.length === 1) return hit[0]; }   // لونان (Blue Green) = جرد فقط، بدون ربط بالموقع return '';   // الإنجليزي كما في استكر الفلمنت: Matte Ice Blue 10100 ← أزرق
 }
 const stkHex = c => STK_HEX[c] || STK_HEX_X[c] || STK_HEX[stkCanon(c, true)] || '';
 const STK_START = '2026-11-26';   // أول موعد جرد: بعد أسبوعين من تاريخ الطلب (12 نوفمبر 2026)
