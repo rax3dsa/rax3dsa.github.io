@@ -1693,10 +1693,11 @@ const STK_COLORS = SHOP_COLORS.filter(c => c[1]).map(c => c[0]), STK_HEX = Objec
 const CN = s => String(s || '').replace(/[\u064B-\u065F\u0640]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ').trim();
 const STK_ALIAS = { 'رصاصي': 'رمادي', 'كحلي': 'أزرق', 'سماوي': 'أزرق', 'زهري': 'وردي', 'قهوائي': 'بني', 'بنفسجى': 'بنفسجي' };
 const STK_HEX_X = { 'كحلي': '#1f3a7a', 'رصاصي': '#8f969a' };
+const STK_EN = { white: 'أبيض', black: 'أسود', gray: 'رمادي', grey: 'رمادي', silver: 'رمادي', graphite: 'رمادي', charcoal: 'رمادي', red: 'أحمر', orange: 'برتقالي', yellow: 'أصفر', green: 'أخضر', lime: 'أخضر', olive: 'أخضر', mint: 'أخضر', blue: 'أزرق', navy: 'أزرق', cyan: 'أزرق', sky: 'أزرق', purple: 'بنفسجي', violet: 'بنفسجي', lavender: 'بنفسجي', pink: 'وردي', magenta: 'وردي', rose: 'وردي', gold: 'ذهبي', brown: 'بني', coffee: 'بني', bronze: 'بني', chocolate: 'بني' };
 const STK_BYN = Object.fromEntries(STK_COLORS.map(c => [CN(c), c]));
 function stkCanon(c, loose) {   // الاسم الرسمي في الموقع، أو '' لو غير معروف. loose = يقبل «اخضر ريميدي» (أول كلمة)
   const n = CN(c); if (STK_BYN[n]) return STK_BYN[n]; if (STK_ALIAS[n]) return STK_ALIAS[n];
-  if (loose) { const w = n.split(' ')[0]; if (STK_BYN[w]) return STK_BYN[w]; if (STK_ALIAS[w]) return STK_ALIAS[w]; } return '';
+  if (loose) { const w = n.split(' ')[0]; if (STK_BYN[w]) return STK_BYN[w]; if (STK_ALIAS[w]) return STK_ALIAS[w]; for (const x of n.toLowerCase().split(/[^a-z]+/)) if (STK_EN[x]) return STK_EN[x]; } return '';   // الإنجليزي كما في استكر الفلمنت: Matte Ice Blue 10100 ← أزرق
 }
 const stkHex = c => STK_HEX[c] || STK_HEX_X[c] || STK_HEX[stkCanon(c, true)] || '';
 const STK_START = '2026-11-26';   // أول موعد جرد: بعد أسبوعين من تاريخ الطلب (12 نوفمبر 2026)
