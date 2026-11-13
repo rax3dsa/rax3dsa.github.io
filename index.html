@@ -330,7 +330,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <p class="hint" style="line-height:1.8;margin:0 0 8px">اكتب وصف الطلب وسعره النهائي، ينعمل رابط ترسله للعميل. يدفع من موقع rax3d.com (بطاقة / Apple Pay) أو يختار الدفع عند الاستلام، والرابط يشتغل مرة واحدة، والطلب يدخل السجل تلقائياً.</p>
     <input id="cuClient" placeholder="اسم العميل (اختياري)" maxlength="60" autocomplete="off">
     <textarea id="cuDesc" placeholder="وصف الطلب: ماذا سنطبع، المقاس، الألوان…" rows="4" maxlength="1200" style="margin-top:8px"></textarea>
-    <input id="cuPrice" type="number" inputmode="numeric" min="1" max="50000" step="1" placeholder="السعر النهائي بالريال (شامل كل شيء)" style="margin-top:8px">
+    <input id="cuPrice" type="number" inputmode="numeric" min="1" max="50000" step="1" placeholder="سعر الطلب بالريال (التوصيل يُضاف حسب اختيار العميل)" style="margin-top:8px">
     <div style="margin-top:8px;display:flex;gap:8px;align-items:center"><label class="ghost" style="margin:0;text-align:center;cursor:pointer;flex:1">📷 صورة (اختياري)<input id="cuImg" type="file" accept="image/*" hidden></label><span class="hint" id="cuImgN" style="flex:1"></span></div>
     <button class="save" id="cuMake" style="margin-top:12px">إنشاء الرابط</button>
     <p class="hint" id="cuMsg" style="margin:8px 0 0"></p>
