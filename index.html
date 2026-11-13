@@ -257,6 +257,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button data-tab="log">السجل</button>
     <button data-tab="stats" class="adm">الإحصائيات</button>
     <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
+    <button data-tab="custom" class="adm">طلب خاص</button>
   </nav>
 
   <div id="boot" class="loading">جاري التحميل…</div>
@@ -322,6 +323,21 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div style="margin-top:8px;display:flex;gap:8px"><input id="stkTypeTxt" placeholder="نوع فلمنت جديد (مثل PETG)" style="flex:1"><button class="ghost" id="stkAddType" style="margin:0;width:auto">＋ نوع</button></div>
     <button class="save" id="stkDone" style="margin-top:14px">✔ تم الجرد (التذكير القادم بعد أسبوعين)</button>
     <p class="hint" id="stkMsg" style="margin:8px 0 0"></p>
+  </section>
+
+  <section id="custom">
+    <h2 style="margin:6px 0 2px;font-size:20px">🔗 طلب خاص برابط دفع</h2>
+    <p class="hint" style="line-height:1.8;margin:0 0 8px">اكتب وصف الطلب وسعره النهائي، ينعمل رابط ترسله للعميل. يدفع من موقع rax3d.com (بطاقة / Apple Pay) أو يختار الدفع عند الاستلام، والرابط يشتغل مرة واحدة، والطلب يدخل السجل تلقائياً.</p>
+    <input id="cuClient" placeholder="اسم العميل (اختياري)" maxlength="60" autocomplete="off">
+    <textarea id="cuDesc" placeholder="وصف الطلب: ماذا سنطبع، المقاس، الألوان…" rows="4" maxlength="1200" style="margin-top:8px"></textarea>
+    <input id="cuPrice" type="number" inputmode="numeric" min="1" max="50000" step="1" placeholder="السعر النهائي بالريال (شامل كل شيء)" style="margin-top:8px">
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center"><label class="ghost" style="margin:0;text-align:center;cursor:pointer;flex:1">📷 صورة (اختياري)<input id="cuImg" type="file" accept="image/*" hidden></label><span class="hint" id="cuImgN" style="flex:1"></span></div>
+    <button class="save" id="cuMake" style="margin-top:12px">إنشاء الرابط</button>
+    <p class="hint" id="cuMsg" style="margin:8px 0 0"></p>
+    <div id="cuOut" hidden style="margin-top:10px"></div>
+    <h3 style="margin:18px 0 6px;font-size:16px">طلباتي الخاصة</h3>
+    <div id="cuList"></div>
+    <button class="ghost" id="cuRefresh" style="margin-top:8px">🔄 تحديث الحالة</button>
   </section>
 
   <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button><button class="ghost" id="monthNow">📧 التقرير الشهري الآن</button></div><div id="statList"></div>
@@ -1805,6 +1821,72 @@ $('stkDone').onclick = () => { const nx = addDays(todayStr(), 14); stkEdit(d => 
 document.querySelector('nav button[data-tab="stock"]').addEventListener('click', () => stkSync(true));
 setInterval(() => { if (document.hidden || !DATA) return; if ($('stock').classList.contains('on')) stkSync(); }, 45000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && DATA) stkSync(); });
+
+/* ---------- طلب خاص: رابط دفع لطلب واحد (يكتبه التطبيق في مستودع البيانات، ويقرأه الموقع عبر الـworker) ---------- */
+const CU_KEY = 'rax3d_custom', CU_SITE = 'https://rax3d.com/?c=';
+const cuLoad = () => { try { return JSON.parse(localStorage.getItem(CU_KEY) || '[]'); } catch (e) { return []; } };
+const cuSave = l => { try { localStorage.setItem(CU_KEY, JSON.stringify(l.slice(0, 40))); } catch (e) {} };
+const cuMsg = (t, bad) => { const m = $('cuMsg'); m.textContent = t; m.style.color = bad ? '#c0392b' : ''; };
+const cuId = () => { const a = new Uint8Array(16); crypto.getRandomValues(a); const c = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return [...a].map(x => c[x % c.length]).join(''); };
+let cuImgData = '';
+function cuShrink(file) {
+  return new Promise((ok, no) => {
+    const fr = new FileReader(); fr.onerror = () => no(); fr.onload = () => {
+      const im = new Image(); im.onerror = () => no(); im.onload = () => {
+        let w = im.width, h = im.height; const k = Math.min(1, 900 / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
+        const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+        let q = 0.78, d = c.toDataURL('image/jpeg', q); while (d.length > 260000 && q > 0.35) { q -= 0.1; d = c.toDataURL('image/jpeg', q); }
+        ok(d);
+      }; im.src = fr.result;
+    }; fr.readAsDataURL(file);
+  });
+}
+$('cuImg').onchange = async e => {
+  const f = e.target.files[0]; cuImgData = ''; $('cuImgN').textContent = '';
+  if (!f) return;
+  try { cuImgData = await cuShrink(f); $('cuImgN').textContent = '✔ ' + Math.round(cuImgData.length / 1024) + ' ك.ب'; } catch (er) { cuMsg('تعذّر قراءة الصورة', true); }
+};
+const cuStat = s => s === 'paid' ? '✅ مدفوع' : s === 'cod' ? '🚚 دفع عند الاستلام' : s === 'gone' ? '🗑 ملغي' : '⏳ بانتظار العميل';
+function cuRender() {
+  const l = cuLoad();
+  $('cuList').innerHTML = l.length ? l.map(r => `<div class="hint" style="border:1px solid var(--ghost-b,#7a7466);border-radius:12px;padding:10px;margin-bottom:8px;line-height:1.8"><b>${esc(r.name || 'بدون اسم')}</b> · ${r.price} ريال · ${cuStat(r.status)}${r.num ? ' · ORD-' + r.num : ''}<br>${esc(String(r.desc || '').slice(0, 80))}<br><button class="ghost" style="margin:6px 4px 0 0;width:auto;padding:8px 12px" data-cu="cp" data-id="${r.id}">نسخ الرابط</button>${r.status === 'open' || !r.status ? `<button class="ghost" style="margin:6px 0 0;width:auto;padding:8px 12px" data-cu="del" data-id="${r.id}">إلغاء الرابط</button>` : ''}</div>`).join('') : '<p class="hint">لا توجد طلبات خاصة بعد.</p>';
+}
+const cuShare = r => `طلبك الخاص من RAX3D\n${r.desc}\nالمبلغ: ${r.price} ريال\nللدفع افتح الرابط:\n${CU_SITE}${r.id}`;
+$('cuMake').onclick = async () => {
+  const sync = getSync(); if (!sync) { cuMsg('اربط التطبيق بالمزامنة أولاً', true); return; }
+  const desc = $('cuDesc').value.trim(), price = Math.round(+$('cuPrice').value), name = $('cuClient').value.trim();
+  if (desc.length < 5) { cuMsg('اكتب وصف الطلب', true); return; }
+  if (!(price >= 1 && price <= 50000)) { cuMsg('اكتب السعر النهائي بالريال', true); return; }
+  const id = cuId(), rec = { id, name, desc, price, img: cuImgData, status: 'open', at: new Date().toISOString() };
+  $('cuMake').disabled = true; cuMsg('جاري إنشاء الرابط…');
+  try {
+    await ghPut(sync, 'custom/' + id + '.json', rec, 'طلب خاص جديد ' + id.slice(0, 5));
+    const l = cuLoad(); l.unshift({ id, name, desc, price, status: 'open', at: rec.at }); cuSave(l);
+    const url = CU_SITE + id; cuMsg('تم إنشاء الرابط ✔');
+    $('cuOut').hidden = false; $('cuOut').innerHTML = `<div class="hint" style="word-break:break-all;direction:ltr;text-align:left;border:1px solid var(--ghost-b,#7a7466);border-radius:12px;padding:10px">${esc(url)}</div><div class="tools"><button class="ghost" id="cuCp1">📋 انسخ رابط + تفاصيل</button><button class="ghost" id="cuWa">واتساب</button></div>`;
+    $('cuCp1').onclick = () => navigator.clipboard.writeText(cuShare(rec)).then(() => toast('تم النسخ ✔'), () => toast('تعذّر النسخ'));
+    $('cuWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(cuShare(rec)), '_blank');
+    $('cuDesc').value = ''; $('cuPrice').value = ''; $('cuClient').value = ''; $('cuImg').value = ''; cuImgData = ''; $('cuImgN').textContent = '';
+    cuRender();
+  } catch (e) { cuMsg('تعذّر إنشاء الرابط: ' + (e.message || e), true); }
+  $('cuMake').disabled = false;
+};
+$('cuRefresh').onclick = async () => {
+  const sync = getSync(); if (!sync) { cuMsg('اربط التطبيق بالمزامنة أولاً', true); return; }
+  cuMsg('جاري التحديث…'); const l = cuLoad();
+  try {
+    for (const r of l.slice(0, 20)) { if (r.status && r.status !== 'open') continue; const f = await ghFile(sync, 'custom/' + r.id + '.json'); if (!f) r.status = 'gone'; else { r.status = f.data.status || 'open'; r.num = f.data.num || r.num; } }
+    cuSave(l); cuRender(); cuMsg('تم التحديث ✔');
+  } catch (e) { cuMsg('تعذّر التحديث: ' + (e.message || e), true); }
+};
+$('cuList').onclick = async e => {
+  const b = e.target.closest('[data-cu]'); if (!b) return; const l = cuLoad(), r = l.find(x => x.id === b.dataset.id); if (!r) return;
+  if (b.dataset.cu === 'cp') { navigator.clipboard.writeText(cuShare(r)).then(() => toast('تم النسخ ✔'), () => toast('تعذّر النسخ')); return; }
+  if (!confirm('إلغاء هذا الرابط؟ العميل ما راح يقدر يدفع به.')) return;
+  const sync = getSync(); if (!sync) return;
+  try { const f = await ghFile(sync, 'custom/' + r.id + '.json'); if (f && f.data.status && f.data.status !== 'open') { cuMsg('الرابط انستخدم قبل شوي: حدّث الحالة', true); return; } await ghDel(sync, 'custom/' + r.id + '.json', 'إلغاء طلب خاص ' + r.id.slice(0, 5)); r.status = 'gone'; cuSave(l); cuRender(); cuMsg('تم إلغاء الرابط ✔'); } catch (er) { cuMsg('تعذّر الإلغاء: ' + (er.message || er), true); }
+};
+cuRender();
 
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
