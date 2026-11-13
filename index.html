@@ -328,7 +328,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   <section id="custom">
     <h2 style="margin:6px 0 2px;font-size:20px">🔗 طلب خاص برابط دفع</h2>
     <p class="hint" style="line-height:1.8;margin:0 0 8px">اكتب وصف الطلب وسعره النهائي، ينعمل رابط ترسله للعميل. يدفع من موقع rax3d.com (بطاقة / Apple Pay) أو يختار الدفع عند الاستلام، والرابط يشتغل مرة واحدة، والطلب يدخل السجل تلقائياً.</p>
-    <input id="cuClient" placeholder="اسم العميل (اختياري)" maxlength="60" autocomplete="off">
+    <input id="cuClient" placeholder="اسم العميل" maxlength="60" autocomplete="off">
+    <input id="cuPhone" inputmode="tel" placeholder="جوال العميل 05xxxxxxxx (لنقاط الولاء والسجل)" maxlength="20" autocomplete="off" style="margin-top:8px;direction:ltr;text-align:right">
+    <small id="cuPts" class="hint" style="display:block;margin-top:4px;color:var(--gold-t)"></small>
     <textarea id="cuDesc" placeholder="وصف الطلب: ماذا سنطبع، المقاس، الألوان…" rows="4" maxlength="1200" style="margin-top:8px"></textarea>
     <input id="cuPrice" type="number" inputmode="numeric" min="1" max="50000" step="1" placeholder="سعر الطلب بالريال (التوصيل يُضاف حسب اختيار العميل)" style="margin-top:8px">
     <div style="margin-top:8px;display:flex;gap:8px;align-items:center"><label class="ghost" style="margin:0;text-align:center;cursor:pointer;flex:1">📷 صورة (اختياري)<input id="cuImg" type="file" accept="image/*" hidden></label><span class="hint" id="cuImgN" style="flex:1"></span></div>
@@ -1849,24 +1851,27 @@ $('cuImg').onchange = async e => {
 const cuStat = s => s === 'paid' ? '✅ مدفوع' : s === 'cod' ? '🚚 دفع عند الاستلام' : s === 'gone' ? '🗑 ملغي' : '⏳ بانتظار العميل';
 function cuRender() {
   const l = cuLoad();
-  $('cuList').innerHTML = l.length ? l.map(r => `<div class="hint" style="border:1px solid var(--ghost-b,#7a7466);border-radius:12px;padding:10px;margin-bottom:8px;line-height:1.8"><b>${esc(r.name || 'بدون اسم')}</b> · ${r.price} ريال · ${cuStat(r.status)}${r.num ? ' · ORD-' + r.num : ''}<br>${esc(String(r.desc || '').slice(0, 80))}<br><button class="ghost" style="margin:6px 4px 0 0;width:auto;padding:8px 12px" data-cu="cp" data-id="${r.id}">نسخ الرابط</button>${r.status === 'open' || !r.status ? `<button class="ghost" style="margin:6px 0 0;width:auto;padding:8px 12px" data-cu="del" data-id="${r.id}">إلغاء الرابط</button>` : ''}</div>`).join('') : '<p class="hint">لا توجد طلبات خاصة بعد.</p>';
+  $('cuList').innerHTML = l.length ? l.map(r => `<div class="hint" style="border:1px solid var(--ghost-b,#7a7466);border-radius:12px;padding:10px;margin-bottom:8px;line-height:1.8"><b>${esc(r.name || 'بدون اسم')}</b>${r.phone ? ' <span dir="ltr">' + esc(r.phone) + '</span>' : ''} · ${r.price} ريال · ${cuStat(r.status)}${r.num ? ' · ORD-' + r.num : ''}<br>${esc(String(r.desc || '').slice(0, 80))}<br><button class="ghost" style="margin:6px 4px 0 0;width:auto;padding:8px 12px" data-cu="cp" data-id="${r.id}">نسخ الرابط</button>${r.status === 'open' || !r.status ? `<button class="ghost" style="margin:6px 0 0;width:auto;padding:8px 12px" data-cu="del" data-id="${r.id}">إلغاء الرابط</button>` : ''}</div>`).join('') : '<p class="hint">لا توجد طلبات خاصة بعد.</p>';
 }
 const cuShare = r => `طلبك الخاص من RAX3D\n${r.desc}\nالمبلغ: ${r.price} ريال\nللدفع افتح الرابط:\n${CU_SITE}${r.id}`;
+$('cuPhone').oninput = () => { const l = normPhone($('cuPhone').value).length >= 10 ? loyalty($('cuPhone').value) : null; $('cuPts').textContent = l ? (l.balance ? '⭐ رصيد العميل: ' + l.balance + ' نقطة' : '⭐ عميل جديد، تبدأ نقاطه بعد هذا الطلب') : ''; };
 $('cuMake').onclick = async () => {
   const sync = getSync(); if (!sync) { cuMsg('اربط التطبيق بالمزامنة أولاً', true); return; }
-  const desc = $('cuDesc').value.trim(), price = Math.round(+$('cuPrice').value), name = $('cuClient').value.trim();
+  const desc = $('cuDesc').value.trim(), price = Math.round(+$('cuPrice').value), name = $('cuClient').value.trim(), phone = normPhone($('cuPhone').value);
+  if (name.length < 2) { cuMsg('اكتب اسم العميل', true); return; }
+  if (!/^05\d{8}$/.test(phone)) { cuMsg('اكتب جوال العميل بصيغة 05xxxxxxxx', true); return; }
   if (desc.length < 5) { cuMsg('اكتب وصف الطلب', true); return; }
   if (!(price >= 1 && price <= 50000)) { cuMsg('اكتب السعر النهائي بالريال', true); return; }
-  const id = cuId(), rec = { id, name, desc, price, img: cuImgData, status: 'open', at: new Date().toISOString() };
+  const id = cuId(), rec = { id, name, phone, desc, price, img: cuImgData, status: 'open', at: new Date().toISOString() };
   $('cuMake').disabled = true; cuMsg('جاري إنشاء الرابط…');
   try {
     await ghPut(sync, 'custom/' + id + '.json', rec, 'طلب خاص جديد ' + id.slice(0, 5));
-    const l = cuLoad(); l.unshift({ id, name, desc, price, status: 'open', at: rec.at }); cuSave(l);
+    const l = cuLoad(); l.unshift({ id, name, phone, desc, price, status: 'open', at: rec.at }); cuSave(l);
     const url = CU_SITE + id; cuMsg('تم إنشاء الرابط ✔');
     $('cuOut').hidden = false; $('cuOut').innerHTML = `<div class="hint" style="word-break:break-all;direction:ltr;text-align:left;border:1px solid var(--ghost-b,#7a7466);border-radius:12px;padding:10px">${esc(url)}</div><div class="tools"><button class="ghost" id="cuCp1">📋 انسخ رابط + تفاصيل</button><button class="ghost" id="cuWa">واتساب</button></div>`;
     $('cuCp1').onclick = () => navigator.clipboard.writeText(cuShare(rec)).then(() => toast('تم النسخ ✔'), () => toast('تعذّر النسخ'));
     $('cuWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(cuShare(rec)), '_blank');
-    $('cuDesc').value = ''; $('cuPrice').value = ''; $('cuClient').value = ''; $('cuImg').value = ''; cuImgData = ''; $('cuImgN').textContent = '';
+    $('cuDesc').value = ''; $('cuPrice').value = ''; $('cuClient').value = ''; $('cuPhone').value = ''; $('cuPts').textContent = ''; $('cuImg').value = ''; cuImgData = ''; $('cuImgN').textContent = '';
     cuRender();
   } catch (e) { cuMsg('تعذّر إنشاء الرابط: ' + (e.message || e), true); }
   $('cuMake').disabled = false;
