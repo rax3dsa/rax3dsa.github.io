@@ -314,6 +314,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div class="stk-tabs" id="stkTabs"></div>
     <div class="hint" id="stkNote" style="margin:0 0 8px;line-height:1.8"></div>
     <div id="stkBody"></div>
+    <div id="stkQuick" style="margin-top:12px"></div>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <select id="stkTySel" style="flex:1;min-width:90px" aria-label="نوع الفلمنت"></select><input id="stkColTxt" list="stkColList" placeholder="اسم اللون" style="flex:1.4;min-width:110px" autocomplete="off"><datalist id="stkColList"><option>أبيض</option><option>أسود</option><option>رمادي</option><option>أحمر</option><option>برتقالي</option><option>أصفر</option><option>أخضر</option><option>أزرق</option><option>بنفسجي</option><option>وردي</option><option>ذهبي</option><option>بني</option></datalist><button class="ghost" id="stkAddColor" style="margin:0;width:auto">＋ إضافة</button>
     </div>
@@ -567,7 +568,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '85';
+const APP_VERSION = '86';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1688,6 +1689,16 @@ $('addBtn').onclick = () => { if (items.length < 10) { items.push(newItem()); re
 // stock.json في المستودع الخاص: { v, types:[{name, site}], rows:[{t, c, q, buy}], next:'YYYY-MM-DD', mailedFor, u }
 // buy=true («طلب شراء») ← اللون يظهر في الموقع بخط أحمر «غير متوفر» (للأنواع المربوطة بالموقع). الموقع يقرأه عبر الـWorker (/stock).
 const STK_COLORS = SHOP_COLORS.filter(c => c[1]).map(c => c[0]), STK_HEX = Object.fromEntries(SHOP_COLORS.map(c => [c[0], c[1]]));
+// v86: مطابقة أسماء الألوان بدون حساسية للهمزة (اسود = أسود)، وبعض المرادفات؛ نفس منطق الموقع والـWorker
+const CN = s => String(s || '').replace(/[\u064B-\u065F\u0640]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ').trim();
+const STK_ALIAS = { 'رصاصي': 'رمادي', 'كحلي': 'أزرق', 'سماوي': 'أزرق', 'زهري': 'وردي', 'قهوائي': 'بني', 'بنفسجى': 'بنفسجي' };
+const STK_HEX_X = { 'كحلي': '#1f3a7a', 'رصاصي': '#8f969a' };
+const STK_BYN = Object.fromEntries(STK_COLORS.map(c => [CN(c), c]));
+function stkCanon(c, loose) {   // الاسم الرسمي في الموقع، أو '' لو غير معروف. loose = يقبل «اخضر ريميدي» (أول كلمة)
+  const n = CN(c); if (STK_BYN[n]) return STK_BYN[n]; if (STK_ALIAS[n]) return STK_ALIAS[n];
+  if (loose) { const w = n.split(' ')[0]; if (STK_BYN[w]) return STK_BYN[w]; if (STK_ALIAS[w]) return STK_ALIAS[w]; } return '';
+}
+const stkHex = c => STK_HEX[c] || STK_HEX_X[c] || STK_HEX[stkCanon(c, true)] || '';
 const STK_START = '2026-11-26';   // أول موعد جرد: بعد أسبوعين من تاريخ الطلب (12 نوفمبر 2026)
 const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 function stkDefault() {
@@ -1698,6 +1709,7 @@ let STK = null, STK_TYPE = '', STK_Q = [], STK_T = null, STK_BUSY = false, STK_O
 function stkNorm(d) {
   d = d && typeof d === 'object' ? d : stkDefault(); d.types = (Array.isArray(d.types) && d.types.length ? d.types : stkDefault().types).map(t => ({ name: String(t.name || '').slice(0, 20), site: !!t.site })).filter(t => t.name);
   d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy })).filter(r => r.t && r.c);
+  const seen = new Map(); d.rows = d.rows.reduce((a, r) => { const k = stkCanon(r.c); if (k) r.c = k; const id = r.t + '|' + r.c, o = seen.get(id); if (o) { o.q = Math.min(999, o.q + r.q); o.buy = o.buy && r.buy; } else { seen.set(id, r); a.push(r); } return a; }, []);   // اسود → أسود (ودمج المكرر)
   d.next = /^\d{4}-\d{2}-\d{2}$/.test(d.next) ? d.next : STK_START; d.mailedFor = d.mailedFor || '';
   if (!(d.v >= 2)) { d.v = 2; d.types.slice(1).forEach(t => { const rs = d.rows.filter(r => r.t === t.name); if (rs.length === STK_COLORS.length && rs.every(r => r.q === 0 && !r.buy)) d.rows = d.rows.filter(r => r.t !== t.name); }); }   // تنظيف مرة وحدة: النوع الجديد كان يتعبّى بكل الألوان تلقائيًا بالغلط
   return d;
@@ -1743,10 +1755,13 @@ function stkRender() {
   $('stkNote').innerHTML = ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «طلب شراء» يظهر للعميل بخط أحمر «غير متوفر»، وإذا تحوّل لـ«لا يلزم» يرجع متوفرًا. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
     : 'هذا النوع غير مربوط بالموقع (للجرد فقط). <button type="button" class="linkbtn" data-site="1">ربطه بالموقع</button>';
   $('stkNote').innerHTML += ' · <button type="button" class="linkbtn" data-deltype="1" style="color:var(--bad)">🗑 حذف هذا النوع</button>';
-  $('stkBody').innerHTML = '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>طلب شراء؟</span><span></span></div>' + (rows.length ? rows.map(r => `<div class="stk-row" data-c="${esc(r.c)}"><span class="stk-c"><i style="${STK_HEX[r.c] ? 'background:' + STK_HEX[r.c] : ''}"></i>${esc(r.c)}</span>
+  $('stkBody').innerHTML = '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>طلب شراء؟</span><span></span></div>' + (rows.length ? rows.map(r => `<div class="stk-row" data-c="${esc(r.c)}"><span class="stk-c"><i style="${stkHex(r.c) ? 'background:' + stkHex(r.c) : ''}"></i>${esc(r.c)}</span>
       <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
       <button type="button" class="stk-b ${r.buy ? 'buy' : 'ok'}" data-buy="1">${r.buy ? '🔴 اطلب شراء' : '🟢 لا يلزم'}</button>
       <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">لا ألوان في هذا النوع، أضف من الأسفل.</p>');
+  const have = new Set(rows.map(r => stkCanon(r.c, true))), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(r => stkCanon(r.c, true)));
+  const gone = SHOP_COLORS.filter(c => c[1] && !linked.has(c[0])).map(c => c[0]);
+  $('stkQuick').innerHTML = (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => `<button type="button" class="cchip" data-qc="${c[0]}"><i style="background:${c[1]}"></i>${c[0]}</button>`).join('') + '</div>' : '');
   const tsel = $('stkTySel'); if (document.activeElement !== tsel) tsel.innerHTML = d.types.map(t => `<option${t.name === STK_TYPE ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
   $('stkSync').textContent = getSync() ? (STK_OK ? '🔄 مرتبط ومتزامن مع الجهاز الثاني والموقع' : '⚠️ تعذّر الاتصال، المعروض آخر نسخة محفوظة') : '📴 الربط المشترك غير مفعّل: الجرد على هذا الجوال فقط ولا يؤثر على الموقع';
   const n = d.rows.filter(r => r.buy).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
@@ -1773,8 +1788,9 @@ $('stkBody').addEventListener('click', e => {
   else if (b.dataset.buy) { const nb = !cur.buy; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.buy = nb; }, [t, c]); }
   else if (b.dataset.del) { if (!confirm('حذف ' + c + ' من ' + t + '؟')) return; stkEdit(d => { d.rows = d.rows.filter(r => !(r.t === t && r.c === c)); }); }
 });
+$('stkQuick').addEventListener('click', e => { const b = e.target.closest('[data-qc]'); if (!b) return; const t = STK_TYPE, c = b.dataset.qc; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false }); }); });
 $('stkAddColor').onclick = () => {
-  const t = $('stkTySel').value || STK_TYPE, c = $('stkColTxt').value.trim().slice(0, 30); if (!c) { $('stkColTxt').focus(); return; }
+  const t = $('stkTySel').value || STK_TYPE; let c = $('stkColTxt').value.trim().slice(0, 30); c = stkCanon(c) || c; if (!c) { $('stkColTxt').focus(); return; }
   if (stkRow(STK, t, c)) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'هذا اللون موجود في ' + t; return; }
   $('stkColTxt').value = ''; STK_TYPE = t; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false }); });
 };
