@@ -257,6 +257,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button data-tab="log">السجل</button>
     <button data-tab="stats" class="adm">الإحصائيات</button>
     <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
+    <button data-tab="custom" class="adm">طلب خاص</button>
   </nav>
 
   <div id="boot" class="loading">جاري التحميل…</div>
@@ -324,12 +325,27 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <p class="hint" id="stkMsg" style="margin:8px 0 0"></p>
   </section>
 
+  <section id="custom">
+    <h2 style="margin:6px 0 2px;font-size:20px">🔗 طلب خاص برابط دفع</h2>
+    <p class="hint" style="line-height:1.8;margin:0 0 8px">اكتب وصف الطلب وسعره النهائي، ينعمل رابط ترسله للعميل. يدفع من موقع rax3d.com (بطاقة / Apple Pay) أو يختار الدفع عند الاستلام، والرابط يشتغل مرة واحدة، والطلب يدخل السجل تلقائياً.</p>
+    <input id="cuClient" placeholder="اسم العميل" maxlength="60" autocomplete="off">
+    <input id="cuPhone" inputmode="tel" placeholder="جوال العميل 05xxxxxxxx (لنقاط الولاء والسجل)" maxlength="20" autocomplete="off" style="margin-top:8px;direction:ltr;text-align:right">
+    <small id="cuPts" class="hint" style="display:block;margin-top:4px;color:var(--gold-t)"></small>
+    <textarea id="cuDesc" placeholder="وصف الطلب: ماذا سنطبع، المقاس، الألوان…" rows="4" maxlength="1200" style="margin-top:8px"></textarea>
+    <input id="cuPrice" type="number" inputmode="numeric" min="1" max="50000" step="1" placeholder="سعر الطلب بالريال (التوصيل يُضاف حسب اختيار العميل)" style="margin-top:8px">
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center"><label class="ghost" style="margin:0;text-align:center;cursor:pointer;flex:1">📷 صورة (اختياري)<input id="cuImg" type="file" accept="image/*" hidden></label><span class="hint" id="cuImgN" style="flex:1"></span></div>
+    <button class="save" id="cuMake" style="margin-top:12px">إنشاء الرابط</button>
+    <p class="hint" id="cuMsg" style="margin:8px 0 0"></p>
+    <div id="cuOut" hidden style="margin-top:10px"></div>
+    <h3 style="margin:18px 0 6px;font-size:16px">طلباتي الخاصة</h3>
+    <div id="cuList"></div>
+    <button class="ghost" id="cuRefresh" style="margin-top:8px">🔄 تحديث الحالة</button>
+  </section>
+
   <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button><button class="ghost" id="monthNow">📧 التقرير الشهري الآن</button></div><div id="statList"></div>
     <div class="period">
       <h3>إعدادات التسعير والترقيم</h3>
       <div class="grid g2" id="setGrid"></div>
-      <div class="hint" id="runHint" style="margin-top:10px;line-height:1.9"></div>
-      <button class="ghost" id="runUse" type="button" hidden style="margin-top:6px"></button>
       <p class="err" id="setMsg" style="margin:10px 0 0"></p>
       <button class="save" id="setSave" style="margin-top:8px;font-size:16px;padding:12px">حفظ الإعدادات</button>
       <button class="ghost" id="renumBtn" type="button" style="margin-top:8px">🔢 سد فجوات الترقيم</button>
@@ -569,7 +585,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '88';
+const APP_VERSION = '89';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1808,6 +1824,75 @@ document.querySelector('nav button[data-tab="stock"]').addEventListener('click',
 setInterval(() => { if (document.hidden || !DATA) return; if ($('stock').classList.contains('on')) stkSync(); }, 45000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && DATA) stkSync(); });
 
+/* ---------- طلب خاص: رابط دفع لطلب واحد (يكتبه التطبيق في مستودع البيانات، ويقرأه الموقع عبر الـworker) ---------- */
+const CU_KEY = 'rax3d_custom', CU_SITE = 'https://rax3d.com/?c=';
+const cuLoad = () => { try { return JSON.parse(localStorage.getItem(CU_KEY) || '[]'); } catch (e) { return []; } };
+const cuSave = l => { try { localStorage.setItem(CU_KEY, JSON.stringify(l.slice(0, 40))); } catch (e) {} };
+const cuMsg = (t, bad) => { const m = $('cuMsg'); m.textContent = t; m.style.color = bad ? '#c0392b' : ''; };
+const cuId = () => { const a = new Uint8Array(16); crypto.getRandomValues(a); const c = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return [...a].map(x => c[x % c.length]).join(''); };
+let cuImgData = '';
+function cuShrink(file) {
+  return new Promise((ok, no) => {
+    const fr = new FileReader(); fr.onerror = () => no(); fr.onload = () => {
+      const im = new Image(); im.onerror = () => no(); im.onload = () => {
+        let w = im.width, h = im.height; const k = Math.min(1, 900 / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
+        const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+        let q = 0.78, d = c.toDataURL('image/jpeg', q); while (d.length > 260000 && q > 0.35) { q -= 0.1; d = c.toDataURL('image/jpeg', q); }
+        ok(d);
+      }; im.src = fr.result;
+    }; fr.readAsDataURL(file);
+  });
+}
+$('cuImg').onchange = async e => {
+  const f = e.target.files[0]; cuImgData = ''; $('cuImgN').textContent = '';
+  if (!f) return;
+  try { cuImgData = await cuShrink(f); $('cuImgN').textContent = '✔ ' + Math.round(cuImgData.length / 1024) + ' ك.ب'; } catch (er) { cuMsg('تعذّر قراءة الصورة', true); }
+};
+const cuStat = s => s === 'paid' ? '✅ مدفوع' : s === 'cod' ? '🚚 دفع عند الاستلام' : s === 'gone' ? '🗑 ملغي' : '⏳ بانتظار العميل';
+function cuRender() {
+  const l = cuLoad();
+  $('cuList').innerHTML = l.length ? l.map(r => `<div class="hint" style="border:1px solid var(--ghost-b,#7a7466);border-radius:12px;padding:10px;margin-bottom:8px;line-height:1.8"><b>${esc(r.name || 'بدون اسم')}</b>${r.phone ? ' <span dir="ltr">' + esc(r.phone) + '</span>' : ''} · ${r.price} ريال · ${cuStat(r.status)}${r.num ? ' · ORD-' + r.num : ''}<br>${esc(String(r.desc || '').slice(0, 80))}<br><button class="ghost" style="margin:6px 4px 0 0;width:auto;padding:8px 12px" data-cu="cp" data-id="${r.id}">نسخ الرابط</button>${r.status === 'open' || !r.status ? `<button class="ghost" style="margin:6px 0 0;width:auto;padding:8px 12px" data-cu="del" data-id="${r.id}">إلغاء الرابط</button>` : ''}</div>`).join('') : '<p class="hint">لا توجد طلبات خاصة بعد.</p>';
+}
+const cuShare = r => `طلبك الخاص من RAX3D\n${r.desc}\nالمبلغ: ${r.price} ريال\nللدفع افتح الرابط:\n${CU_SITE}${r.id}`;
+$('cuPhone').oninput = () => { const l = normPhone($('cuPhone').value).length >= 10 ? loyalty($('cuPhone').value) : null; $('cuPts').textContent = l ? (l.balance ? '⭐ رصيد العميل: ' + l.balance + ' نقطة' : '⭐ عميل جديد، تبدأ نقاطه بعد هذا الطلب') : ''; };
+$('cuMake').onclick = async () => {
+  const sync = getSync(); if (!sync) { cuMsg('اربط التطبيق بالمزامنة أولاً', true); return; }
+  const desc = $('cuDesc').value.trim(), price = Math.round(+$('cuPrice').value), name = $('cuClient').value.trim(), phone = normPhone($('cuPhone').value);
+  if (name.length < 2) { cuMsg('اكتب اسم العميل', true); return; }
+  if (!/^05\d{8}$/.test(phone)) { cuMsg('اكتب جوال العميل بصيغة 05xxxxxxxx', true); return; }
+  if (desc.length < 5) { cuMsg('اكتب وصف الطلب', true); return; }
+  if (!(price >= 1 && price <= 50000)) { cuMsg('اكتب السعر النهائي بالريال', true); return; }
+  const id = cuId(), rec = { id, name, phone, desc, price, img: cuImgData, status: 'open', at: new Date().toISOString() };
+  $('cuMake').disabled = true; cuMsg('جاري إنشاء الرابط…');
+  try {
+    await ghPut(sync, 'custom/' + id + '.json', rec, 'طلب خاص جديد ' + id.slice(0, 5));
+    const l = cuLoad(); l.unshift({ id, name, phone, desc, price, status: 'open', at: rec.at }); cuSave(l);
+    const url = CU_SITE + id; cuMsg('تم إنشاء الرابط ✔');
+    $('cuOut').hidden = false; $('cuOut').innerHTML = `<div class="hint" style="word-break:break-all;direction:ltr;text-align:left;border:1px solid var(--ghost-b,#7a7466);border-radius:12px;padding:10px">${esc(url)}</div><div class="tools"><button class="ghost" id="cuCp1">📋 انسخ رابط + تفاصيل</button><button class="ghost" id="cuWa">واتساب</button></div>`;
+    $('cuCp1').onclick = () => navigator.clipboard.writeText(cuShare(rec)).then(() => toast('تم النسخ ✔'), () => toast('تعذّر النسخ'));
+    $('cuWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(cuShare(rec)), '_blank');
+    $('cuDesc').value = ''; $('cuPrice').value = ''; $('cuClient').value = ''; $('cuPhone').value = ''; $('cuPts').textContent = ''; $('cuImg').value = ''; cuImgData = ''; $('cuImgN').textContent = '';
+    cuRender();
+  } catch (e) { cuMsg('تعذّر إنشاء الرابط: ' + (e.message || e), true); }
+  $('cuMake').disabled = false;
+};
+$('cuRefresh').onclick = async () => {
+  const sync = getSync(); if (!sync) { cuMsg('اربط التطبيق بالمزامنة أولاً', true); return; }
+  cuMsg('جاري التحديث…'); const l = cuLoad();
+  try {
+    for (const r of l.slice(0, 20)) { if (r.status && r.status !== 'open') continue; const f = await ghFile(sync, 'custom/' + r.id + '.json'); if (!f) r.status = 'gone'; else { r.status = f.data.status || 'open'; r.num = f.data.num || r.num; } }
+    cuSave(l); cuRender(); cuMsg('تم التحديث ✔');
+  } catch (e) { cuMsg('تعذّر التحديث: ' + (e.message || e), true); }
+};
+$('cuList').onclick = async e => {
+  const b = e.target.closest('[data-cu]'); if (!b) return; const l = cuLoad(), r = l.find(x => x.id === b.dataset.id); if (!r) return;
+  if (b.dataset.cu === 'cp') { navigator.clipboard.writeText(cuShare(r)).then(() => toast('تم النسخ ✔'), () => toast('تعذّر النسخ')); return; }
+  if (!confirm('إلغاء هذا الرابط؟ العميل ما راح يقدر يدفع به.')) return;
+  const sync = getSync(); if (!sync) return;
+  try { const f = await ghFile(sync, 'custom/' + r.id + '.json'); if (f && f.data.status && f.data.status !== 'open') { cuMsg('الرابط انستخدم قبل شوي: حدّث الحالة', true); return; } await ghDel(sync, 'custom/' + r.id + '.json', 'إلغاء طلب خاص ' + r.id.slice(0, 5)); r.status = 'gone'; cuSave(l); cuRender(); cuMsg('تم إلغاء الرابط ✔'); } catch (er) { cuMsg('تعذّر الإلغاء: ' + (er.message || er), true); }
+};
+cuRender();
+
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === b.dataset.tab));
@@ -2259,25 +2344,7 @@ function renderSettings() {
   if (!DATA) return;
   const v = Object.assign({}, DATA.settings, { nextNum: DATA.nextNum });
   $('setGrid').innerHTML = SET_FIELDS.map(([k, l]) => `<div><label for="set_${k}">${l}</label><input id="set_${k}" ${STR_SET.indexOf(k) < 0 ? 'type="number" inputmode="decimal"' : 'type="text" ' + (k === 'bankIban' ? 'dir="ltr" autocapitalize="characters" placeholder="SA00 0000 0000 0000 0000 0000"' : (k === 'nfcLink' || k === 'nfcApp') ? 'dir="ltr" inputmode="url" autocapitalize="off" placeholder="https://"' : '')} value="${esc(v[k] || '')}"></div>`).join('');
-  runHintUI();
 }
-// ساعة التشغيل مقابل سعر الطابعة: إهلاك (السعر ÷ العمر) + كهرباء. للعرض فقط، وما تتغير «التشغيل للساعة» إلا لو ضغطت الزر ثم حفظت
-function runParts(v) {
-  const price = Math.max(0, +v.printer || 0), life = +v.printerLife > 0 ? +v.printerLife : 0, dep = price > 0 && life > 0 ? price / life : 0, elec = Math.max(0, +v.watt || 0) / 1000 * Math.max(0, +v.kwh || 0);
-  return { price: price, life: life, dep: dep, elec: elec, calc: dep + elec, run: +v.run || 0 };
-}
-function runHintUI() {
-  const h = $('runHint'), b = $('runUse'); if (!h || !$('set_run')) return;
-  const g = k => $('set_' + k) ? $('set_' + k).value : '', x = runParts({ printer: g('printer'), printerLife: g('printerLife'), watt: g('watt'), kwh: g('kwh'), run: g('run') });
-  if (!(x.dep > 0)) { h.textContent = 'اكتب سعر الطابعة وعمرها بالساعات ليظهر كم تأخذ الطابعة من كل ساعة طباعة.'; b.hidden = true; return; }
-  const calc = Math.round(x.calc * 100) / 100, net = x.run - x.elec;
-  h.innerHTML = '🖨 ساعة التشغيل المحسوبة من سعر الطابعة: إهلاك <b>' + fmt(x.dep) + '</b> + كهرباء <b>' + fmt(x.elec) + '</b> = <b>' + fmt(calc) + '</b> ريال. المسجّل عندك: <b>' + fmt(x.run) + '</b>.'
-    + (net > 0 ? '<br>بالمسجّل تُسترد الطابعة بعد نحو <b>' + fmtN(x.price / net) + '</b> ساعة طباعة مباعة.' : '<br>المسجّل لا يغطي حتى الكهرباء.')
-    + '<br>تغيير ساعة التشغيل يغيّر التكلفة والأسعار المقترحة للفواتير الجديدة فقط، ولا يغيّر أسعار المتجر.';
-  const same = Math.abs(calc - x.run) < 0.005; b.hidden = same; if (!same) { b.textContent = 'اعتمد ' + fmt(calc) + ' ريال لساعة التشغيل (ثم احفظ)'; b.dataset.v = String(calc); }
-}
-$('setGrid').addEventListener('input', runHintUI);
-$('runUse').onclick = () => { $('set_run').value = $('runUse').dataset.v; runHintUI(); const m = $('setMsg'); m.style.color = 'var(--mute)'; m.textContent = 'اضغط «حفظ الإعدادات» لتثبيت ساعة التشغيل الجديدة'; };
 $('renumBtn').onclick = () => {
   const pl = renumberPlan(DATA.log), msg = $('setMsg');
   if (!pl.plan.length) { msg.style.color = 'var(--good)'; msg.textContent = 'الترقيم متسلسل ما فيه فجوات ✔'; return; }
@@ -2602,8 +2669,7 @@ function renderPrinter(pr) {
   const got = Math.max(0, pr.profit), pct = Math.min(100, got / pr.price * 100), left = Math.max(0, pr.price - got), dep = pr.hours * pr.price / pr.life;
   $('prnAmt').textContent = (pct >= 100 ? '100' : pct.toFixed(1)) + '%';
   $('prnBar').style.width = pct > 0 ? Math.max(2, pct).toFixed(1) + '%' : '0%';
-  $('prnTxt').innerHTML = (pct >= 100 ? 'تم استرداد سعر الطابعة ✔ من صافي الربح (' + fmtN(got) + ' ريال)' : 'صافي ربح الفواتير <b>' + fmtN(got) + '</b> من <b>' + fmtN(pr.price) + '</b> ريال · باقي <b>' + fmtN(left) + '</b>')
-    + '<br>ساعات الطباعة المسجلة <b>' + fmtN(pr.hours) + '</b> من ' + fmtN(pr.life) + ' (إهلاك ' + fmtN(dep) + ' ريال)' + (pr.noTime ? ' · ' + pr.noTime + ' فاتورة بلا وقت طباعة' : '');
+  $('prnTxt').innerHTML = (pct >= 100 ? 'تم استرداد سعر الطابعة ✔ من صافي الربح (' + fmtN(got) + ' ريال)' : 'صافي ربح الفواتير <b>' + fmtN(got) + '</b> من <b>' + fmtN(pr.price) + '</b> ريال · باقي <b>' + fmtN(left) + '</b>');
 }
 function celebrate(m) {
   $('partyAmt').textContent = fmtN(m.reached) + ' ريال';
