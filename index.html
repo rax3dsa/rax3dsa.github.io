@@ -328,8 +328,6 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div class="period">
       <h3>إعدادات التسعير والترقيم</h3>
       <div class="grid g2" id="setGrid"></div>
-      <div class="hint" id="runHint" style="margin-top:10px;line-height:1.9"></div>
-      <button class="ghost" id="runUse" type="button" hidden style="margin-top:6px"></button>
       <p class="err" id="setMsg" style="margin:10px 0 0"></p>
       <button class="save" id="setSave" style="margin-top:8px;font-size:16px;padding:12px">حفظ الإعدادات</button>
       <button class="ghost" id="renumBtn" type="button" style="margin-top:8px">🔢 سد فجوات الترقيم</button>
@@ -2259,25 +2257,7 @@ function renderSettings() {
   if (!DATA) return;
   const v = Object.assign({}, DATA.settings, { nextNum: DATA.nextNum });
   $('setGrid').innerHTML = SET_FIELDS.map(([k, l]) => `<div><label for="set_${k}">${l}</label><input id="set_${k}" ${STR_SET.indexOf(k) < 0 ? 'type="number" inputmode="decimal"' : 'type="text" ' + (k === 'bankIban' ? 'dir="ltr" autocapitalize="characters" placeholder="SA00 0000 0000 0000 0000 0000"' : (k === 'nfcLink' || k === 'nfcApp') ? 'dir="ltr" inputmode="url" autocapitalize="off" placeholder="https://"' : '')} value="${esc(v[k] || '')}"></div>`).join('');
-  runHintUI();
 }
-// ساعة التشغيل مقابل سعر الطابعة: إهلاك (السعر ÷ العمر) + كهرباء. للعرض فقط، وما تتغير «التشغيل للساعة» إلا لو ضغطت الزر ثم حفظت
-function runParts(v) {
-  const price = Math.max(0, +v.printer || 0), life = +v.printerLife > 0 ? +v.printerLife : 0, dep = price > 0 && life > 0 ? price / life : 0, elec = Math.max(0, +v.watt || 0) / 1000 * Math.max(0, +v.kwh || 0);
-  return { price: price, life: life, dep: dep, elec: elec, calc: dep + elec, run: +v.run || 0 };
-}
-function runHintUI() {
-  const h = $('runHint'), b = $('runUse'); if (!h || !$('set_run')) return;
-  const g = k => $('set_' + k) ? $('set_' + k).value : '', x = runParts({ printer: g('printer'), printerLife: g('printerLife'), watt: g('watt'), kwh: g('kwh'), run: g('run') });
-  if (!(x.dep > 0)) { h.textContent = 'اكتب سعر الطابعة وعمرها بالساعات ليظهر كم تأخذ الطابعة من كل ساعة طباعة.'; b.hidden = true; return; }
-  const calc = Math.round(x.calc * 100) / 100, net = x.run - x.elec;
-  h.innerHTML = '🖨 ساعة التشغيل المحسوبة من سعر الطابعة: إهلاك <b>' + fmt(x.dep) + '</b> + كهرباء <b>' + fmt(x.elec) + '</b> = <b>' + fmt(calc) + '</b> ريال. المسجّل عندك: <b>' + fmt(x.run) + '</b>.'
-    + (net > 0 ? '<br>بالمسجّل تُسترد الطابعة بعد نحو <b>' + fmtN(x.price / net) + '</b> ساعة طباعة مباعة.' : '<br>المسجّل لا يغطي حتى الكهرباء.')
-    + '<br>تغيير ساعة التشغيل يغيّر التكلفة والأسعار المقترحة للفواتير الجديدة فقط، ولا يغيّر أسعار المتجر.';
-  const same = Math.abs(calc - x.run) < 0.005; b.hidden = same; if (!same) { b.textContent = 'اعتمد ' + fmt(calc) + ' ريال لساعة التشغيل (ثم احفظ)'; b.dataset.v = String(calc); }
-}
-$('setGrid').addEventListener('input', runHintUI);
-$('runUse').onclick = () => { $('set_run').value = $('runUse').dataset.v; runHintUI(); const m = $('setMsg'); m.style.color = 'var(--mute)'; m.textContent = 'اضغط «حفظ الإعدادات» لتثبيت ساعة التشغيل الجديدة'; };
 $('renumBtn').onclick = () => {
   const pl = renumberPlan(DATA.log), msg = $('setMsg');
   if (!pl.plan.length) { msg.style.color = 'var(--good)'; msg.textContent = 'الترقيم متسلسل ما فيه فجوات ✔'; return; }
@@ -2602,8 +2582,7 @@ function renderPrinter(pr) {
   const got = Math.max(0, pr.profit), pct = Math.min(100, got / pr.price * 100), left = Math.max(0, pr.price - got), dep = pr.hours * pr.price / pr.life;
   $('prnAmt').textContent = (pct >= 100 ? '100' : pct.toFixed(1)) + '%';
   $('prnBar').style.width = pct > 0 ? Math.max(2, pct).toFixed(1) + '%' : '0%';
-  $('prnTxt').innerHTML = (pct >= 100 ? 'تم استرداد سعر الطابعة ✔ من صافي الربح (' + fmtN(got) + ' ريال)' : 'صافي ربح الفواتير <b>' + fmtN(got) + '</b> من <b>' + fmtN(pr.price) + '</b> ريال · باقي <b>' + fmtN(left) + '</b>')
-    + '<br>ساعات الطباعة المسجلة <b>' + fmtN(pr.hours) + '</b> من ' + fmtN(pr.life) + ' (إهلاك ' + fmtN(dep) + ' ريال)' + (pr.noTime ? ' · ' + pr.noTime + ' فاتورة بلا وقت طباعة' : '');
+  $('prnTxt').innerHTML = (pct >= 100 ? 'تم استرداد سعر الطابعة ✔ من صافي الربح (' + fmtN(got) + ' ريال)' : 'صافي ربح الفواتير <b>' + fmtN(got) + '</b> من <b>' + fmtN(pr.price) + '</b> ريال · باقي <b>' + fmtN(left) + '</b>');
 }
 function celebrate(m) {
   $('partyAmt').textContent = fmtN(m.reached) + ' ريال';
