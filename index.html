@@ -606,7 +606,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '91';
+const APP_VERSION = '92';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1946,7 +1946,10 @@ function distCalc() {
       + '<div class="kv"><div>الإجمالي<b>' + fmt(R2(p * q)) + '</b></div><div>صافي الربح<b>' + fmt(R2(n * q)) + '</b></div><div>النسبة<b>' + Math.round(n / p * 100) + '%</b></div></div>'
       + '<div class="hint" style="margin-top:8px">مدة الطباعة: ' + dur(q) + '</div></div>';
   }
-  h += '<div class="row"><div class="hint" style="margin-bottom:6px">كل الشرائح</div>' + DIST_TIERS.map(x => { const p = price(x[0], x[1]), n = net(p, x[0]), on = t && t[0] === x[0]; return '<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line)' + (on ? ';color:var(--gold-t);font-weight:700' : '') + '"><span>' + x[0] + ' حبة</span><span>' + fmt(p) + ' ريال</span><span>' + fmt(R2(p * x[0])) + '</span><span>' + Math.round(n / p * 100) + '%</span></div>'; }).join('') + '</div>';
+  const gr = 'display:grid;grid-template-columns:.9fr 1fr 1.9fr;gap:8px;padding:6px 0;align-items:center;white-space:nowrap';
+  h += '<div class="row"><div class="hint" style="margin-bottom:4px">كل الشرائح</div>'
+    + '<div style="' + gr + ';color:var(--mute);font-size:13px;border-bottom:1px solid var(--line)"><span>الكمية</span><span>سعر الحبة</span><span>صافي الربح</span></div>'
+    + DIST_TIERS.map(x => { const p = price(x[0], x[1]), n = net(p, x[0]), on = t && t[0] === x[0]; return '<div style="' + gr + ';border-top:1px solid var(--line)' + (on ? ';color:var(--gold-t);font-weight:700' : '') + '"><span>' + x[0] + ' حبة</span><span>' + fmt(p) + ' ريال</span><span>' + Math.round(n * x[0]) + ' ريال (' + Math.round(n / p * 100) + '%)</span></div>'; }).join('') + '</div>';
   out.innerHTML = h;
 }
 ['dW', 'dH', 'dM', 'dQ', 'dPack', 'dPr', 'dF'].forEach(id => $(id).addEventListener('input', distCalc));
