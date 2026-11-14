@@ -188,6 +188,9 @@ input[type=number]{direction:ltr;text-align:center}
 <style>.tools{display:flex;gap:8px;margin-bottom:12px}
 .tools .ghost{padding:11px;font-size:15px}
 .row .acts{display:flex;gap:6px}
+.row .mk{display:flex;gap:14px;margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);font-size:11px;color:var(--mute)}
+.row .mk label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.row .mk input{width:15px;height:15px;margin:0;accent-color:var(--gold)}
 .pdf.dl{border-color:var(--line);color:var(--text);cursor:pointer;font-family:inherit}
 .hb{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
 .hb .logout{margin-top:0}
@@ -608,7 +611,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '98';
+const APP_VERSION = '99';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1345,6 +1348,13 @@ const API = {
       profit: R2(total - its.reduce((a, i) => a + i.cost * i.q, 0)), edited: todayStr() });
     saveDb(db); publishPointsSoon(); return true;
   },
+  async markInvoice(d) {   // v99: علامتا الدعم الفني (دفع العميل / أُدخل للحساب) — للتتبع فقط، لا تدخل في أي حساب أو توزيع
+    const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
+    const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
+    const f = d.field === 'acct' ? 'acct' : 'paid';
+    if (d.on) r[f] = todayStr(); else delete r[f];
+    saveDb(db); return { ok: true };
+  },
   async deleteInvoice(d, pin) {   // v69: حذف نهائي من السجل. لو كانت آخر فاتورة يرجع رقمها للعداد، وإلا يبقى الرقم فجوة (ما نغيّر أرقام فواتير صدرت للعملاء)
     const db = await adminDb(pin);
     const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
@@ -2062,6 +2072,7 @@ function renderLog() {
       <p>${esc(r.desc)}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
       <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}<button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
+      ${isLive(r) ? `<div class="adm mk"><label><input type="checkbox" data-mk="paid" data-key="${esc(rk(r))}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${esc(rk(r))}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label></div>` : ''}
     </div>`).join('')
     : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».'}</div>`;
 }
@@ -2298,6 +2309,12 @@ function savePdf(num) {
 }
 $('logList').addEventListener('click', e => {
   const ed = e.target.closest('[data-ed]'); if (ed) { openEdit(ed.dataset.ed); return; }
+  const mk = e.target.closest('[data-mk]'); if (mk) {
+    const key = mk.dataset.key, field = mk.dataset.mk, on = mk.checked;
+    google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) { if (on) r[field] = todayStr(); else delete r[field]; } })
+      .withFailureHandler(er => { mk.checked = !on; toast('تعذّر الحفظ: ' + ((er && er.message) || er)); }).markInvoice({ key: key, field: field, on: on });
+    return;
+  }
   const b = e.target.closest('[data-dl]'); if (!b) return;
   savePdf(b.dataset.num);
 });
