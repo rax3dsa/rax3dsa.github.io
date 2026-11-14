@@ -341,7 +341,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <details style="margin-top:8px"><summary class="hint" style="cursor:pointer">خيارات إضافية (تغليف، طابعات، بدل فشل)</summary>
       <label for="dPack" style="margin-top:8px">تغليف الحبة (ريال)</label><input id="dPack" type="number" inputmode="decimal" min="0" step="0.1" placeholder="0.5">
       <label for="dPr" style="margin-top:8px">عدد الطابعات</label><input id="dPr" type="number" inputmode="numeric" min="1" step="1" placeholder="1">
-      <label for="dF" style="margin-top:8px">بدل فشل الطباعة %</label><input id="dF" type="number" inputmode="decimal" min="0" step="1" placeholder="0 (أضف 5 للقطع الصعبة)">
+      <label for="dF" style="margin-top:8px">بدل فشل الطباعة %</label><input id="dF" type="number" inputmode="decimal" min="0" step="1" placeholder="5 (الافتراضي)">
     </details>
     <div id="dOut" style="margin-top:12px"></div>
   </section>
@@ -606,7 +606,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '93';
+const APP_VERSION = '94';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -754,10 +754,21 @@ const depositFor = (items, total) => { const its = (items || []).filter(i => i &
 const invDeposit = r => (!r || r.online || !isLive(r)) ? 0 : depositFor(r.items, +r.total || 0);
 function goalFor(sales, start) { let g = start || 10000; while (sales >= g) g *= 2; return g; }
 
+// تسعير التوزيعات (50 حبة فأكثر لقطعة واحدة): تسعير خاص غير الجملة العادية. يستعمله تبويب «التوزيعات» وأسطر الفاتورة بنفس الصيغة.
+// الشرائح: [أقل كمية، هامش الربح الصافي المستهدف %]. الكلفة من إعدادات البرنامج (خامة + هدر + ماكينة) + بدل فشل + تغليف جملة.
+const DIST_TIERS = [[50, 40], [100, 37], [500, 33], [1000, 30]], DIST_FAIL = 5, DIST_PACK = 0.5;
+function distUnit(cfg, w, hrs, q, acc, fail, pack) {
+  fail = fail == null ? DIST_FAIL : fail; pack = pack == null ? DIST_PACK : pack;
+  let m = null; DIST_TIERS.forEach(x => { if (q >= x[0]) m = x[1]; }); if (m === null) return null;
+  const mat = w * cfg.spool / cfg.spoolW * (1 + cfg.waste), mach = hrs * cfg.run, cost = (mat + mach) * (1 + fail / 100) + pack + (acc || 0);
+  const fee = (cfg.payFee || 0) / 100, fix = cfg.payFix || 0;
+  return { m, mat, mach, cost, price: R2(Math.ceil(((cost + fix / q) / (1 - fee - m / 100)) / 0.05 - 1e-9) * 0.05) };
+}
 function calcLocal(S, it) {
   const w = +it.w || 0, q = +it.q || 1, acc = Math.max(0, +it.acc || 0);   // acc: قطع إضافية للحبة (طقم LED، ميكانيزم ساعة...) تنضاف بسعرها بدون مضاعف
-  const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = base + acc;
-  const sugg = Math.ceil(R2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
+  const dh = w > 0 && it.type !== 'مجموعة' && q >= DIST_TIERS[0][0] ? distUnit(S, w, (+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600, q, acc) : null;   // 50 حبة فأكثر ← صيغة التوزيعات
+  const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
+  const sugg = dh ? dh.price : Math.ceil(R2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, unit = pr > 0 ? pr : sugg;
   const disc = R2(unit * q * (+it.disc || 0) / 100);
   return { cost, sugg, unit, q, disc, line: R2(unit * q), total: R2(unit * q - disc), profit: R2(unit * q - disc - cost * q) };
@@ -1632,13 +1643,14 @@ const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 function calcItem(it) {
   const w = +it.w || 0; if (!w) return null;
   const q = +it.q || 1, acc = Math.max(0, +it.acc || 0);
-  const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = base + acc;
-  const sugg = Math.ceil(r2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
+  const dh = it.type !== 'مجموعة' && q >= DIST_TIERS[0][0] ? distUnit(S, w, (+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600, q, acc) : null;   // 50 حبة فأكثر ← صيغة التوزيعات
+  const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
+  const sugg = dh ? dh.price : Math.ceil(r2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, custom = pr > 0;
   const unit = custom ? pr : sugg;
   const disc = r2(unit * q * (+it.disc || 0) / 100);
   const total = unit * q - disc;
-  return { cost, sugg, shop: Math.ceil((sugg + (S.payFix || 0)) / (1 - (S.payFee || 0) / 100) - 1e-9), unit, custom, disc, total, profit: total - cost * q, gap: sugg * q - total };
+  return { cost, sugg, shop: dh ? sugg : Math.ceil((sugg + (S.payFix || 0)) / (1 - (S.payFee || 0) / 100) - 1e-9), unit, custom, disc, total, profit: total - cost * q, gap: sugg * q - total };
 }
 
 function newItem() { return { acc: '', color: '', desc: '', w: '', h: '', m: '', sec: '', type: 'واحدة', q: 1, disc: 0, price: '' }; }
@@ -1921,23 +1933,21 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   window.scrollTo(0, 0);
 });
 
-// ===== حاسبة التوزيعات (طلبات 50 حبة فأكثر لقطعة واحدة): تسعير خاص غير الجملة العادية =====
-// الشرائح: [أقل كمية، هامش الربح الصافي المستهدف %]. الكلفة من إعدادات البرنامج (خامة + هدر + ماكينة) + تغليف جملة.
-const DIST_TIERS = [[50, 40], [100, 37], [500, 33], [1000, 30]];
+// ===== حاسبة التوزيعات: الصيغة في distUnit (فوق calcLocal) =====
 function distCalc() {
   const out = $('dOut'), cfg = S || DEF_SETTINGS, val = id => $(id).value === '' ? null : +$(id).value;
   const w = val('dW') || 0, q = Math.floor(val('dQ') || 0);
   if (!(w > 0)) { out.innerHTML = '<p class="hint">اكتب وزن القطعة لتبدأ الحاسبة.</p>'; return; }
   let hrs = (val('dH') || 0) + (val('dM') || 0) / 60, est = false;
   if (!(hrs > 0)) { hrs = 0.25 + 0.042 * w; est = true; }   // لو ما كتبت الوقت: تقدير من ملفاتنا
-  const pack = val('dPack') === null ? 0.5 : Math.max(0, val('dPack')), pr = Math.max(1, Math.floor(val('dPr') || 1)), fl = Math.max(0, val('dF') || 0);
-  const mat = w * cfg.spool / cfg.spoolW * (1 + cfg.waste), mach = hrs * cfg.run, cost = (mat + mach) * (1 + fl / 100) + pack;
+  const pack = val('dPack') === null ? DIST_PACK : Math.max(0, val('dPack')), pr = Math.max(1, Math.floor(val('dPr') || 1)), fl = val('dF') === null ? DIST_FAIL : Math.max(0, val('dF'));
+  const base = distUnit(cfg, w, hrs, DIST_TIERS[0][0], 0, fl, pack), cost = base.cost, mat = base.mat, mach = base.mach;
   const fee = (cfg.payFee || 0) / 100, fix = cfg.payFix || 0;
-  const price = (n, m) => R2(Math.ceil(((cost + fix / n) / (1 - fee - m / 100)) / 0.05 - 1e-9) * 0.05);
+  const price = (n, m) => distUnit(cfg, w, hrs, n, 0, fl, pack).price;
   const net = (p, n) => p - (p * fee + fix / n) - cost;
   const tierFor = n => { let t = null; DIST_TIERS.forEach(x => { if (n >= x[0]) t = x; }); return t; };
   const dur = n => { const h = n * hrs / pr; return fmt(h) + ' ساعة' + (h >= 24 ? ' (≈ ' + fmt(h / 24) + ' يوم)' : '') + (pr > 1 ? ' على ' + pr + ' طابعات' : ''); };
-  let h = '<div class="row"><div class="hint" style="line-height:1.8">كلفة الحبة <b style="color:var(--text)">' + fmt(cost) + '</b> ريال: خامة وهدر ' + fmt(mat * (1 + fl / 100)) + ' + ماكينة ' + fmt(mach * (1 + fl / 100)) + ' + تغليف ' + fmt(pack) + (est ? '<br>⚠ الوقت تقدير (' + Math.round(hrs * 60) + ' دقيقة): اكتب الوقت الحقيقي من Bambu Studio.' : '') + '</div></div>';
+  let h = '<div class="row"><div class="hint" style="line-height:1.8">كلفة الحبة <b style="color:var(--text)">' + fmt(cost) + '</b> ريال: خامة وهدر ' + fmt(mat * (1 + fl / 100)) + ' + ماكينة ' + fmt(mach * (1 + fl / 100)) + ' (شاملة بدل فشل ' + fmt(fl) + '%) + تغليف ' + fmt(pack) + (est ? '<br>⚠ الوقت تقدير (' + Math.round(hrs * 60) + ' دقيقة): اكتب الوقت الحقيقي من Bambu Studio.' : '') + '</div></div>';
   const t = q ? tierFor(q) : null;
   if (q > 0 && !t) h += '<div class="row" style="color:#e5484d">أقل من الحد الأدنى: التوزيعات تبدأ من 50 حبة.</div>';
   else if (t) {
