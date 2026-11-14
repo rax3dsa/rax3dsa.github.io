@@ -608,7 +608,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '97';
+const APP_VERSION = '98';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -759,12 +759,14 @@ function goalFor(sales, start) { let g = start || 10000; while (sales >= g) g *=
 // تسعير التوزيعات (50 حبة فأكثر لقطعة واحدة): تسعير خاص غير الجملة العادية. يستعمله تبويب «التوزيعات» وأسطر الفاتورة بنفس الصيغة.
 // الشرائح: [أقل كمية، هامش الربح الصافي المستهدف %]. الكلفة من إعدادات البرنامج (خامة + هدر + ماكينة) + بدل فشل + تغليف جملة.
 const DIST_TIERS = [[50, 25], [100, 20], [500, 15], [1000, 10]], DIST_FAIL = 5, DIST_PACK = 0.5;
+const DIST_FLOOR = [[50, 3.75], [100, 3.40], [500, 3.00], [1000, 2.65]];   // حد أدنى لسعر الحبة لكل شريحة (المالك 11-14): السعر = الأعلى بين سعر الهامش والحد الأدنى
 function distUnit(cfg, w, hrs, q, acc, fail, pack) {
   fail = fail == null ? DIST_FAIL : fail; pack = pack == null ? DIST_PACK : pack;
   let m = null; DIST_TIERS.forEach(x => { if (q >= x[0]) m = x[1]; }); if (m === null) return null;
   const mat = w * cfg.spool / cfg.spoolW * (1 + cfg.waste), mach = hrs * cfg.run, cost = (mat + mach) * (1 + fail / 100) + pack + (acc || 0);
   const fee = (cfg.payFee || 0) / 100, fix = cfg.payFix || 0;
-  return { m, mat, mach, cost, price: R2(Math.ceil(((cost + fix / q) / (1 - fee - m / 100)) / 0.05 - 1e-9) * 0.05) };
+  const raw = R2(Math.ceil(((cost + fix / q) / (1 - fee - m / 100)) / 0.05 - 1e-9) * 0.05); let flr = 0; DIST_FLOOR.forEach(x => { if (q >= x[0]) flr = x[1]; });
+  return { m, mat, mach, cost, price: Math.max(raw, flr), floored: flr > raw, raw };
 }
 function calcLocal(S, it) {
   const w = +it.w || 0, q = +it.q || 1, acc = Math.max(0, +it.acc || 0);   // acc: قطع إضافية للحبة (طقم LED، ميكانيزم ساعة...) تنضاف بسعرها بدون مضاعف
@@ -1959,8 +1961,8 @@ function distCalc() {
   const t = q ? tierFor(q) : null;
   if (q > 0 && !t) h += '<div class="row" style="color:#e5484d">أقل من الحد الأدنى: التوزيعات تبدأ من 50 حبة.</div>';
   else if (t) {
-    const p = price(q, t[1]), n = net(p, q);
-    h += '<div class="row"><div class="hint">سعر الحبة (شريحة ' + t[0] + ' فأكثر، هامش ' + t[1] + '%)</div><div class="tot" style="font-size:34px;color:var(--gold-t);font-weight:700;direction:ltr;text-align:center;margin:4px 0">' + fmt(p) + ' ريال</div>'
+    const U = distUnit(cfg, w, hrs, q, 0, fl, pack), p = U.price, n = net(p, q);
+    h += '<div class="row"><div class="hint">سعر الحبة (شريحة ' + t[0] + ' فأكثر، ' + (U.floored ? 'الحد الأدنى للشريحة' : 'هامش ' + t[1] + '%') + ')</div><div class="tot" style="font-size:34px;color:var(--gold-t);font-weight:700;direction:ltr;text-align:center;margin:4px 0">' + fmt(p) + ' ريال</div>'
       + '<div class="kv"><div>الإجمالي<b>' + fmt(R2(p * q)) + '</b></div><div>صافي الربح<b>' + fmt(R2(n * q)) + '</b></div><div>النسبة<b>' + Math.round(n / p * 100) + '%</b></div></div>'
       + '<div class="hint" style="margin-top:8px">مدة الطباعة: ' + dur(q) + '</div></div>';
   }
