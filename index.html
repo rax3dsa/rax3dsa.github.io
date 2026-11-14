@@ -62,7 +62,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:16p
 .num{font-size:14px;color:var(--mute);text-align:left}
 .num b{display:block;color:var(--text);font-size:20px}
 
-nav{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:16px;position:sticky;top:env(safe-area-inset-top,0);z-index:5}
+nav{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:16px;position:sticky;top:env(safe-area-inset-top,0);z-index:5;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
 nav button{flex:1;border:0;background:none;padding:9px 2px;border-radius:999px;font-size:14px;color:var(--mute);cursor:pointer;position:relative;white-space:nowrap}
 nav button i{position:absolute;top:5px;inset-inline-end:8px;width:9px;height:9px;border-radius:50%;background:#e5484d}
 .stk-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.stk-tabs button{flex:none;border:1px solid var(--line);background:var(--field);color:var(--mute);border-radius:999px;padding:8px 14px;cursor:pointer}.stk-tabs button.on{background:var(--gold-d);color:#000;font-weight:700;border-color:var(--gold)}
@@ -257,6 +258,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button data-tab="log">السجل</button>
     <button data-tab="stats" class="adm">الإحصائيات</button>
     <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
+    <button data-tab="dist" class="adm">التوزيعات</button>
     <button data-tab="custom" class="adm">طلب خاص</button>
   </nav>
 
@@ -323,6 +325,25 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div style="margin-top:8px;display:flex;gap:8px"><input id="stkTypeTxt" placeholder="نوع فلمنت جديد (مثل PETG)" style="flex:1"><button class="ghost" id="stkAddType" style="margin:0;width:auto">＋ نوع</button></div>
     <button class="save" id="stkDone" style="margin-top:14px">✔ تم الجرد (التذكير القادم بعد أسبوعين)</button>
     <p class="hint" id="stkMsg" style="margin:8px 0 0"></p>
+  </section>
+
+  <section id="dist">
+    <h2 style="margin:6px 0 2px;font-size:20px">🎁 حاسبة التوزيعات</h2>
+    <p class="hint" style="line-height:1.8;margin:0 0 10px">اكتب وزن القطعة ووقت طباعتها وعدد التوزيعات، يطلع سعر الحبة والإجمالي وصافي الربح ومدة الطباعة. تسعير خاص غير الجملة العادية، والحد الأدنى 50 حبة.</p>
+    <label for="dW">وزن القطعة (غرام)</label>
+    <input id="dW" type="number" inputmode="decimal" min="0" step="0.1" placeholder="مثال: 8" autocomplete="off">
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <div style="flex:1"><label for="dH">وقت الطباعة: ساعات</label><input id="dH" type="number" inputmode="decimal" min="0" step="1" placeholder="0" autocomplete="off"></div>
+      <div style="flex:1"><label for="dM">دقائق</label><input id="dM" type="number" inputmode="decimal" min="0" step="1" placeholder="35" autocomplete="off"></div>
+    </div>
+    <label for="dQ" style="margin-top:8px">عدد التوزيعات</label>
+    <input id="dQ" type="number" inputmode="numeric" min="1" step="1" placeholder="مثال: 200" autocomplete="off">
+    <details style="margin-top:8px"><summary class="hint" style="cursor:pointer">خيارات إضافية (تغليف، طابعات، بدل فشل)</summary>
+      <label for="dPack" style="margin-top:8px">تغليف الحبة (ريال)</label><input id="dPack" type="number" inputmode="decimal" min="0" step="0.1" placeholder="0.5">
+      <label for="dPr" style="margin-top:8px">عدد الطابعات</label><input id="dPr" type="number" inputmode="numeric" min="1" step="1" placeholder="1">
+      <label for="dF" style="margin-top:8px">بدل فشل الطباعة %</label><input id="dF" type="number" inputmode="decimal" min="0" step="1" placeholder="0 (أضف 5 للقطع الصعبة)">
+    </details>
+    <div id="dOut" style="margin-top:12px"></div>
   </section>
 
   <section id="custom">
@@ -585,7 +606,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '90';
+const APP_VERSION = '91';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1899,6 +1920,37 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   $('bar').classList.toggle('hide', b.dataset.tab !== 'new');
   window.scrollTo(0, 0);
 });
+
+// ===== حاسبة التوزيعات (طلبات 50 حبة فأكثر لقطعة واحدة): تسعير خاص غير الجملة العادية =====
+// الشرائح: [أقل كمية، هامش الربح الصافي المستهدف %]. الكلفة من إعدادات البرنامج (خامة + هدر + ماكينة) + تغليف جملة.
+const DIST_TIERS = [[50, 40], [100, 37], [500, 33], [1000, 30]];
+function distCalc() {
+  const out = $('dOut'), cfg = S || DEF_SETTINGS, val = id => $(id).value === '' ? null : +$(id).value;
+  const w = val('dW') || 0, q = Math.floor(val('dQ') || 0);
+  if (!(w > 0)) { out.innerHTML = '<p class="hint">اكتب وزن القطعة لتبدأ الحاسبة.</p>'; return; }
+  let hrs = (val('dH') || 0) + (val('dM') || 0) / 60, est = false;
+  if (!(hrs > 0)) { hrs = 0.25 + 0.042 * w; est = true; }   // لو ما كتبت الوقت: تقدير من ملفاتنا
+  const pack = val('dPack') === null ? 0.5 : Math.max(0, val('dPack')), pr = Math.max(1, Math.floor(val('dPr') || 1)), fl = Math.max(0, val('dF') || 0);
+  const mat = w * cfg.spool / cfg.spoolW * (1 + cfg.waste), mach = hrs * cfg.run, cost = (mat + mach) * (1 + fl / 100) + pack;
+  const fee = (cfg.payFee || 0) / 100, fix = cfg.payFix || 0;
+  const price = (n, m) => R2(Math.ceil(((cost + fix / n) / (1 - fee - m / 100)) / 0.05 - 1e-9) * 0.05);
+  const net = (p, n) => p - (p * fee + fix / n) - cost;
+  const tierFor = n => { let t = null; DIST_TIERS.forEach(x => { if (n >= x[0]) t = x; }); return t; };
+  const dur = n => { const h = n * hrs / pr; return fmt(h) + ' ساعة' + (h >= 24 ? ' (≈ ' + fmt(h / 24) + ' يوم)' : '') + (pr > 1 ? ' على ' + pr + ' طابعات' : ''); };
+  let h = '<div class="row"><div class="hint" style="line-height:1.8">كلفة الحبة <b style="color:var(--text)">' + fmt(cost) + '</b> ريال: خامة وهدر ' + fmt(mat * (1 + fl / 100)) + ' + ماكينة ' + fmt(mach * (1 + fl / 100)) + ' + تغليف ' + fmt(pack) + (est ? '<br>⚠ الوقت تقدير (' + Math.round(hrs * 60) + ' دقيقة): اكتب الوقت الحقيقي من Bambu Studio.' : '') + '</div></div>';
+  const t = q ? tierFor(q) : null;
+  if (q > 0 && !t) h += '<div class="row" style="color:#e5484d">أقل من الحد الأدنى: التوزيعات تبدأ من 50 حبة.</div>';
+  else if (t) {
+    const p = price(q, t[1]), n = net(p, q);
+    h += '<div class="row"><div class="hint">سعر الحبة (شريحة ' + t[0] + ' فأكثر، هامش ' + t[1] + '%)</div><div class="tot" style="font-size:34px;color:var(--gold-t);font-weight:700;direction:ltr;text-align:center;margin:4px 0">' + fmt(p) + ' ريال</div>'
+      + '<div class="kv"><div>الإجمالي<b>' + fmt(R2(p * q)) + '</b></div><div>صافي الربح<b>' + fmt(R2(n * q)) + '</b></div><div>النسبة<b>' + Math.round(n / p * 100) + '%</b></div></div>'
+      + '<div class="hint" style="margin-top:8px">مدة الطباعة: ' + dur(q) + '</div></div>';
+  }
+  h += '<div class="row"><div class="hint" style="margin-bottom:6px">كل الشرائح</div>' + DIST_TIERS.map(x => { const p = price(x[0], x[1]), n = net(p, x[0]), on = t && t[0] === x[0]; return '<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line)' + (on ? ';color:var(--gold-t);font-weight:700' : '') + '"><span>' + x[0] + ' حبة</span><span>' + fmt(p) + ' ريال</span><span>' + fmt(R2(p * x[0])) + '</span><span>' + Math.round(n / p * 100) + '%</span></div>'; }).join('') + '</div>';
+  out.innerHTML = h;
+}
+['dW', 'dH', 'dM', 'dQ', 'dPack', 'dPr', 'dF'].forEach(id => $(id).addEventListener('input', distCalc));
+distCalc();
 
 $('saveBtn').onclick = () => {
   $('err').textContent = '';
