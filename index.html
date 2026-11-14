@@ -62,9 +62,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:16p
 .num{font-size:14px;color:var(--mute);text-align:left}
 .num b{display:block;color:var(--text);font-size:20px}
 
-nav{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:16px;position:sticky;top:env(safe-area-inset-top,0);z-index:5;overflow-x:auto;scrollbar-width:none}
-nav::-webkit-scrollbar{display:none}
-nav button{flex:1;border:0;background:none;padding:9px 2px;border-radius:999px;font-size:14px;color:var(--mute);cursor:pointer;position:relative;white-space:nowrap}
+nav{display:block;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:4px;margin-bottom:16px;position:sticky;top:env(safe-area-inset-top,0);z-index:5}
+nav #navT{display:flex;width:100%;justify-content:space-between;align-items:center;background:var(--gold);color:#000;font-weight:700;font-size:15px;padding:11px 16px;border-radius:999px;border:0;cursor:pointer;position:relative}
+nav #navT b{font-size:12px;transition:transform .2s}nav.open #navT b{transform:rotate(180deg)}
+nav #navT i{position:static;display:inline-block;margin-inline-start:6px}
+nav .nl{display:none;flex-direction:column;gap:2px;padding-top:4px}nav.open .nl{display:flex}
+nav .nl button{text-align:start;padding:12px 16px}
+nav .nl button{flex:none;border:0;background:none;border-radius:14px;font-size:14px;color:var(--mute);cursor:pointer;position:relative;white-space:nowrap}
 nav button i{position:absolute;top:5px;inset-inline-end:8px;width:9px;height:9px;border-radius:50%;background:#e5484d}
 .stk-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.stk-tabs button{flex:none;border:1px solid var(--line);background:var(--field);color:var(--mute);border-radius:999px;padding:8px 14px;cursor:pointer}.stk-tabs button.on{background:var(--gold-d);color:#000;font-weight:700;border-color:var(--gold)}
 .stk-row{display:grid;grid-template-columns:1.3fr 1.1fr 1fr 28px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.stk-row.hd{color:var(--mute);font-size:12.5px;border-bottom:2px solid var(--line)}
@@ -75,7 +79,7 @@ nav button i{position:absolute;top:5px;inset-inline-end:8px;width:9px;height:9px
 .stk-q button,.stk-b,.stk-x,.stk-tabs button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .stk-x{border:0;background:none;color:var(--mute);cursor:pointer;font-size:18px;padding:0}
 .stk-due{border:1px solid #d64545;background:rgba(214,69,69,.12);border-radius:12px;padding:10px 12px;margin:10px 0;line-height:1.8}
-nav button.on{background:var(--gold);color:#000;font-weight:700}
+nav .nl button.on{background:var(--gold-d);color:#000;font-weight:700}
 section{display:none} section.on{display:block}
 
 label{display:block;font-size:13px;color:var(--mute);margin-bottom:4px}
@@ -253,13 +257,16 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div class="num">فاتورة رقم<b id="invNum">—</b>
       <div class="hb"><button class="hbtn" id="bellBtn" hidden aria-label="طلبات مدخل البيانات">🔔<i id="bellN" hidden></i></button><button class="hbtn" id="supBtn" hidden>🛟 الدعم الفني</button><button class="hbtn" id="themeBtn" aria-label="تغيير المظهر" title="المظهر">🌙</button><button class="logout" id="logoutBtn">قفل التطبيق</button></div></div>
   </header>
-  <nav>
+  <nav id="mainNav">
+    <button type="button" id="navT"><span id="navTx">فاتورة جديدة</span><span><i id="navDot" hidden style="width:9px;height:9px;border-radius:50%;background:#e5484d"></i><b>▾</b></span></button>
+    <div class="nl">
     <button class="on" data-tab="new">فاتورة جديدة</button>
     <button data-tab="log">السجل</button>
     <button data-tab="stats" class="adm">الإحصائيات</button>
     <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
     <button data-tab="dist" class="adm">التوزيعات</button>
     <button data-tab="custom" class="adm">طلب خاص</button>
+    </div>
   </nav>
 
   <div id="boot" class="loading">جاري التحميل…</div>
@@ -606,7 +613,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '94';
+const APP_VERSION = '95';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1926,8 +1933,14 @@ $('cuList').onclick = async e => {
 };
 cuRender();
 
-document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+const NAV = $('mainNav');
+$('navT').onclick = () => NAV.classList.toggle('open');
+document.addEventListener('click', e => { if (!NAV.contains(e.target)) NAV.classList.remove('open'); });
+const navDot = () => { $('navDot').hidden = $('stockDot').hidden; };
+new MutationObserver(navDot).observe($('stockDot'), { attributes: true, attributeFilter: ['hidden'] }); navDot();
+document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () => {
+  $('navTx').textContent = b.firstChild.textContent; NAV.classList.remove('open');
+  document.querySelectorAll('nav button[data-tab]').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === b.dataset.tab));
   $('bar').classList.toggle('hide', b.dataset.tab !== 'new');
   window.scrollTo(0, 0);
