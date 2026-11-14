@@ -608,7 +608,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '96';
+const APP_VERSION = '97';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -758,7 +758,7 @@ function goalFor(sales, start) { let g = start || 10000; while (sales >= g) g *=
 
 // تسعير التوزيعات (50 حبة فأكثر لقطعة واحدة): تسعير خاص غير الجملة العادية. يستعمله تبويب «التوزيعات» وأسطر الفاتورة بنفس الصيغة.
 // الشرائح: [أقل كمية، هامش الربح الصافي المستهدف %]. الكلفة من إعدادات البرنامج (خامة + هدر + ماكينة) + بدل فشل + تغليف جملة.
-const DIST_TIERS = [[50, 40], [100, 37], [500, 33], [1000, 30]], DIST_FAIL = 5, DIST_PACK = 0.5;
+const DIST_TIERS = [[50, 30], [100, 25], [500, 18], [1000, 12]], DIST_FAIL = 5, DIST_PACK = 0.5;
 function distUnit(cfg, w, hrs, q, acc, fail, pack) {
   fail = fail == null ? DIST_FAIL : fail; pack = pack == null ? DIST_PACK : pack;
   let m = null; DIST_TIERS.forEach(x => { if (q >= x[0]) m = x[1]; }); if (m === null) return null;
