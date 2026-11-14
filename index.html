@@ -585,7 +585,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '89';
+const APP_VERSION = '90';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -624,7 +624,7 @@ const isLive = r => !!r && r.status !== 'ملغاة';   // v47: الفاتورة
 // v54: النقطة تنتهي بعد 12 شهراً من تاريخ كسبها (تاريخ الفاتورة)
 const ptsAlive = r => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String((r && r.date) || '')); if (!m) return true; const c = new Date(); c.setFullYear(c.getFullYear() - 1); return new Date(+m[1], +m[2] - 1, +m[3]) >= c; };
 // v55: رصيد العميل = نقاط فواتيره (ما انتهت) ناقص ما استبدله. الاستبدال يخصم من الأقدم أولاً (FIFO).
-const PTS_RULES = { discPts: 1000, discSar: 10, freePts: 5000, freeMax: 250 };
+const PTS_RULES = { discPts: 1000, discSar: 10, shipPts: 2500, shipSar: 25, freePts: 5000, freeMax: 250 };   // 2500 نقطة = توصيل مجاني: يُخصم رسوم التوصيل (25 ريال، نفس سعر الخصم 1000 = 10)
 // v56: رصيد الاستبدال المعلّق للعميل، يُطبَّق تلقائياً على فاتورته القادمة
 function pendingCredit(db, ph) {
   const rd = (db.redeems || []).filter(x => normPhone(x.phone) === ph);
@@ -1939,9 +1939,9 @@ function loyaltyCard() {   // ترتيب العملاء حسب رصيد نقاط
   const total = list.reduce((a, c) => a + c.pts, 0);
   const rd = (db.redeems || []).slice().reverse().slice(0, 5);
   return `<div class="period"><h3>⭐ نقاط الولاء</h3><div class="kv"><div>العملاء<b>${list.length}</b></div><div>إجمالي النقاط<b>${total}</b></div><div>ريال = نقطة<b>1</b></div></div>
-    <p style="margin:8px 0 0;font-size:12px;color:var(--mute)">1000 نقطة = خصم 10 ريال · 5000 نقطة = قطعة مجانية حتى 250 ريال · تنتهي النقطة بعد 12 شهراً · لا تُستبدل بمبالغ مالية.</p>
+    <p style="margin:8px 0 0;font-size:12px;color:var(--mute)">1000 نقطة = خصم 10 ريال · 2500 نقطة = توصيل مجاني · 5000 نقطة = قطعة مجانية حتى 250 ريال · تنتهي النقطة بعد 12 شهراً · لا تُستبدل بمبالغ مالية.</p>
     ${list.length ? '<div style="margin-top:10px;display:grid;gap:6px">' + list.slice(0, 15).map((c, i) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line,#333);padding-top:6px"><span>${i + 1}. ${esc(c.name || 'بدون اسم')} <small style="color:var(--mute)" dir="ltr">${esc(c.ph)}</small> <small style="color:var(--mute)">· ${c.n} فاتورة</small></span><span style="display:flex;align-items:center;gap:8px"><b style="color:var(--gold-t)">${c.pts}</b>${c.pts >= PTS_RULES.discPts ? `<button type="button" class="ghost" style="margin:0;padding:4px 10px;font-size:12px" onclick="openRedeem('${esc(c.ph)}')">استبدل</button>` : ''}</span></div>`).join('') + '</div>' : '<p style="color:var(--mute)">ما فيه عملاء بجوال بعد.</p>'}
-    ${rd.length ? '<div style="margin-top:12px;font-size:12px;color:var(--mute)">آخر الاستبدالات:</div><div style="display:grid;gap:4px;font-size:12px">' + rd.map(x => `<div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.date)} · ${esc(x.name || x.phone)} · ${(x.kind === 'free' ? 'قطعة مجانية' + (x.item ? ' (' + esc(x.item) + ')' : '') : 'خصم ' + x.sar + ' ريال') + ((x.kind === 'free' ? x.applied : (+x.used || 0) >= (+x.sar || 1)) ? ' ✓ طُبّق' : ' ⏳ بانتظار فاتورته')} · −${x.pts}</span><button type="button" class="ghost" style="margin:0;padding:2px 8px;font-size:11px" onclick="undoRedeem('${esc(x.id)}')">تراجع</button></div>`).join('') + '</div>' : ''}
+    ${rd.length ? '<div style="margin-top:12px;font-size:12px;color:var(--mute)">آخر الاستبدالات:</div><div style="display:grid;gap:4px;font-size:12px">' + rd.map(x => `<div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.date)} · ${esc(x.name || x.phone)} · ${(x.kind === 'free' ? 'قطعة مجانية' + (x.item ? ' (' + esc(x.item) + ')' : '') : (x.ship ? 'توصيل مجاني (خصم ' + x.sar + ' ريال)' : 'خصم ' + x.sar + ' ريال')) + ((x.kind === 'free' ? x.applied : (+x.used || 0) >= (+x.sar || 1)) ? ' ✓ طُبّق' : ' ⏳ بانتظار فاتورته')} · −${x.pts}</span><button type="button" class="ghost" style="margin:0;padding:2px 8px;font-size:11px" onclick="undoRedeem('${esc(x.id)}')">تراجع</button></div>`).join('') + '</div>' : ''}
     <button type="button" class="ghost" style="margin-top:10px" onclick="const b=this;b.disabled=true;publishPoints().then(n=>toast('✔ اننشرت أرصدة '+n+' عميل للموقع')).catch(e=>toast('تعذّر النشر: '+((e&&e.message)||e))).finally(()=>b.disabled=false)">🔄 انشر الأرصدة للموقع</button></div>`;
 }
 // ===== v55: استبدال النقاط (خصم أو قطعة مجانية) =====
@@ -1951,23 +1951,23 @@ function openRedeem(ph) {
   if (!el) { el = document.createElement('div'); el.className = 'sheet'; el.id = 'rdSheet'; document.body.appendChild(el); el.addEventListener('click', e => { if (e.target === el) el.classList.remove('on'); }); }
   const maxD = Math.floor(bal / PTS_RULES.discPts);
   el.innerHTML = `<div class="box"><h2>استبدال نقاط</h2><p style="margin:0 0 8px">${esc((c && c.client) || '')} <small dir="ltr" style="color:var(--mute)">${esc(ph)}</small></p><div class="tot">${bal}</div>
-    <label for="rdKind">النوع</label><select id="rdKind"><option value="disc">خصم ${PTS_RULES.discSar} ريال لكل ${PTS_RULES.discPts} نقطة</option>${bal >= PTS_RULES.freePts ? `<option value="free">قطعة مجانية (${PTS_RULES.freePts} نقطة، حتى ${PTS_RULES.freeMax} ريال)</option>` : ''}</select>
+    <label for="rdKind">النوع</label><select id="rdKind"><option value="disc">خصم ${PTS_RULES.discSar} ريال لكل ${PTS_RULES.discPts} نقطة</option>${bal >= PTS_RULES.shipPts ? `<option value="ship">توصيل مجاني (${PTS_RULES.shipPts} نقطة = ${PTS_RULES.shipSar} ريال رسوم التوصيل)</option>` : ''}${bal >= PTS_RULES.freePts ? `<option value="free">قطعة مجانية (${PTS_RULES.freePts} نقطة، حتى ${PTS_RULES.freeMax} ريال)</option>` : ''}</select>
     <div id="rdD"><label for="rdN">عدد الخصومات (كل واحد ${PTS_RULES.discPts} نقطة)</label><input id="rdN" type="number" min="1" max="${maxD}" value="1" inputmode="numeric"></div>
     <div id="rdF" hidden><label for="rdItem">القطعة المجانية</label><input id="rdItem" maxlength="60" placeholder="اسم القطعة"></div>
     <p id="rdSum" style="color:var(--gold-t)"></p>
     <button type="button" class="save" id="rdGo">تأكيد الاستبدال</button><button type="button" class="ghost" id="rdX">إلغاء</button></div>`;
   const kind = el.querySelector('#rdKind'), n = el.querySelector('#rdN'), sum = el.querySelector('#rdSum');
-  const upd = () => { const f = kind.value === 'free'; el.querySelector('#rdD').hidden = f; el.querySelector('#rdF').hidden = !f; const k = Math.max(1, Math.min(maxD, Math.floor(+n.value) || 1)); sum.textContent = f ? 'يُخصم ' + PTS_RULES.freePts + ' نقطة، وتُجهّز القطعة المجانية بدون تجاوز ' + PTS_RULES.freeMax + ' ريال.' : 'يُخصم ' + (k * PTS_RULES.discPts) + ' نقطة، والخصم ' + (k * PTS_RULES.discSar) + ' ريال على الفاتورة القادمة.'; };
+  const upd = () => { const f = kind.value === 'free', sh = kind.value === 'ship'; el.querySelector('#rdD').hidden = f || sh; el.querySelector('#rdF').hidden = !f; const k = Math.max(1, Math.min(maxD, Math.floor(+n.value) || 1)); sum.textContent = sh ? 'يُخصم ' + PTS_RULES.shipPts + ' نقطة، وتُخصم رسوم التوصيل ' + PTS_RULES.shipSar + ' ريال من فاتورته القادمة (توصيل مجاني).' : f ? 'يُخصم ' + PTS_RULES.freePts + ' نقطة، وتُجهّز القطعة المجانية بدون تجاوز ' + PTS_RULES.freeMax + ' ريال.' : 'يُخصم ' + (k * PTS_RULES.discPts) + ' نقطة، والخصم ' + (k * PTS_RULES.discSar) + ' ريال على الفاتورة القادمة.'; };
   kind.onchange = upd; n.oninput = upd; upd();
   el.querySelector('#rdX').onclick = () => el.classList.remove('on');
   el.querySelector('#rdGo').onclick = () => {
-    const d2 = loadDb(), b2 = ptsBalanceFor(ph, d2), free = kind.value === 'free';
-    const k = free ? 1 : Math.max(1, Math.min(Math.floor(b2 / PTS_RULES.discPts), Math.floor(+n.value) || 1)), need = free ? PTS_RULES.freePts : k * PTS_RULES.discPts;
+    const d2 = loadDb(), b2 = ptsBalanceFor(ph, d2), free = kind.value === 'free', ship = kind.value === 'ship';
+    const k = (free || ship) ? 1 : Math.max(1, Math.min(Math.floor(b2 / PTS_RULES.discPts), Math.floor(+n.value) || 1)), need = ship ? PTS_RULES.shipPts : free ? PTS_RULES.freePts : k * PTS_RULES.discPts;
     if (b2 < need) { toast('الرصيد ما يكفي'); return; }
     const item = free ? String(el.querySelector('#rdItem').value || '').trim().slice(0, 60) : '';
-    d2.redeems.push({ id: newId(), phone: ph, name: (c && c.client) || '', kind: free ? 'free' : 'disc', pts: need, sar: free ? 0 : k * PTS_RULES.discSar, item, date: todayStr() });
+    d2.redeems.push(Object.assign({ id: newId(), phone: ph, name: (c && c.client) || '', kind: free ? 'free' : 'disc', pts: need, sar: ship ? PTS_RULES.shipSar : free ? 0 : k * PTS_RULES.discSar, item, date: todayStr() }, ship ? { ship: 1 } : {}));
     saveDb(d2); publishPointsSoon(); el.classList.remove('on');
-    toast(free ? '✔ القطعة المجانية تنضاف تلقائياً لفاتورته القادمة (خُصم ' + need + ' نقطة)' : '✔ خصم ' + (k * PTS_RULES.discSar) + ' ريال ينضاف تلقائياً لفاتورته القادمة (خُصم ' + need + ' نقطة)');
+    toast(ship ? '✔ التوصيل المجاني: خصم ' + PTS_RULES.shipSar + ' ريال (رسوم التوصيل) ينضاف تلقائياً لفاتورته القادمة (خُصم ' + need + ' نقطة)' : free ? '✔ القطعة المجانية تنضاف تلقائياً لفاتورته القادمة (خُصم ' + need + ' نقطة)' : '✔ خصم ' + (k * PTS_RULES.discSar) + ' ريال ينضاف تلقائياً لفاتورته القادمة (خُصم ' + need + ' نقطة)');
     try { renderStats(); } catch (e) {}
   };
   el.classList.add('on');
