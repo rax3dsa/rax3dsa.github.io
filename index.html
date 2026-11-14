@@ -345,11 +345,6 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     </div>
     <label for="dQ" style="margin-top:8px">عدد التوزيعات</label>
     <input id="dQ" type="number" inputmode="numeric" min="1" step="1" placeholder="مثال: 200" autocomplete="off">
-    <details style="margin-top:8px"><summary class="hint" style="cursor:pointer">خيارات إضافية (تغليف، طابعات، بدل فشل)</summary>
-      <label for="dPack" style="margin-top:8px">تغليف الحبة (ريال)</label><input id="dPack" type="number" inputmode="decimal" min="0" step="0.1" placeholder="0.5">
-      <label for="dPr" style="margin-top:8px">عدد الطابعات</label><input id="dPr" type="number" inputmode="numeric" min="1" step="1" placeholder="1">
-      <label for="dF" style="margin-top:8px">بدل فشل الطباعة %</label><input id="dF" type="number" inputmode="decimal" min="0" step="1" placeholder="5 (الافتراضي)">
-    </details>
     <div id="dOut" style="margin-top:12px"></div>
   </section>
 
@@ -613,7 +608,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '95';
+const APP_VERSION = '96';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1953,7 +1948,7 @@ function distCalc() {
   if (!(w > 0)) { out.innerHTML = '<p class="hint">اكتب وزن القطعة لتبدأ الحاسبة.</p>'; return; }
   let hrs = (val('dH') || 0) + (val('dM') || 0) / 60, est = false;
   if (!(hrs > 0)) { hrs = 0.25 + 0.042 * w; est = true; }   // لو ما كتبت الوقت: تقدير من ملفاتنا
-  const pack = val('dPack') === null ? DIST_PACK : Math.max(0, val('dPack')), pr = Math.max(1, Math.floor(val('dPr') || 1)), fl = val('dF') === null ? DIST_FAIL : Math.max(0, val('dF'));
+  const pack = DIST_PACK, pr = 1, fl = DIST_FAIL;
   const base = distUnit(cfg, w, hrs, DIST_TIERS[0][0], 0, fl, pack), cost = base.cost, mat = base.mat, mach = base.mach;
   const fee = (cfg.payFee || 0) / 100, fix = cfg.payFix || 0;
   const price = (n, m) => distUnit(cfg, w, hrs, n, 0, fl, pack).price;
@@ -1975,7 +1970,7 @@ function distCalc() {
     + DIST_TIERS.map(x => { const p = price(x[0], x[1]), n = net(p, x[0]), on = t && t[0] === x[0]; return '<div style="' + gr + ';border-top:1px solid var(--line)' + (on ? ';color:var(--gold-t);font-weight:700' : '') + '"><span>' + x[0] + ' حبة</span><span>' + fmt(p) + '</span><span>' + fmt(R2(p * x[0])) + '</span><span>' + Math.round(n * x[0]) + ' (' + Math.round(n / p * 100) + '%)</span></div>'; }).join('') + '</div>';
   out.innerHTML = h;
 }
-['dW', 'dH', 'dM', 'dQ', 'dPack', 'dPr', 'dF'].forEach(id => $(id).addEventListener('input', distCalc));
+['dW', 'dH', 'dM', 'dQ'].forEach(id => $(id).addEventListener('input', distCalc));
 distCalc();
 
 $('saveBtn').onclick = () => {
