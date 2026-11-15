@@ -614,7 +614,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '100';
+const APP_VERSION = '101';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1394,6 +1394,13 @@ const API = {
     if (sync) await setCounter(sync, pl.next);
     publishPointsSoon(); return { moved: plan.length, next: pl.next, map: plan.map(x => [x.from, x.to]) };
   },
+  async voidByNum(d) {   // v101: حذف طلب خاص — الفاتورة تبقى بالسجل برقمها وعليها ختم «محذوف»، ولا يتغير أي رقم
+    const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
+    const r = db.log.find(x => Number(x.num) === Number(d.num) && (x.by || 'admin') === 'admin') || db.log.find(x => Number(x.num) === Number(d.num)); if (!r) return { found: false };
+    if (!isLive(r)) return { found: true, num: r.num };
+    r.status = 'ملغاة'; r.voidAt = todayStr(); r.deleted = true;
+    saveDb(db); publishPointsSoon(); return { found: true, num: r.num };
+  },
   async voidInvoice(d, pin) {   // v47: «إلغاء» بدل الحذف — الرقم يبقى، الحالة ملغاة، وتطلع من المجاميع والنقاط
     const db = await adminDb(pin);
     const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
@@ -1901,7 +1908,7 @@ $('cuImg').onchange = async e => {
 const cuStat = s => s === 'paid' ? '✅ مدفوع' : s === 'cod' ? '🚚 دفع عند الاستلام' : s === 'gone' ? '🗑 ملغي' : '⏳ بانتظار العميل';
 function cuRender() {
   const l = cuLoad();
-  $('cuList').innerHTML = l.length ? l.map(r => `<div class="hint" style="border:1px solid var(--ghost-b,#7a7466);border-radius:12px;padding:10px;margin-bottom:8px;line-height:1.8"><b>${esc(r.name || 'بدون اسم')}</b>${r.phone ? ' <span dir="ltr">' + esc(r.phone) + '</span>' : ''} · ${r.price} ريال · ${cuStat(r.status)}${r.num ? ' · ORD-' + r.num : ''}<br>${esc(String(r.desc || '').slice(0, 80))}<br><button class="ghost" style="margin:6px 4px 0 0;width:auto;padding:8px 12px" data-cu="cp" data-id="${r.id}">نسخ الرابط</button>${r.status === 'open' || !r.status ? `<button class="ghost" style="margin:6px 0 0;width:auto;padding:8px 12px" data-cu="del" data-id="${r.id}">إلغاء الرابط</button>` : ''}</div>`).join('') : '<p class="hint">لا توجد طلبات خاصة بعد.</p>';
+  $('cuList').innerHTML = l.length ? l.map(r => `<div class="hint" style="border:1px solid var(--ghost-b,#7a7466);border-radius:12px;padding:10px;margin-bottom:8px;line-height:1.8"><b>${esc(r.name || 'بدون اسم')}</b>${r.phone ? ' <span dir="ltr">' + esc(r.phone) + '</span>' : ''} · ${r.price} ريال · ${cuStat(r.status)}${r.num ? ' · ORD-' + r.num : ''}<br>${esc(String(r.desc || '').slice(0, 80))}<br><button class="ghost" style="margin:6px 4px 0 0;width:auto;padding:8px 12px" data-cu="cp" data-id="${r.id}">نسخ الرابط</button>${r.status === 'open' || !r.status ? `<button class="ghost" style="margin:6px 0 0;width:auto;padding:8px 12px" data-cu="del" data-id="${r.id}">إلغاء الرابط</button>` : ''}<button class="ghost" style="margin:6px 4px 0 0;width:auto;padding:8px 12px;color:var(--bad);border-color:var(--bad)" data-cu="rm" data-id="${r.id}">🗑 حذف الطلب</button></div>`).join('') : '<p class="hint">لا توجد طلبات خاصة بعد.</p>';
 }
 const cuShare = r => `طلبك الخاص من RAX3D\n${r.desc}\nالمبلغ: ${r.price} ريال\nللدفع افتح الرابط:\n${CU_SITE}${r.id}`;
 $('cuPhone').oninput = () => { const l = normPhone($('cuPhone').value).length >= 10 ? loyalty($('cuPhone').value) : null; $('cuPts').textContent = l ? (l.balance ? '⭐ رصيد العميل: ' + l.balance + ' نقطة' : '⭐ عميل جديد، تبدأ نقاطه بعد هذا الطلب') : ''; };
@@ -1937,6 +1944,19 @@ $('cuRefresh').onclick = async () => {
 $('cuList').onclick = async e => {
   const b = e.target.closest('[data-cu]'); if (!b) return; const l = cuLoad(), r = l.find(x => x.id === b.dataset.id); if (!r) return;
   if (b.dataset.cu === 'cp') { navigator.clipboard.writeText(cuShare(r)).then(() => toast('تم النسخ ✔'), () => toast('تعذّر النسخ')); return; }
+  if (b.dataset.cu === 'rm') {
+    if (!confirm('حذف هذا الطلب الخاص؟' + (r.num ? '\n\nالفاتورة ORD-' + r.num + ' تبقى بالسجل برقمها وعليها ختم «محذوف»، وكل الأرقام تستمر كما هي.\nالدفع الإلكتروني (إن وُجد) لا يُسترد تلقائياً.' : '\n\nالرابط يتعطل ولا يقدر العميل يدفع به.'))) return;
+    const sync = getSync(); if (!sync) { cuMsg('اربط التطبيق بالمزامنة أولاً', true); return; }
+    try {
+      const f = await ghFile(sync, 'custom/' + r.id + '.json');
+      if (f && (!f.data.status || f.data.status === 'open')) await ghDel(sync, 'custom/' + r.id + '.json', 'حذف طلب خاص ' + r.id.slice(0, 5));
+      else if (f && !r.num && f.data.num) r.num = f.data.num;
+      if (r.num) await API.voidByNum({ num: r.num });
+      cuSave(cuLoad().filter(x => x.id !== r.id)); cuRender(); try { if (DATA) { const x = DATA.log.find(y => Number(y.num) === Number(r.num)); if (x && isLive(x)) { x.status = 'ملغاة'; x.voidAt = DATA.today; x.deleted = true; } renderLog(); } } catch (er) {}
+      cuMsg('تم حذف الطلب ✔' + (r.num ? ' (ORD-' + r.num + ' بختم محذوف)' : ''));
+    } catch (er) { cuMsg('تعذّر الحذف: ' + (er.message || er), true); }
+    return;
+  }
   if (!confirm('إلغاء هذا الرابط؟ العميل ما راح يقدر يدفع به.')) return;
   const sync = getSync(); if (!sync) return;
   try { const f = await ghFile(sync, 'custom/' + r.id + '.json'); if (f && f.data.status && f.data.status !== 'open') { cuMsg('الرابط انستخدم قبل شوي: حدّث الحالة', true); return; } await ghDel(sync, 'custom/' + r.id + '.json', 'إلغاء طلب خاص ' + r.id.slice(0, 5)); r.status = 'gone'; cuSave(l); cuRender(); cuMsg('تم إلغاء الرابط ✔'); } catch (er) { cuMsg('تعذّر الإلغاء: ' + (er.message || er), true); }
@@ -2079,7 +2099,7 @@ function renderLog() {
     (r.client + ' ' + r.phone + ' ' + r.num + ' ' + r.desc + ' ' + (r.code || '')).toLowerCase().includes(q));
   $('logList').innerHTML = rows.length ? rows.map(r => `
     <div class="row">
-      <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}${!isLive(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">🚫 ملغاة</span>' : ''}${pts(r) ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pts(r) + '</span>' : ''}</b><span class="amt"${!isLive(r) ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(r.total)} ريال</span></div>
+      <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}${!isLive(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">' + (r.deleted ? '🗑 محذوف' : '🚫 ملغاة') + '</span>' : ''}${pts(r) ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pts(r) + '</span>' : ''}</b><span class="amt"${!isLive(r) ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(r.total)} ريال</span></div>
       <p>${esc(r.desc)}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
       <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}<button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
@@ -2278,7 +2298,7 @@ const safeName = t => String(t).replace(/[\\/:*?"<>|]+/g, '-').trim();
 function fetchPdf(num, cb) {
   const db = loadDb(), id = String(num), r = id.indexOf(':') > 0 ? db.log.find(x => rk(x) === id) : db.log.slice().reverse().find(x => String(x.num) === id);
   if (!r) { cb(new Error('الفاتورة غير موجودة')); return; }
-  invoicePdf(r, isLive(r) ? null : { label: 'ملغاة', sub: 'تاريخ الإلغاء ' + (r.voidAt || '') }).then(o => cb(null, o.blob, safeName('فاتورة ' + r.num + (r.client ? ' - ' + r.client : '') + '.pdf'), o.preview))
+  invoicePdf(r, isLive(r) ? null : { label: r.deleted ? 'محذوفة' : 'ملغاة', sub: (r.deleted ? 'تاريخ الحذف ' : 'تاريخ الإلغاء ') + (r.voidAt || '') }).then(o => cb(null, o.blob, safeName('فاتورة ' + r.num + (r.client ? ' - ' + r.client : '') + '.pdf'), o.preview))
     .catch(e => cb(e));
 }
 let readyFile = null;
