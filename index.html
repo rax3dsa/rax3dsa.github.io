@@ -633,7 +633,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '125';
+const APP_VERSION = '126';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2416,7 +2416,9 @@ const safeName = t => String(t).replace(/[\\/:*?"<>|]+/g, '-').trim();
 
 // تحميل PDF من Drive وتجهيزه (يحتاج ضغطتين لأن الآيفون يطلب أن تكون المشاركة بضغطة مباشرة)
 function fetchPdf(num, cb) {
-  const db = loadDb(), id = String(num), r = id.indexOf(':') > 0 ? db.log.find(x => rk(x) === id) : db.log.slice().reverse().find(x => String(x.num) === id);
+  const db = loadDb(), id = String(num), pick = L => id.indexOf(':') > 0 ? (L || []).find(x => rk(x) === id) : (L || []).slice().reverse().find(x => String(x.num) === id);
+  // مدخل البيانات يشوف فواتير الموقع والبرنامج من النسخة السحابية (DATA.log) وهي مو في قاعدة جواله المحلية، فنرجع لها إذا ما لقينا الفاتورة محلياً
+  const r = pick(db.log) || (typeof DATA !== 'undefined' && DATA ? pick(DATA.log) : null);
   if (!r) { cb(new Error('الفاتورة غير موجودة')); return; }
   invoicePdf(r, isLive(r) ? null : { label: 'ملغاة', sub: 'تاريخ الإلغاء ' + (r.voidAt || '') }).then(o => cb(null, o.blob, safeName('فاتورة ' + r.num + (r.client ? ' - ' + r.client : '') + '.pdf'), o.preview))
     .catch(e => cb(e));
