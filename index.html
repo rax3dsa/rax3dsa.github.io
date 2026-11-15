@@ -614,7 +614,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '102';
+const APP_VERSION = '103';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -3227,6 +3227,8 @@ try { if (localStorage.getItem('rax3d_updated')) { localStorage.removeItem('rax3
 
 // v47: ترحيل الرمز من نص صريح إلى هاش، وترحيل مفاتيح نقاط الولاء للصيغة الجديدة (مرة وحدة من جوال الدعم الفني)
 migratePins().catch(() => {});
+// v103: طلب المالك — إزالة الطلب ORD-9 من قائمة «طلباتي الخاصة» فقط (مرة وحدة). الفاتورة بالسجل والرابط في GitHub ما يتأثران.
+try { if (!localStorage.getItem('rax3d_v103_cu9')) { const l = cuLoad(), k = l.filter(x => Number(x.num) !== 9); if (k.length !== l.length) cuSave(k); localStorage.setItem('rax3d_v103_cu9', '1'); } } catch (e) {}
 // v102: رجوع لسلوك v100 + استعادة مرة وحدة لأي طلب خاص انحذف بالخطأ في v101 (الفواتير بختم «محذوف» ترجع حيّة، وقائمة الطلبات الخاصة تُستعاد من GitHub)
 try {
   if (!localStorage.getItem('rax3d_v102_restore')) {
