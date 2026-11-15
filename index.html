@@ -633,7 +633,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '124';
+const APP_VERSION = '125';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -3475,8 +3475,10 @@ function applyUpdate() {
   const busy = !$('lock').classList.contains('on') && (!formEmpty() || document.querySelector('.sheet.on'));
   if (busy) return;   // ما نقاطع فاتورة شغّال عليها، نحدّث بعدين
   const v = updWanted; updWanted = null;
-  try { sessionStorage.setItem('rax3d_upd_try', v); localStorage.setItem('rax3d_updated', v); } catch (e) {}
-  fetch(location.pathname, { cache: 'reload' }).catch(() => {}).then(() => location.reload());
+  let n = 0; try { n = +(sessionStorage.getItem('rax3d_upd_n_' + v) || 0); } catch (e) {}
+  if (n >= 3) return;   // v125: حتى 3 محاولات لكل نسخة (بدل محاولة وحدة) — وكل محاولة تفتح رابطًا جديدًا يتخطى كاش الجوال
+  try { sessionStorage.setItem('rax3d_upd_n_' + v, String(n + 1)); localStorage.setItem('rax3d_updated', v); } catch (e) {}
+  fetch(location.pathname, { cache: 'reload' }).catch(() => {}).then(() => { const u = new URL(location.href); u.searchParams.set('u', v + '-' + Date.now()); location.replace(u.toString()); });
 }
 // v105: زر «تحديث الآن» — يفحص آخر نسخة منشورة ويفرض تحميلها حتى لو التحديث التلقائي ما اشتغل
 $('updBtn').onclick = async () => {
@@ -3504,12 +3506,13 @@ function checkUpdate() {
     if (!m) return;
     setUpdBadge(Math.max(0, +m[1] - +APP_VERSION));   // v108: يوجد تحديث (عدد التحديثات = فرق رقم الإصدار)
     if (+m[1] <= +APP_VERSION) return;
-    try { if (sessionStorage.getItem('rax3d_upd_try') === m[1]) return; } catch (e) {}   // منع التكرار
     updWanted = m[1]; applyUpdate();
   }).catch(() => {});
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkUpdate(); applyUpdate(); } });
-setInterval(() => { if (!document.hidden) { checkUpdate(); applyUpdate(); } }, 5 * 60 * 1000);
+// v125: التحديث تلقائي بلا ضغط زر: يفحص عند الفتح والرجوع للتطبيق وعودة النت وكل دقيقتين، ويحدّث فورًا إن لم تكن في منتصف فاتورة
+const updTick = () => { if (!document.hidden) { checkUpdate(); applyUpdate(); } };
+document.addEventListener('visibilitychange', updTick); addEventListener('pageshow', updTick); addEventListener('online', updTick); addEventListener('focus', updTick);
+setInterval(updTick, 2 * 60 * 1000);
 try { if (localStorage.getItem('rax3d_updated')) { localStorage.removeItem('rax3d_updated'); setTimeout(() => toast('✨ تم تحديث التطبيق لآخر نسخة'), 600); } } catch (e) {}
 
 // v47: ترحيل الرمز من نص صريح إلى هاش، وترحيل مفاتيح نقاط الولاء للصيغة الجديدة (مرة وحدة من جوال الدعم الفني)
