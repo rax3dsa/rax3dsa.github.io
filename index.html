@@ -633,7 +633,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '121';
+const APP_VERSION = '122';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -992,7 +992,7 @@ function flushPending() {   // جوال مدخل البيانات يرسل فو�
     const sync = getSync(); let db = loadDb();
     if (!sync || db.role !== 'partner' || !db.pending.length) return 0;
     const batch = db.pending.slice();
-    const pk = r => (r.edit ? 'e' : 'n') + Number(r.num) + ':' + (r.ts || '');
+    const pk = r => (r.edit ? 'e' : 'n') + (r.key || '') + Number(r.num) + ':' + (r.ts || '');
     await updateJson(sync, 'partner_log.json', [], arr => {
       arr = Array.isArray(arr) ? arr : []; const have = new Set(arr.map(pk));
       batch.forEach(r => { if (!have.has(pk(r))) arr.push(r); }); return arr;
@@ -1133,6 +1133,28 @@ function applyCustomPrices(S, r, prices) {
     desc: its.map(i => withColor(i) + (i.gift ? ' (هدية)' : ' (' + i.q + ')')).join(' ، '), edited: todayStr() });
   return true;
 }
+// v122: مدخل البيانات شريك فيشوف طلبات المتجر (للاطلاع فقط) من النسخة السحابية لسجل الدعم الفني. لا تدخل قاعدته المحلية ولا تُحسب ضمن فواتيره، وآخر نسخة تنحفظ للعمل بدون نت.
+function mergePv(own, ol) { const have = new Set(own.map(rk)); return own.concat(ol.filter(r => !have.has(rk(r)))).sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0)); }
+function pvOverlay(rows) {   // تعديلات أحمد التي لم يطبّقها الدعم الفني بعد: تبقى ظاهرة عنده حتى يطبّقها جوالك (يضع pedit)
+  let ov = {}; try { ov = JSON.parse(localStorage.getItem('rax3d_pv_ov') || '{}') || {}; } catch (e) {}
+  let ch = false; const out = rows.map(r => { const o = ov[rk(r)]; if (!o) return r; if (r.pedit && String(r.pedit) >= String(o.date)) { delete ov[rk(r)]; ch = true; return r; } return o.row; });
+  if (ch) try { localStorage.setItem('rax3d_pv_ov', JSON.stringify(ov)); } catch (e) {}
+  return out;
+}
+function pvCache() { try { const a = JSON.parse(localStorage.getItem('rax3d_pv') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+// v122: مدخل البيانات شريك فيشوف كل الفواتير (الموقع، البرنامج، الطلبات الخاصة) من النسخة السحابية لسجل الدعم الفني، ويعدّل أسعارها المخصصة فقط. لا تدخل قاعدته المحلية، وآخر نسخة تنحفظ للعمل بدون نت.
+async function partnerOnlineRows() {
+  let ol = null;
+  try {
+    const sync = getSync();
+    if (sync) {
+      const r = await Promise.race([readJson(sync, 'backups/admin/log.json', null), new Promise((_, no) => setTimeout(() => no(new Error('t')), 5000))]);
+      const L = r && r.data && r.data.log;
+      if (Array.isArray(L)) { ol = L.filter(x => x && x.num); try { localStorage.setItem('rax3d_pv', JSON.stringify(ol)); } catch (e) {} }
+    }
+  } catch (e) {}
+  return pvOverlay(ol || pvCache());
+}
 const API = {
   async getAppData(pin) {
     const db = loadDb(), role = await auth(db, pin, true);
@@ -1141,7 +1163,7 @@ const API = {
       const cat = ((db.shared && db.shared.catalog) || []).slice(); db.catalog.forEach(c => upsertCat(cat, c));
       const ts = Number((db.shared && db.shared.pinChangedTs) || 0), notice = ts > Number(db.seenPinTs || 0);
       if (notice) { db.seenPinTs = ts; saveDb(db); }   // رسالة «تم التعديل» مرة وحدة بس
-      return { settings: partnerSettings(db), nextNum: db.nextNum, today: todayStr(), role: role, catalog: cat, log: (db.log || []).filter(r => r.by === 'partner'), goal: null, pinNotice: notice };   // مدخل البيانات يشوف فواتيره في السجل
+      return { settings: partnerSettings(db), nextNum: db.nextNum, today: todayStr(), role: role, catalog: cat, log: mergePv((db.log || []).filter(r => r.by === 'partner'), await partnerOnlineRows()), goal: null, pinNotice: notice };   // مدخل البيانات يشوف فواتيره في السجل
     }
     const notice = !!db.pinNotice;
     if (notice) { delete db.pinNotice; saveDb(db); }
@@ -1366,7 +1388,7 @@ const API = {
           return;
         }
         if (r.edit) {   // v118: مدخل البيانات عدّل السعر المخصص لفاتورته
-          const x = db.log.find(y => y.by === 'partner' && !y.online && Number(y.num) === Number(r.num));
+          const x = db.log.find(y => r.key ? rk(y) === r.key && Number(y.num) === Number(r.num) : y.by === 'partner' && !y.online && Number(y.num) === Number(r.num));   // v122: التعديل يحمل مفتاح الفاتورة لو كانت من سجل الدعم الفني
           if (x && isLive(x) && applyCustomPrices(db.settings, x, r.prices)) { x.pedit = r.date || todayStr(); repriced++; }
           return;
         }
@@ -1430,13 +1452,16 @@ const API = {
   },
   async editPrice(d) {   // v118: مدخل البيانات يعدّل السعر المخصص فقط في فواتيره، ويوصل التعديل للدعم الفني
     const db = loadDb(); if (db.role !== 'partner') throw new Error('NOT_PARTNER');
-    const r = db.log.find(x => rk(x) === d.key && x.by === 'partner' && !x.online); if (!r) throw new Error('الفاتورة غير موجودة');
+    let r = db.log.find(x => rk(x) === d.key && x.by === 'partner' && !x.online), shared = false;
+    if (!r) { const o = pvOverlay(pvCache()).find(x => rk(x) === d.key); if (o) { r = JSON.parse(JSON.stringify(o)); shared = true; } }   // v122: فاتورة من سجل الدعم الفني (موقع/طلب خاص/برنامج)
+    if (!r) throw new Error('الفاتورة غير موجودة');
     if (!isLive(r)) throw new Error('الفاتورة ملغاة — ما تنعدّل');
     const prices = (d.prices || []).map(p => ({ oi: +p.oi, d: String(p.d || ''), price: p.price === '' || p.price === null || p.price === undefined ? 0 : +p.price })).filter(p => Number.isInteger(p.oi) && p.price >= 0 && p.price <= 100000);
     if (!prices.length) throw new Error('ما تغيّر أي سعر');
     if (!getSync()) throw new Error('جوال مدخل البيانات غير مربوط — اطلب رمز ربط جديد من الدعم الفني');
     if (!applyCustomPrices(partnerSettings(db), r, prices)) throw new Error('ما تغيّر أي سعر');
-    db.pending.push({ num: r.num, by: 'partner', edit: true, prices: prices, ts: Date.now(), date: todayStr() }); saveDb(db);
+    if (shared) { let ov = {}; try { ov = JSON.parse(localStorage.getItem('rax3d_pv_ov') || '{}') || {}; } catch (e) {} ov[d.key] = { row: r, date: todayStr() }; localStorage.setItem('rax3d_pv_ov', JSON.stringify(ov)); }
+    db.pending.push(Object.assign({ num: r.num, by: 'partner', edit: true, prices: prices, ts: Date.now(), date: todayStr() }, shared ? { key: d.key } : {})); saveDb(db);
     flushPending().catch(() => {});
     return { num: r.num, total: r.total };
   },
@@ -2185,7 +2210,7 @@ function renderLog() {
       <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}${isLoss(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">⚠️ بيعت بأقل من التكلفة ' + fmt(-r.profit) + ' ريال</span>' : ''}${gapOf(r) > 0.005 ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">📉 خصم عن المقترح ' + fmt(gapOf(r)) + ' ريال</span>' : ''}${!isLive(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">🚫 ملغاة</span>' : ''}${pts(r) ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pts(r) + '</span>' : ''}</b><span class="amt"${!isLive(r) ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(r.total)} ريال</span></div>
       <p>${esc(r.desc)}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
-      <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}${isLive(r) && r.by === 'partner' && !r.online ? `<button class="pdf dl pt" data-ed="${esc(rk(r))}">✏️ تعديل السعر</button>` : ''}<button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
+      <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}${isLive(r) ? `<button class="pdf dl pt" data-ed="${esc(rk(r))}">✏️ تعديل السعر</button>` : ''}<button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
       ${isLive(r) ? `<div class="adm mk"><label><input type="checkbox" data-mk="paid" data-key="${esc(rk(r))}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${esc(rk(r))}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label></div>` : ''}
     </div>`).join('')
     : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : (acctOnly ? 'كل الفواتير أُدخلت للحساب ✔' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».')}</div>`;
@@ -3285,7 +3310,7 @@ $('edSave').onclick = () => {
 let PED = null;
 const pedEff = it => (+it.q > 0 ? (+it.line || 0) * (1 - (+it.dp || 0) / 100) / +it.q : 0);
 function openPriceEdit(key) {
-  const r = DATA && DATA.log.find(x => rk(x) === key && x.by === 'partner' && !x.online); if (!r || !isLive(r)) return;
+  const r = DATA && DATA.log.find(x => rk(x) === key); if (!r || !isLive(r)) return;
   PED = { key: key, items: (r.items || []).map((i, oi) => ({ oi: oi, i: i })).filter(x => !x.i.gift && +x.i.w > 0).map(x => ({ oi: x.oi, i: x.i, val: x.i.auto ? '' : fmt(pedEff(x.i)), v0: x.i.auto ? '' : fmt(pedEff(x.i)) })) };
   if (!PED.items.length) { toast('لا توجد قطع قابلة لتعديل السعر'); return; }
   $('pedTitle').textContent = 'تعديل السعر — فاتورة ' + r.num; setMsg('pedMsg', null, '');
