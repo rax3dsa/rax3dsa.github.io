@@ -2157,11 +2157,9 @@ function renderStats() {
   const d0 = new Date(t + 'T00:00:00'); d0.setDate(d0.getDate() - 6);
   const wk = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
   const periods = [
-    ['اليوم', r => r.date === t],
-    ['آخر 7 أيام', r => r.date >= wk && r.date <= t],
-    ['هذا الشهر', r => r.date.startsWith(y + '-' + m)],
-    ['هذه السنة', r => r.date.startsWith(y)],
-    ['الإجمالي', () => true]
+    ['أسبوعي (آخر 7 أيام)', r => r.date >= wk && r.date <= t],
+    ['شهري (هذا الشهر)', r => r.date.startsWith(y + '-' + m)],
+    ['سنوي (هذه السنة)', r => r.date.startsWith(y)]
   ];
   $('statList').innerHTML = statsChartHtml();
   $('statPeriods').innerHTML = periods.map(([name, f]) => {
