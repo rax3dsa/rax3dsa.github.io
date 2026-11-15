@@ -615,7 +615,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '108';
+const APP_VERSION = '109';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -781,7 +781,7 @@ function calcLocal(S, it) {
   const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
   const sugg = dh ? dh.price : Math.ceil(R2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, dm = Math.min(100, Math.max(0, +it.disc || 0));
-  if (pr > 0 && pr < sugg && !(dm > 0)) {   // v107: سعر مخصص أقل من المقترح ← الخصم يُحسب تلقائياً: الوحدة بالمقترح + خصم % يوصّل الإجمالي لسعرك بالضبط
+  if (pr > 0 && pr < sugg && (!(dm > 0) || it.discAuto)) {   // v107: سعر مخصص أقل من المقترح ← الخصم يُحسب تلقائياً: الوحدة بالمقترح + خصم % يوصّل الإجمالي لسعرك بالضبط
     const dp = Math.round((sugg - pr) / sugg * 1e6) / 1e4, disc = R2((sugg - pr) * q), total = R2(pr * q);
     return { cost, sugg, unit: sugg, q, disc, dp, line: R2(sugg * q), total, profit: R2(total - cost * q) };
   }
@@ -1670,7 +1670,7 @@ function calcItem(it) {
   const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
   const sugg = dh ? dh.price : Math.ceil(r2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, custom = pr > 0;
-  const unit = custom ? pr : sugg, autoD = custom && pr < sugg && !(+it.disc > 0);   // v107: خصم تلقائي عند السعر المخصص الأقل من المقترح
+  const unit = custom ? pr : sugg, autoD = custom && pr < sugg && (!(+it.disc > 0) || !!it.discAuto);   // v107: خصم تلقائي عند السعر المخصص الأقل من المقترح
   const disc = autoD ? r2((sugg - pr) * q) : r2(unit * q * (+it.disc || 0) / 100);
   const total = autoD ? r2(pr * q) : unit * q - disc;
   return { cost, sugg, shop: dh ? sugg : Math.ceil((sugg + (S.payFix || 0)) / (1 - (S.payFee || 0) / 100) - 1e-9), unit, custom, autoD, disc, total, profit: total - cost * q, gap: sugg * q - total };
@@ -1739,6 +1739,7 @@ $('items').addEventListener('input', e => {
   const k = e.target.dataset.k; if (!k) return;
   const card = e.target.closest('.item'), i = +card.dataset.i;
   items[i][k] = e.target.value;
+  if (k === 'disc') items[i].discAuto = false;   // v109: لو كتبت الخصم بيدك يتقدم على التلقائي
   if (k === 'desc') {
     const c = findCat(e.target.value);
     if (c) {
@@ -1747,8 +1748,15 @@ $('items').addEventListener('input', e => {
       card.classList.add('filled'); setTimeout(() => card.classList.remove('filled'), 700);
     }
   }
+  syncAutoDisc(items[i], card);
   updateTotals();
 });
+// v109: السعر المخصص الأقل من المقترح ← نسبة الخصم تنكتب تلقائياً بخانة «خصم %» (يظهر للعميل بالفاتورة)
+function syncAutoDisc(it, card) {
+  const c = calcItem(it), box = card.querySelector('[data-k="disc"]'); if (!box) return;
+  if (c && c.autoD && (!(+it.disc > 0) || it.discAuto)) { it.discAuto = true; it.disc = String(Math.round((c.sugg - (+it.price)) / c.sugg * 1e4) / 100); box.value = it.disc; }
+  else if (it.discAuto) { it.discAuto = false; it.disc = 0; box.value = 0; }
+}
 $('items').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const i = +b.closest('.item').dataset.i;
@@ -3257,6 +3265,20 @@ try { if (localStorage.getItem('rax3d_updated')) { localStorage.removeItem('rax3
 
 // v47: ترحيل الرمز من نص صريح إلى هاش، وترحيل مفاتيح نقاط الولاء للصيغة الجديدة (مرة وحدة من جوال الدعم الفني)
 migratePins().catch(() => {});
+// v109: تصحيح فاتورة ORD-9 مرة وحدة بطلب المالك: الاسم الصحيح بالموقع + سعر المفرد بالموقع (44) + نسبة الخصم تلقائي — الإجمالي يبقى 60
+try {
+  if (!localStorage.getItem('rax3d_v109_ord9')) {
+    const d9 = loadDb(), r9 = d9.role === 'admin' && Array.isArray(d9.log) ? d9.log.find(x => Number(x.num) === 9) : null;
+    if (r9 && Array.isArray(r9.items) && r9.items.length === 1 && /نيقش/.test(r9.items[0].desc || '') && Number(r9.total) === 60 && (+r9.items[0].q || 0) === 2) {
+      const it9 = r9.items[0], dp9 = Math.round((88 - 60) / 88 * 1e6) / 1e4;
+      it9.desc = 'أومني دريبر 2 (نيقوشيتر) xBloom Studio'; it9.unit = 44; it9.line = 88; it9.dp = dp9; it9.auto = false;
+      r9.sub = 88; r9.disc = 28; r9.total = 60; r9.sugg = 88; r9.edited = todayStr();
+      r9.desc = withColor(it9) + ' (2)';
+      saveDb(d9);
+    }
+    localStorage.setItem('rax3d_v109_ord9', '1');
+  }
+} catch (e) {}
 // v103: طلب المالك — إزالة الطلب ORD-9 من قائمة «طلباتي الخاصة» فقط (مرة وحدة). الفاتورة بالسجل والرابط في GitHub ما يتأثران.
 try { if (!localStorage.getItem('rax3d_v103_cu9')) { const l = cuLoad(), k = l.filter(x => Number(x.num) !== 9); if (k.length !== l.length) cuSave(k); localStorage.setItem('rax3d_v103_cu9', '1'); } } catch (e) {}
 // v102: رجوع لسلوك v100 + استعادة مرة وحدة لأي طلب خاص انحذف بالخطأ في v101 (الفواتير بختم «محذوف» ترجع حيّة، وقائمة الطلبات الخاصة تُستعاد من GitHub)
