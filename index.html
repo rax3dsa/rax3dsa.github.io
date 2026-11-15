@@ -614,7 +614,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '106';
+const APP_VERSION = '107';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -779,9 +779,14 @@ function calcLocal(S, it) {
   const dh = w > 0 && it.type !== 'مجموعة' && q >= DIST_TIERS[0][0] ? distUnit(S, w, (+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600, q, acc) : null;   // 50 حبة فأكثر ← صيغة التوزيعات
   const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
   const sugg = dh ? dh.price : Math.ceil(R2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
-  const pr = +it.price || 0, unit = pr > 0 ? pr : sugg;
-  const disc = R2(unit * q * (+it.disc || 0) / 100);
-  return { cost, sugg, unit, q, disc, line: R2(unit * q), total: R2(unit * q - disc), profit: R2(unit * q - disc - cost * q) };
+  const pr = +it.price || 0, dm = Math.min(100, Math.max(0, +it.disc || 0));
+  if (pr > 0 && pr < sugg && !(dm > 0)) {   // v107: سعر مخصص أقل من المقترح ← الخصم يُحسب تلقائياً: الوحدة بالمقترح + خصم % يوصّل الإجمالي لسعرك بالضبط
+    const dp = Math.round((sugg - pr) / sugg * 1e6) / 1e4, disc = R2((sugg - pr) * q), total = R2(pr * q);
+    return { cost, sugg, unit: sugg, q, disc, dp, line: R2(sugg * q), total, profit: R2(total - cost * q) };
+  }
+  const unit = pr > 0 ? pr : sugg;
+  const disc = R2(unit * q * dm / 100);
+  return { cost, sugg, unit, q, disc, dp: dm, line: R2(unit * q), total: R2(unit * q - disc), profit: R2(unit * q - disc - cost * q) };
 }
 // استرداد سعر الطابعة: صافي ربح الفواتير مقابل سعرها، وساعات الطباعة المسجلة مقابل عمرها المفترض
 function printerStats(db) {
@@ -1100,7 +1105,7 @@ const API = {
     }
     else if (sync) { num = await reserveNumber(sync, db.nextNum); db = loadDb(); }
     else { num = db.nextNum; while (db.log.some(r => Number(r.num) === num)) num++; }
-    const lines = its.map(it => { const c = calcLocal(S, it); return { desc: String(it.desc).trim(), color: String(it.color || '').slice(0, 60), q: c.q, unit: c.unit, line: c.line, disc: c.disc, total: c.total, profit: c.profit, cost: R2(c.cost), sugg: (+it.price > 0) ? c.sugg * c.q : 0, acc: Math.max(0, +it.acc || 0), w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: it.type === 'مجموعة' ? 'مجموعة' : 'واحدة', auto: !(+it.price > 0), dp: Math.min(100, Math.max(0, +it.disc || 0)) }; });
+    const lines = its.map(it => { const c = calcLocal(S, it); return { desc: String(it.desc).trim(), color: String(it.color || '').slice(0, 60), q: c.q, unit: c.unit, line: c.line, disc: c.disc, total: c.total, profit: c.profit, cost: R2(c.cost), sugg: (+it.price > 0) ? c.sugg * c.q : 0, acc: Math.max(0, +it.acc || 0), w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: it.type === 'مجموعة' ? 'مجموعة' : 'واحدة', auto: !(+it.price > 0), dp: c.dp }; });
     const before = db.log.filter(isLive).reduce((a, r) => a + (Number(r.total) || 0), 0);
     const rec = {
       num: num, date: todayStr(), by: role, pay: PAYS.indexOf(data.pay) >= 0 ? data.pay : undefined, client: String(data.client || '').trim(), phone: String(data.phone || '').trim(), code: String(data.code || '').trim().slice(0, 20),
@@ -1664,10 +1669,10 @@ function calcItem(it) {
   const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
   const sugg = dh ? dh.price : Math.ceil(r2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, custom = pr > 0;
-  const unit = custom ? pr : sugg;
-  const disc = r2(unit * q * (+it.disc || 0) / 100);
-  const total = unit * q - disc;
-  return { cost, sugg, shop: dh ? sugg : Math.ceil((sugg + (S.payFix || 0)) / (1 - (S.payFee || 0) / 100) - 1e-9), unit, custom, disc, total, profit: total - cost * q, gap: sugg * q - total };
+  const unit = custom ? pr : sugg, autoD = custom && pr < sugg && !(+it.disc > 0);   // v107: خصم تلقائي عند السعر المخصص الأقل من المقترح
+  const disc = autoD ? r2((sugg - pr) * q) : r2(unit * q * (+it.disc || 0) / 100);
+  const total = autoD ? r2(pr * q) : unit * q - disc;
+  return { cost, sugg, shop: dh ? sugg : Math.ceil((sugg + (S.payFix || 0)) / (1 - (S.payFee || 0) / 100) - 1e-9), unit, custom, autoD, disc, total, profit: total - cost * q, gap: sugg * q - total };
 }
 
 function newItem() { return { acc: '', color: '', desc: '', w: '', h: '', m: '', sec: '', type: 'واحدة', q: 1, disc: 0, price: '' }; }
@@ -1709,7 +1714,7 @@ function updateTotals() {
   items.forEach((it, i) => {
     const c = calcItem(it), el = $('c' + i);
     if (!c) { el.innerHTML = '<span>اكتب الوزن لحساب السعر</span>'; const w0 = $('w' + i); if (w0) w0.textContent = ''; return; }
-    el.innerHTML = `<span>سعر الوحدة <b>${fmt(c.unit)}</b>${c.custom ? ` <small style="color:var(--mute)">(المقترح ${fmt(c.sugg)})</small>` : ''} <small style="color:var(--mute)">· سعر المتجر أونلاين ${fmt(c.shop)}</small></span><span>الإجمالي <b>${fmt(c.total)}</b></span><span class="adm">الربح <b style="color:${c.profit < 0 ? 'var(--bad)' : 'inherit'}">${fmt(c.profit)}</b></span>`;
+    el.innerHTML = `<span>سعر الوحدة <b>${fmt(c.unit)}</b>${c.custom ? ` <small style="color:var(--mute)">(المقترح ${fmt(c.sugg)})</small>` : ''}${c.autoD ? ` <small style="color:var(--gold-t)">· خصم تلقائي ${fmt(c.disc)} ريال</small>` : ''} <small style="color:var(--mute)">· سعر المتجر أونلاين ${fmt(c.shop)}</small></span><span>الإجمالي <b>${fmt(c.total)}</b></span><span class="adm">الربح <b style="color:${c.profit < 0 ? 'var(--bad)' : 'inherit'}">${fmt(c.profit)}</b></span>`;
     const w = $('w' + i);
     if (w) w.textContent = c.unit < c.cost ? (DATA && DATA.role === 'partner' ? '⚠️ السعر أقل من التكلفة — راجع السعر' : `⚠️ السعر أقل من التكلفة (${fmt(c.cost)} ريال) — بتخسر في هذي القطعة`) : '';
     t += c.total; d += c.disc; p += c.profit;
