@@ -633,7 +633,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '118';
+const APP_VERSION = '119';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -793,9 +793,14 @@ function distUnit(cfg, w, hrs, q, acc, fail, pack) {
   const raw = R2(Math.ceil(((cost + fix / q) / (1 - fee - m / 100)) / 0.05 - 1e-9) * 0.05); let flr = 0; DIST_FLOOR.forEach(x => { if (q >= x[0]) flr = x[1]; });
   return { m, mat, mach, cost, price: Math.max(raw, flr), floored: flr > raw, raw };
 }
+// عرض خاص (المالك 11-15): البطة الكول من 100 حتى 499 حبة = 2.99 للحبة (299 للمئة) — مثل الموقع. أي قطعة غيرها لا تتأثر.
+function distOffer(it, q, dh) {
+  if (!dh || q < 100 || q >= 500 || !/البطة الكول/.test(String(it.desc || ''))) return dh;
+  return dh.price > 2.99 ? Object.assign({}, dh, { price: 2.99, floored: false, offer: true }) : dh;
+}
 function calcLocal(S, it) {
   const w = +it.w || 0, q = +it.q || 1, acc = Math.max(0, +it.acc || 0);   // acc: قطع إضافية للحبة (طقم LED، ميكانيزم ساعة...) تنضاف بسعرها بدون مضاعف
-  const dh = w > 0 && it.type !== 'مجموعة' && q >= DIST_TIERS[0][0] ? distUnit(S, w, (+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600, q, acc) : null;   // 50 حبة فأكثر ← صيغة التوزيعات
+  const dh = distOffer(it, q, w > 0 && it.type !== 'مجموعة' && q >= DIST_TIERS[0][0] ? distUnit(S, w, (+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600, q, acc) : null);   // 50 حبة فأكثر ← صيغة التوزيعات
   const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
   const sugg = dh ? dh.price : Math.ceil(R2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, dm = Math.min(100, Math.max(0, +it.disc || 0));
@@ -1724,7 +1729,7 @@ const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 function calcItem(it) {
   const w = +it.w || 0; if (!w) return null;
   const q = +it.q || 1, acc = Math.max(0, +it.acc || 0);
-  const dh = it.type !== 'مجموعة' && q >= DIST_TIERS[0][0] ? distUnit(S, w, (+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600, q, acc) : null;   // 50 حبة فأكثر ← صيغة التوزيعات
+  const dh = distOffer(it, q, it.type !== 'مجموعة' && q >= DIST_TIERS[0][0] ? distUnit(S, w, (+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600, q, acc) : null);   // 50 حبة فأكثر ← صيغة التوزيعات
   const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
   const sugg = dh ? dh.price : Math.ceil(r2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, custom = pr > 0;
