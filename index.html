@@ -633,7 +633,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '121';
+const APP_VERSION = '122';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1133,6 +1133,21 @@ function applyCustomPrices(S, r, prices) {
     desc: its.map(i => withColor(i) + (i.gift ? ' (هدية)' : ' (' + i.q + ')')).join(' ، '), edited: todayStr() });
   return true;
 }
+// v122: مدخل البيانات شريك فيشوف طلبات المتجر (للاطلاع فقط) من النسخة السحابية لسجل الدعم الفني. لا تدخل قاعدته المحلية ولا تُحسب ضمن فواتيره، وآخر نسخة تنحفظ للعمل بدون نت.
+function mergePv(own, ol) { const have = new Set(own.map(r => Number(r.num))); return own.concat(ol.filter(r => !have.has(Number(r.num)))).sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0)); }
+async function partnerOnlineRows() {
+  let ol = [];
+  try {
+    const sync = getSync();
+    if (sync) {
+      const r = await Promise.race([readJson(sync, 'backups/admin/log.json', null), new Promise((_, no) => setTimeout(() => no(new Error('t')), 5000))]);
+      const L = r && r.data && r.data.log;
+      if (Array.isArray(L)) { ol = L.filter(x => x && x.online && x.num); try { localStorage.setItem('rax3d_pv', JSON.stringify(ol)); } catch (e) {} return ol; }
+    }
+  } catch (e) {}
+  try { ol = JSON.parse(localStorage.getItem('rax3d_pv') || '[]'); } catch (e) { ol = []; }
+  return Array.isArray(ol) ? ol : [];
+}
 const API = {
   async getAppData(pin) {
     const db = loadDb(), role = await auth(db, pin, true);
@@ -1141,7 +1156,7 @@ const API = {
       const cat = ((db.shared && db.shared.catalog) || []).slice(); db.catalog.forEach(c => upsertCat(cat, c));
       const ts = Number((db.shared && db.shared.pinChangedTs) || 0), notice = ts > Number(db.seenPinTs || 0);
       if (notice) { db.seenPinTs = ts; saveDb(db); }   // رسالة «تم التعديل» مرة وحدة بس
-      return { settings: partnerSettings(db), nextNum: db.nextNum, today: todayStr(), role: role, catalog: cat, log: (db.log || []).filter(r => r.by === 'partner'), goal: null, pinNotice: notice };   // مدخل البيانات يشوف فواتيره في السجل
+      return { settings: partnerSettings(db), nextNum: db.nextNum, today: todayStr(), role: role, catalog: cat, log: mergePv((db.log || []).filter(r => r.by === 'partner'), await partnerOnlineRows()), goal: null, pinNotice: notice };   // مدخل البيانات يشوف فواتيره في السجل
     }
     const notice = !!db.pinNotice;
     if (notice) { delete db.pinNotice; saveDb(db); }
