@@ -2143,6 +2143,11 @@ function statsChartHtml() {   // v111: يومي (آخر 7 أيام) بدل آخ�
     <div style="display:flex;gap:14px;font-size:12px;color:var(--mute);margin:-4px 0 6px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--gold);margin-left:5px"></i>المبيعات</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--good);margin-left:5px"></i>صافي الربح</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--bad);margin-left:5px"></i>الخسارة</span></div>${chartSvg(ds.map(dl), t.map(v => r2(v.sales)), t.map(v => r2(v.profit)), t.map(v => r2(v.loss)))}
     <div style="overflow-x:auto;margin-top:10px"><table class="st"><thead><tr><th>اليوم</th><th>الفواتير</th><th>المبيعات</th><th>الخسارة</th><th>صافي الربح</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
+function gapVsProfitHtml(loss, profit) {   // v113: شريط أحمر (خصم عن المقترح) وأخضر (صافي الربح) بنفس المقياس لمقارنتهما
+  const pf = Math.max(0, +profit || 0), ls = Math.max(0, +loss || 0), mx = Math.max(pf, ls, 1), w = v => v > 0 ? Math.max(2, v / mx * 100).toFixed(1) + '%' : '0%';
+  return `<div class="loss-bar" style="margin-top:12px"><i style="width:${w(ls)}"></i></div><div class="loss-bar" style="margin-top:4px"><i style="width:${w(pf)};background:var(--good)"></i></div>
+    <div class="loss-sub">🔴 خصم عن المقترح ${fmt(ls)} · 🟢 صافي الربح ${fmt(pf)}${pf > 0 && ls > 0 ? ' · الخصم يعادل <b>' + (ls / pf * 100).toFixed(1) + '%</b> منه' : ''}</div>`;
+}
 function renderStats() {
   const t = DATA.today, [y, m] = t.split('-');
   const d0 = new Date(t + 'T00:00:00'); d0.setDate(d0.getDate() - 6);
@@ -2159,7 +2164,7 @@ function renderStats() {
     return `<div class="period"><h3>${name}</h3><div class="kv">
       <div>الفواتير<b>${rs.length}</b></div><div>القطع<b>${s('qty')}</b></div><div>المبيعات<b>${fmt(s('total'))}</b></div>
       <div>الخصومات<b>${fmt(s('disc'))}</b></div><div>خصم عن المقترح<b>${fmt(rs.reduce((t, r) => t + Math.max(0, gapOf(r)), 0))}</b></div><div>صافي الربح<b>${fmt(s('profit'))}</b></div>
-      <div>متوسط الفاتورة<b>${rs.length ? fmt(s('total') / rs.length) : 0}</b></div><div>⭐ نقاط الولاء<b>${rs.reduce((a, r) => a + pts(r), 0)}</b></div></div></div>`;
+      <div>متوسط الفاتورة<b>${rs.length ? fmt(s('total') / rs.length) : 0}</b></div><div>⭐ نقاط الولاء<b>${rs.reduce((a, r) => a + pts(r), 0)}</b></div></div>${gapVsProfitHtml(rs.reduce((t, r) => t + Math.max(0, gapOf(r)), 0), s('profit'))}</div>`;
   }).join('') + loyaltyCard();
 }
 
