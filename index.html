@@ -1134,7 +1134,8 @@ function applyCustomPrices(S, r, prices) {
   return true;
 }
 // v122: مدخل البيانات شريك فيشوف طلبات المتجر (للاطلاع فقط) من النسخة السحابية لسجل الدعم الفني. لا تدخل قاعدته المحلية ولا تُحسب ضمن فواتيره، وآخر نسخة تنحفظ للعمل بدون نت.
-function mergePv(own, ol) { const have = new Set(own.map(rk)); return own.concat(ol.filter(r => !have.has(rk(r)))).sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0)); }
+function mergePv(own, ol) { const sh = {}; ol.forEach(r => { sh[rk(r)] = r; }); own = own.map(r => { const o = sh[rk(r)]; return o && !r.pay && o.pay ? Object.assign({}, r, { pay: o.pay }) : r; });   // طريقة الدفع التي يحددها الدعم الفني تظهر في فواتير أحمد (للعرض والـPDF فقط)
+  const have = new Set(own.map(rk)); return own.concat(ol.filter(r => !have.has(rk(r)))).sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0)); }
 function pvOverlay(rows) {   // تعديلات أحمد التي لم يطبّقها الدعم الفني بعد: تبقى ظاهرة عنده حتى يطبّقها جوالك (يضع pedit)
   let ov = {}; try { ov = JSON.parse(localStorage.getItem('rax3d_pv_ov') || '{}') || {}; } catch (e) {}
   let ch = false; const out = rows.map(r => { const o = ov[rk(r)]; if (!o) return r; if (r.pedit && String(r.pedit) >= String(o.date)) { delete ov[rk(r)]; ch = true; return r; } return o.row; });
@@ -3563,6 +3564,14 @@ try {
       saveDb(d);
     }
     localStorage.setItem('rax3d_v123_auto', '1');
+  }
+} catch (e) {}
+// v124: تصحيح: ORD-1 وORD-7 (فواتير مدخل البيانات) = الدفع عند الاستلام بطلب المالك. ترحيل v120 كان يبحث عنهما بين فواتير الدعم الفني فقط وv121 حوّلهما لتحويل بنكي بالخطأ.
+try {
+  if (!localStorage.getItem('rax3d_v124_cod')) {
+    const d = loadDb();
+    if (d.role === 'admin' && Array.isArray(d.log)) { d.log.forEach(r => { if (r && !r.online && (Number(r.num) === 1 || Number(r.num) === 7) && r.pay !== 'cod') { r.pay = 'cod'; r.edited = todayStr(); } }); saveDb(d); }
+    localStorage.setItem('rax3d_v124_cod', '1');
   }
 } catch (e) {}
 // v109: تصحيح فاتورة ORD-9 مرة وحدة بطلب المالك: الاسم الصحيح بالموقع + سعر المفرد بالموقع (44) + نسبة الخصم تلقائي — الإجمالي يبقى 60
