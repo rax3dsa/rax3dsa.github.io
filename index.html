@@ -633,7 +633,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '119';
+const APP_VERSION = '120';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -793,6 +793,25 @@ function distUnit(cfg, w, hrs, q, acc, fail, pack) {
   const raw = R2(Math.ceil(((cost + fix / q) / (1 - fee - m / 100)) / 0.05 - 1e-9) * 0.05); let flr = 0; DIST_FLOOR.forEach(x => { if (q >= x[0]) flr = x[1]; });
   return { m, mat, mach, cost, price: Math.max(raw, flr), floored: flr > raw, raw };
 }
+// v120: ربط السعر المقترح بأسعار الموقع (rax3d.com): المصدر الوحيد = جدول PRICE في صفحة المتجر + أسماء القطع من catalog.json. نسخة محلية تتجدد كل ساعة؛ بدونها تبقى الحاسبة بصيغة الوزن كما هي.
+const SITEP_KEY = 'rax3d_sitep';
+let SITEP = null; try { SITEP = JSON.parse(localStorage.getItem(SITEP_KEY) || 'null'); } catch (e) {}
+function siteLine(it) {
+  if (!SITEP || !SITEP.p || it.type === 'مجموعة') return null;
+  let id = it.pid && SITEP.p[it.pid] ? it.pid : '';
+  if (!id) { const nm = String(it.desc || '').split(' — ')[0].replace(/^طلب خاص:\s*/, '').trim().replace(/\s+/g, ' ').toLowerCase(); id = (SITEP.n || {})[nm] || ''; }
+  const p = id && SITEP.p[id]; return p && p[0] > 0 ? p : null;
+}
+async function loadSitePrices(force) {
+  try {
+    if (!force && SITEP && Date.now() - (SITEP.t || 0) < 3600e3) return;
+    const [h, c] = await Promise.all([fetch('https://rax3d.com/', { cache: 'no-store' }).then(r => r.text()), fetch('https://rax3d.com/catalog.json', { cache: 'no-store' }).then(r => r.json())]);
+    const m = h.match(/const PRICE=(\{[^;]*?\});/); if (!m) return; const P = JSON.parse(m[1]); if (!P || !Object.keys(P).length) return;
+    const n = {}; Object.entries((c && c.items) || {}).forEach(([id, x]) => { if (x.n) n[String(x.n).trim().replace(/\s+/g, ' ').toLowerCase()] = id; if (x.en) n[String(x.en).trim().toLowerCase()] = id; });
+    SITEP = { t: Date.now(), p: P, n }; localStorage.setItem(SITEP_KEY, JSON.stringify(SITEP));
+  } catch (e) {}
+}
+setTimeout(loadSitePrices, 1500);
 // عرض خاص (المالك 11-15): البطة الكول من 100 حتى 499 حبة = 2.99 للحبة (299 للمئة) — مثل الموقع. أي قطعة غيرها لا تتأثر.
 function distOffer(it, q, dh) {
   if (!dh || q < 100 || q >= 500 || !/البطة الكول/.test(String(it.desc || ''))) return dh;
@@ -802,7 +821,8 @@ function calcLocal(S, it) {
   const w = +it.w || 0, q = +it.q || 1, acc = Math.max(0, +it.acc || 0);   // acc: قطع إضافية للحبة (طقم LED، ميكانيزم ساعة...) تنضاف بسعرها بدون مضاعف
   const dh = distOffer(it, q, w > 0 && it.type !== 'مجموعة' && q >= DIST_TIERS[0][0] ? distUnit(S, w, (+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600, q, acc) : null);   // 50 حبة فأكثر ← صيغة التوزيعات
   const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
-  const sugg = dh ? dh.price : Math.ceil(R2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
+  const sl = dh ? null : siteLine(it);   // v120: سعر الموقع (مفرد، أو جملة عند بلوغ الكمية)
+  const sugg = dh ? dh.price : sl ? Math.ceil(R2((isBulk(it) && sl[1] > 0 ? sl[1] : sl[0]) + acc) - 1e-9) : Math.ceil(R2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, dm = Math.min(100, Math.max(0, +it.disc || 0));
   if (pr > 0 && pr < sugg && (!(dm > 0) || it.discAuto)) {   // v107: سعر مخصص أقل من المقترح ← الخصم يُحسب تلقائياً: الوحدة بالمقترح + خصم % يوصّل الإجمالي لسعرك بالضبط
     const dp = Math.round((sugg - pr) / sugg * 1e6) / 1e4, disc = R2((sugg - pr) * q), total = R2(pr * q);
@@ -1731,7 +1751,8 @@ function calcItem(it) {
   const q = +it.q || 1, acc = Math.max(0, +it.acc || 0);
   const dh = distOffer(it, q, it.type !== 'مجموعة' && q >= DIST_TIERS[0][0] ? distUnit(S, w, (+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600, q, acc) : null);   // 50 حبة فأكثر ← صيغة التوزيعات
   const base = w * S.spool / S.spoolW * (1 + S.waste) + ((+it.h || 0) + (+it.m || 0) / 60 + (+it.sec || 0) / 3600) * S.run + S.pack, cost = dh ? dh.cost : base + acc;
-  const sugg = dh ? dh.price : Math.ceil(r2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
+  const sl = dh ? null : siteLine(it);   // v120: سعر الموقع
+  const sugg = dh ? dh.price : sl ? Math.ceil(r2((isBulk(it) && sl[1] > 0 ? sl[1] : sl[0]) + acc) - 1e-9) : Math.ceil(r2(base * (isBulk(it) ? S.multSet : S.multOne) + acc) - 1e-9);
   const pr = +it.price || 0, custom = pr > 0;
   const unit = custom ? pr : sugg, autoD = custom && pr < sugg && (!(+it.disc > 0) || !!it.discAuto);   // v107: خصم تلقائي عند السعر المخصص الأقل من المقترح
   const disc = autoD ? r2((sugg - pr) * q) : r2(unit * q * (+it.disc || 0) / 100);
@@ -3487,6 +3508,14 @@ try {
       saveDb(d);
     }
     localStorage.setItem('rax3d_v110_ord123', '1');
+  }
+} catch (e) {}
+// v120: ORD-1 وORD-7 طريقة الدفع = عند الاستلام (بطلب المالك)، مرة وحدة
+try {
+  if (!localStorage.getItem('rax3d_v120_pay')) {
+    const d = loadDb();
+    if (d.role === 'admin' && Array.isArray(d.log)) { [1, 7].forEach(n => { const r = d.log.find(x => Number(x.num) === n && (x.by || 'admin') === 'admin'); if (r && !r.pay) { r.pay = 'cod'; r.edited = todayStr(); } }); saveDb(d); }
+    localStorage.setItem('rax3d_v120_pay', '1');
   }
 } catch (e) {}
 // v109: تصحيح فاتورة ORD-9 مرة وحدة بطلب المالك: الاسم الصحيح بالموقع + سعر المفرد بالموقع (44) + نسبة الخصم تلقائي — الإجمالي يبقى 60
