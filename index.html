@@ -633,7 +633,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '122';
+const APP_VERSION = '123';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1120,7 +1120,7 @@ function applyCustomPrices(S, r, prices) {
     const it = r.items[+p.oi]; if (!it || it.gift || (p.d && String(it.desc) !== String(p.d))) return;
     const price = Math.max(0, Math.min(100000, +p.price || 0));
     if (+it.w > 0) {
-      const c = calcLocal(S, { w: it.w, h: it.h, m: it.m, sec: it.sec, acc: it.acc, type: it.type, q: it.q, price: price, disc: 0 });
+      const c = calcLocal(S, { desc: it.desc, pid: it.pid, w: it.w, h: it.h, m: it.m, sec: it.sec, acc: it.acc, type: it.type, q: it.q, price: price, disc: 0 });
       Object.assign(it, { unit: c.unit, line: c.line, dp: c.dp, cost: R2(c.cost), auto: !(price > 0) });
     } else if (price > 0) Object.assign(it, { unit: R2(price), line: R2(price * (+it.q || 1)), dp: 0, auto: false });
     else return;
@@ -1128,7 +1128,7 @@ function applyCustomPrices(S, r, prices) {
   });
   if (!changed) return false;
   const its = r.items, sub = R2(its.reduce((a, i) => a + (+i.line || 0), 0)), disc = R2(its.reduce((a, i) => a + R2((+i.line || 0) * (+i.dp || 0) / 100), 0)), total = R2(sub - disc);
-  const sugg = R2(its.reduce((a, i) => a + (!i.gift && !i.auto && +i.w > 0 ? calcLocal(S, { w: i.w, h: i.h, m: i.m, sec: i.sec, acc: i.acc, type: i.type, q: i.q, price: 0, disc: 0 }).sugg * (+i.q || 1) : 0), 0));
+  const sugg = R2(its.reduce((a, i) => a + (!i.gift && !i.auto && +i.w > 0 ? calcLocal(S, { desc: i.desc, pid: i.pid, w: i.w, h: i.h, m: i.m, sec: i.sec, acc: i.acc, type: i.type, q: i.q, price: 0, disc: 0 }).sugg * (+i.q || 1) : 0), 0));
   Object.assign(r, { sub: sub, disc: disc, total: total, sugg: sugg, profit: R2(total - its.reduce((a, i) => a + (+i.cost || 0) * (+i.q || 0), 0)),
     desc: its.map(i => withColor(i) + (i.gift ? ' (هدية)' : ' (' + i.q + ')')).join(' ، '), edited: todayStr() });
   return true;
@@ -3317,7 +3317,7 @@ function openPriceEdit(key) {
   $('pedItems').innerHTML = PED.items.map((x, n) => { const c = pedCalc(x, 0); return `<div class="ed-it" data-n="${n}"><label>${esc(withColor(x.i))} · العدد ${esc(x.i.q)}</label><input data-pk="1" type="number" inputmode="decimal" value="${esc(x.val)}" placeholder="${esc(c.sugg)}"><div class="hint" id="ph${n}"></div></div>`; }).join('');
   pedSum(); $('pedSheet').classList.add('on');
 }
-function pedCalc(x, price) { const i = x.i; return calcLocal(DATA.settings, { w: i.w, h: i.h, m: i.m, sec: i.sec, acc: i.acc, type: i.type, q: i.q, price: price, disc: 0 }); }
+function pedCalc(x, price) { const i = x.i; return calcLocal(DATA.settings, { desc: i.desc, pid: i.pid, w: i.w, h: i.h, m: i.m, sec: i.sec, acc: i.acc, type: i.type, q: i.q, price: price, disc: 0 }); }
 function pedSum() {
   let tot = 0;
   PED.items.forEach((x, n) => {
@@ -3549,6 +3549,19 @@ try {
     const d = loadDb();
     if (d.role === 'admin' && Array.isArray(d.log)) { d.log.forEach(r => { if (r && !r.pay && !r.cod && !r.online && !r.gone) { r.pay = 'bank'; r.edited = todayStr(); } }); saveDb(d); }
     localStorage.setItem('rax3d_v121_bank', '1');
+  }
+} catch (e) {}
+// v123: تعديلات مدخل البيانات السابقة كانت تُحسب بدون اسم القطعة فلا يُحسب الخصم التلقائي من سعر الموقع. نعيد حسابها مرة وحدة: الإجمالي لا يتغير، فقط يظهر الخصم التلقائي.
+try {
+  if (!localStorage.getItem('rax3d_v123_auto')) {
+    const d = loadDb();
+    if (d.role === 'admin' && Array.isArray(d.log)) {
+      d.log.forEach(r => { if (!r || !r.pedit || !Array.isArray(r.items) || r.items.length !== 1) return; const tot = r.total;
+        const pr = r.items.map((it, oi) => ({ oi, d: it.desc, price: !it.gift && !it.auto && +it.w > 0 ? +it.unit || 0 : 0 })).filter(x => x.price > 0);
+        if (pr.length && applyCustomPrices(d.settings, r, pr) && Math.abs(r.total - tot) > 0.01) { r.total = tot; } });
+      saveDb(d);
+    }
+    localStorage.setItem('rax3d_v123_auto', '1');
   }
 } catch (e) {}
 // v109: تصحيح فاتورة ORD-9 مرة وحدة بطلب المالك: الاسم الصحيح بالموقع + سعر المفرد بالموقع (44) + نسبة الخصم تلقائي — الإجمالي يبقى 60
