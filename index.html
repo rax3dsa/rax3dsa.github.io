@@ -633,7 +633,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '123';
+const APP_VERSION = '124';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1134,7 +1134,8 @@ function applyCustomPrices(S, r, prices) {
   return true;
 }
 // v122: مدخل البيانات شريك فيشوف طلبات المتجر (للاطلاع فقط) من النسخة السحابية لسجل الدعم الفني. لا تدخل قاعدته المحلية ولا تُحسب ضمن فواتيره، وآخر نسخة تنحفظ للعمل بدون نت.
-function mergePv(own, ol) { const have = new Set(own.map(rk)); return own.concat(ol.filter(r => !have.has(rk(r)))).sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0)); }
+function mergePv(own, ol) { const sh = {}; ol.forEach(r => { sh[rk(r)] = r; }); own = own.map(r => { const o = sh[rk(r)]; return o && !r.pay && o.pay ? Object.assign({}, r, { pay: o.pay }) : r; });   // طريقة الدفع التي يحددها الدعم الفني تظهر في فواتير أحمد (للعرض والـPDF فقط)
+  const have = new Set(own.map(rk)); return own.concat(ol.filter(r => !have.has(rk(r)))).sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0)); }
 function pvOverlay(rows) {   // تعديلات أحمد التي لم يطبّقها الدعم الفني بعد: تبقى ظاهرة عنده حتى يطبّقها جوالك (يضع pedit)
   let ov = {}; try { ov = JSON.parse(localStorage.getItem('rax3d_pv_ov') || '{}') || {}; } catch (e) {}
   let ch = false; const out = rows.map(r => { const o = ov[rk(r)]; if (!o) return r; if (r.pedit && String(r.pedit) >= String(o.date)) { delete ov[rk(r)]; ch = true; return r; } return o.row; });
@@ -1430,12 +1431,13 @@ const API = {
       const type = it.type === 'مجموعة' ? 'مجموعة' : 'واحدة';
       let cost, sugg = 0;
       if (w > 0) {   // وزن ووقت معروفين ← نحسب التكلفة والسعر المقترح من جديد
-        const c = calcLocal(S, { w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, acc: +it.acc || 0, type: type, q: 1 });
+        const c = calcLocal(S, { desc: String(it.desc || '').trim() || o.desc, pid: o.pid, w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, acc: +it.acc || 0, type: type, q: 1 });   // v124: الاسم يُمرَّر ليُحسب المقترح من سعر الموقع
         cost = c.cost; sugg = c.sugg;
       } else { allW = false; cost = o.cost !== undefined ? +o.cost : (sub0 > 0 && +o.q ? cost0 * (+o.line || 0) / sub0 / +o.q : 0); }
-      const auto = !!it.auto && w > 0, unit = auto ? sugg : Math.max(0, +it.unit || 0);
+      const auto = !!it.auto && w > 0; let unit = auto ? sugg : Math.max(0, +it.unit || 0);
       if (isNew && q > 0) { if (!String(it.desc || '').trim()) throw new Error('اكتب وصف القطعة المضافة'); if (!(unit > 0)) throw new Error('اكتب سعر القطعة المضافة «' + String(it.desc).trim() + '»'); }
-      const dp = Math.min(100, Math.max(0, +it.dp || 0));   // v47: الخصم % لكل قطعة (نفس منطق إنشاء الفاتورة)
+      let dp = Math.min(100, Math.max(0, +it.dp || 0));   // v47: الخصم % لكل قطعة (نفس منطق إنشاء الفاتورة)
+      if (w > 0 && !auto && !(dp > 0) && sugg > 0 && unit > 0 && unit < sugg) { dp = Math.round((sugg - unit) / sugg * 1e6) / 1e4; unit = sugg; }   // v124: سعر أقل من المقترح ← خصم تلقائي (الإجمالي = سعرك بالضبط)
       return Object.assign({ desc: String(it.desc || '').trim() || o.desc || 'قطعة', color: String(it.color || '').slice(0, 60), q: q, unit: R2(unit), line: R2(unit * q), cost: R2(cost),
         w: w, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, type: type, auto: auto, dp: dp, _d: R2(unit * q * dp / 100), _s: sugg }, w > 0 && +it.acc > 0 ? { acc: R2(+it.acc) } : {});
     }).filter(it => it.q > 0);
@@ -3562,6 +3564,14 @@ try {
       saveDb(d);
     }
     localStorage.setItem('rax3d_v123_auto', '1');
+  }
+} catch (e) {}
+// v124: تصحيح: ORD-1 وORD-7 (فواتير مدخل البيانات) = الدفع عند الاستلام بطلب المالك. ترحيل v120 كان يبحث عنهما بين فواتير الدعم الفني فقط وv121 حوّلهما لتحويل بنكي بالخطأ.
+try {
+  if (!localStorage.getItem('rax3d_v124_cod')) {
+    const d = loadDb();
+    if (d.role === 'admin' && Array.isArray(d.log)) { d.log.forEach(r => { if (r && !r.online && (Number(r.num) === 1 || Number(r.num) === 7) && r.pay !== 'cod') { r.pay = 'cod'; r.edited = todayStr(); } }); saveDb(d); }
+    localStorage.setItem('rax3d_v124_cod', '1');
   }
 } catch (e) {}
 // v109: تصحيح فاتورة ORD-9 مرة وحدة بطلب المالك: الاسم الصحيح بالموقع + سعر المفرد بالموقع (44) + نسبة الخصم تلقائي — الإجمالي يبقى 60
