@@ -269,6 +269,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button class="on" data-tab="new">فاتورة جديدة</button>
     <button data-tab="log">السجل</button>
     <button data-tab="stats" class="adm">الإحصائيات</button>
+    <button data-tab="settings" class="adm">الإعدادات</button>
     <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
     <button data-tab="dist" class="adm">التوزيعات</button>
     <button data-tab="custom" class="adm">طلب خاص</button>
@@ -278,22 +279,6 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   <div id="boot" class="loading">جاري التحميل…</div>
 
   <section id="new">
-    <div class="goal adm" id="goalCard" style="display:none">
-      <div class="goal-top"><span>🎯 هدف المبيعات</span><b id="goalAmt"></b></div>
-      <div class="goal-bar"><i id="goalBar"></i></div>
-      <div class="goal-sub"><span>المحقق <b id="goalSales"></b></span><span>باقي <b id="goalLeft"></b> ريال</span></div>
-      <div class="loss" id="gapBox" style="display:none">
-        <div class="loss-top"><span>📉 الخسارة عن السعر المقترح</span><b id="gapAmt"></b></div>
-        <div class="loss-bar"><i id="gapBar"></i></div>
-        <div class="loss-sub" id="gapTxt"></div>
-        <div id="gapProf" style="display:none"><div class="loss-bar"><i id="gapProfBar" style="background:var(--good)"></i></div><div class="loss-sub" id="gapProfTxt"></div></div>
-      </div>
-      <div class="loss" id="prnBox" style="display:none">
-        <div class="loss-top"><span>🖨 استرداد سعر الطابعة</span><b id="prnAmt"></b></div>
-        <div class="loss-bar"><i id="prnBar" style="background:linear-gradient(90deg,var(--gold-d),var(--gold))"></i></div>
-        <div class="loss-sub" id="prnTxt" style="line-height:1.8"></div>
-      </div>
-    </div>
     <div class="grid g2" style="margin-bottom:10px">
       <button class="add" id="ordBtn" type="button">📥 طلب من الموقع</button>
       <button class="add" id="pcBtn" type="button">🖨️ ملفات الطباعة</button>
@@ -373,7 +358,25 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button class="ghost" id="cuRefresh" style="margin-top:8px">🔄 تحديث الحالة</button>
   </section>
 
-  <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button><button class="ghost" id="monthNow">📧 التقرير الشهري الآن</button></div><div id="statList"></div>
+  <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button><button class="ghost" id="monthNow">📧 التقرير الشهري الآن</button></div>    <div class="goal adm" id="goalCard" style="display:none">
+      <div class="goal-top"><span>🎯 هدف المبيعات</span><b id="goalAmt"></b></div>
+      <div class="goal-bar"><i id="goalBar"></i></div>
+      <div class="goal-sub"><span>المحقق <b id="goalSales"></b></span><span>باقي <b id="goalLeft"></b> ريال</span></div>
+      <div class="loss" id="gapBox" style="display:none">
+        <div class="loss-top"><span>📉 الخسارة عن السعر المقترح</span><b id="gapAmt"></b></div>
+        <div class="loss-bar"><i id="gapBar"></i></div>
+        <div class="loss-sub" id="gapTxt"></div>
+        <div id="gapProf" style="display:none"><div class="loss-bar"><i id="gapProfBar" style="background:var(--good)"></i></div><div class="loss-sub" id="gapProfTxt"></div></div>
+      </div>
+      <div class="loss" id="prnBox" style="display:none">
+        <div class="loss-top"><span>🖨 استرداد سعر الطابعة</span><b id="prnAmt"></b></div>
+        <div class="loss-bar"><i id="prnBar" style="background:linear-gradient(90deg,var(--gold-d),var(--gold))"></i></div>
+        <div class="loss-sub" id="prnTxt" style="line-height:1.8"></div>
+      </div>
+    </div>
+    <div id="statList"></div>
+  </section>
+  <section id="settings">
     <div class="period">
       <h3>إعدادات التسعير والترقيم</h3>
       <div class="grid g2" id="setGrid"></div>
@@ -616,7 +619,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '114';
+const APP_VERSION = '115';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
