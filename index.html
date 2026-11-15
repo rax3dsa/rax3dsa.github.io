@@ -2079,19 +2079,21 @@ function undoRedeem(id) {
   if ((+d.redeems[i].used || 0) > 0 || d.redeems[i].applied) { toast('ما يمكن التراجع: انطبق على فاتورة'); return; }
   d.redeems.splice(i, 1); saveDb(d); publishPointsSoon(); toast('تم التراجع عن الاستبدال'); try { renderStats(); } catch (e) {}
 }
+let acctOnly = false;   // v112: تصفية السجل لعرض الفواتير غير المُدخلة للحساب فقط (زر في ملخص الدعم الفني)
 function renderAcctSum() {   // v100: ملخص الدعم الفني فقط — فواتير لم تُدخل للحساب بعد (لا يتأثر بالبحث)
   const el = $('acctSum'); if (!el) return;
   const L = DATA.log.filter(r => isLive(r)), todo = L.filter(r => !r.acct), paid = todo.filter(r => r.paid);
   const sum = a => a.reduce((t, r) => t + (+r.total || 0), 0);
   el.hidden = false;
-  el.innerHTML = `🏦 بانتظار الإدخال للحساب: <b>${todo.length}</b> فاتورة · <b>${fmt(sum(todo))}</b> ريال<br>منها مدفوعة من العميل: ${paid.length} فاتورة · ${fmt(sum(paid))} ريال`;
+  el.innerHTML = `🏦 بانتظار الإدخال للحساب: <b>${todo.length}</b> فاتورة · <b>${fmt(sum(todo))}</b> ريال<br>منها مدفوعة من العميل: ${paid.length} فاتورة · ${fmt(sum(paid))} ريال<br><button type="button" class="pdf" data-acf="1" style="margin-top:8px">${acctOnly ? '✖ إلغاء التصفية (عرض كل الفواتير)' : '📋 عرض هذه الفواتير فقط (' + todo.length + ')'}</button>`;
+  el.onclick = e => { if (e.target.closest('[data-acf]')) { acctOnly = !acctOnly; renderLog(); } };
 }
 // v106: «الخصم التلقائي» عن السعر المقترح = المقترح − سعر البيع (داخلي فقط: السجل والإحصائيات، ولا يدخل في الفاتورة المطبوعة ولا يغيّر الإجمالي)
 const gapOf = r => isLive(r) && Number(r.sugg) > 0 ? Math.round((Number(r.sugg) - Number(r.total)) * 100) / 100 : 0;
 function renderLog() {
   try { renderAcctSum(); } catch (e) {}
   const q = $('q').value.trim().toLowerCase(), oq = ($('oq') ? $('oq').value : '').replace(/[^0-9]/g, '');
-  const rows = DATA.log.slice().reverse().filter(r => oq ? String(r.num) === oq : !q ||
+  const rows = DATA.log.slice().reverse().filter(r => acctOnly && !(isLive(r) && !r.acct) ? false : oq ? String(r.num) === oq : !q ||
     (r.client + ' ' + r.phone + ' ' + r.num + ' ' + r.desc + ' ' + (r.code || '')).toLowerCase().includes(q));
   const isLoss = r => isLive(r) && Number(r.profit) < -0.005;   // v104: بيعت بخسارة (الربح أقل من صفر) — العلامة ومبلغ الخسارة تظهر للدعم الفني ومدخل البيانات فقط (قرار المالك) ولا تدخل في الفاتورة المطبوعة
   $('logList').innerHTML = rows.length ? rows.map(r => `
@@ -2102,7 +2104,7 @@ function renderLog() {
       <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}<button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
       ${isLive(r) ? `<div class="adm mk"><label><input type="checkbox" data-mk="paid" data-key="${esc(rk(r))}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${esc(rk(r))}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label></div>` : ''}
     </div>`).join('')
-    : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».'}</div>`;
+    : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : (acctOnly ? 'كل الفواتير أُدخلت للحساب ✔' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».')}</div>`;
 }
 $('q').oninput = renderLog; $('oq').oninput = () => { $('oq').value = $('oq').value.replace(/[^0-9]/g, ''); renderLog(); };
 
