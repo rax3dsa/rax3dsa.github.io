@@ -188,6 +188,7 @@ input[type=number]{direction:ltr;text-align:center}
 <style>.tools{display:flex;gap:8px;margin-bottom:12px}
 .tools .ghost{padding:11px;font-size:15px}
 .row .acts{display:flex;gap:6px}
+.hbtn.upd-on{border-color:var(--gold);color:var(--gold-t);font-weight:700}
 .acctsum{margin-bottom:8px;border:1px solid var(--line);border-radius:var(--r-lg,14px);padding:10px 14px;background:var(--panel);font-size:13px;color:var(--mute);line-height:1.9}
 .acctsum b{color:var(--gold-t);font-size:16px}
 .row .mk{display:flex;gap:14px;margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);font-size:11px;color:var(--mute)}
@@ -614,7 +615,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '107';
+const APP_VERSION = '108';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -3226,6 +3227,7 @@ $('updBtn').onclick = async () => {
   let remote = null;
   try { const t = await (await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' })).text(), m = t.match(/const APP_VERSION = '(\d+)'/); remote = m ? +m[1] : null; } catch (e) {}
   if (!remote) { toast('تعذّر فحص النسخة: تأكد من الاتصال بالإنترنت'); return; }
+  setUpdBadge(Math.max(0, remote - +APP_VERSION));
   if (remote <= +APP_VERSION) { toast('أنت على آخر نسخة منشورة (' + APP_VERSION + ')'); return; }
   if (!formEmpty() && !confirm('فيه بيانات فاتورة غير محفوظة وراح تضيع عند التحديث. تكمل؟')) return;
   toast('جاري التحديث من ' + APP_VERSION + ' إلى ' + remote + '…');
@@ -3233,11 +3235,18 @@ $('updBtn').onclick = async () => {
   await fetch(location.pathname, { cache: 'reload' }).catch(() => {});
   location.reload();
 };
+function setUpdBadge(n) {
+  const b = $('updBtn'); if (!b) return;
+  b.textContent = n > 0 ? '🔄 يوجد تحديث (' + n + ')' : '🔄 تحديث';
+  b.classList.toggle('upd-on', n > 0);
+}
 function checkUpdate() {
   if (!/^https?:$/.test(location.protocol) || LR) return;
   fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(t => {
     const m = String(t).match(/const APP_VERSION = '(\d+)'/);
-    if (!m || +m[1] <= +APP_VERSION) return;
+    if (!m) return;
+    setUpdBadge(Math.max(0, +m[1] - +APP_VERSION));   // v108: يوجد تحديث (عدد التحديثات = فرق رقم الإصدار)
+    if (+m[1] <= +APP_VERSION) return;
     try { if (sessionStorage.getItem('rax3d_upd_try') === m[1]) return; } catch (e) {}   // منع التكرار
     updWanted = m[1]; applyUpdate();
   }).catch(() => {});
