@@ -260,7 +260,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   <header>
     <div class="brand">RAX3D<small>حاسبة وفواتير<span id="roleTag" hidden></span></small></div>
     <div class="num">فاتورة رقم<b id="invNum">—</b>
-      <div class="hb"><button class="hbtn" id="bellBtn" hidden aria-label="طلبات مدخل البيانات">🔔<i id="bellN" hidden></i></button><button class="hbtn" id="supBtn" hidden>🛟 الدعم الفني</button><button class="hbtn" id="themeBtn" aria-label="تغيير المظهر" title="المظهر">🌙</button><button class="logout" id="logoutBtn">قفل التطبيق</button></div></div>
+      <div class="hb"><button class="hbtn" id="bellBtn" hidden aria-label="طلبات مدخل البيانات">🔔<i id="bellN" hidden></i></button><button class="hbtn" id="supBtn" hidden>🛟 الدعم الفني</button><button class="hbtn" id="themeBtn" aria-label="تغيير المظهر" title="المظهر">🌙</button><button class="hbtn" id="updBtn" aria-label="تحديث التطبيق">🔄 تحديث</button><button class="logout" id="logoutBtn">قفل التطبيق</button></div></div>
   </header>
   <nav id="mainNav">
     <button type="button" id="navT"><span id="navTx">فاتورة جديدة</span><span><i id="navDot" hidden style="width:9px;height:9px;border-radius:50%;background:#e5484d"></i><b>▾</b></span></button>
@@ -614,7 +614,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '104';
+const APP_VERSION = '105';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -3213,6 +3213,19 @@ function applyUpdate() {
   try { sessionStorage.setItem('rax3d_upd_try', v); localStorage.setItem('rax3d_updated', v); } catch (e) {}
   fetch(location.pathname, { cache: 'reload' }).catch(() => {}).then(() => location.reload());
 }
+// v105: زر «تحديث الآن» — يفحص آخر نسخة منشورة ويفرض تحميلها حتى لو التحديث التلقائي ما اشتغل
+$('updBtn').onclick = async () => {
+  toast('جاري فحص آخر نسخة…');
+  let remote = null;
+  try { const t = await (await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' })).text(), m = t.match(/const APP_VERSION = '(\d+)'/); remote = m ? +m[1] : null; } catch (e) {}
+  if (!remote) { toast('تعذّر فحص النسخة: تأكد من الاتصال بالإنترنت'); return; }
+  if (remote <= +APP_VERSION) { toast('أنت على آخر نسخة منشورة (' + APP_VERSION + ')'); return; }
+  if (!formEmpty() && !confirm('فيه بيانات فاتورة غير محفوظة وراح تضيع عند التحديث. تكمل؟')) return;
+  toast('جاري التحديث من ' + APP_VERSION + ' إلى ' + remote + '…');
+  try { sessionStorage.removeItem('rax3d_upd_try'); localStorage.setItem('rax3d_updated', String(remote)); } catch (e) {}
+  await fetch(location.pathname, { cache: 'reload' }).catch(() => {});
+  location.reload();
+};
 function checkUpdate() {
   if (!/^https?:$/.test(location.protocol) || LR) return;
   fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(t => {
