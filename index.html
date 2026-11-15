@@ -188,6 +188,8 @@ input[type=number]{direction:ltr;text-align:center}
 <style>.tools{display:flex;gap:8px;margin-bottom:12px}
 .tools .ghost{padding:11px;font-size:15px}
 .row .acts{display:flex;gap:6px}
+.acctsum{margin-bottom:8px;border:1px solid var(--line);border-radius:var(--r-lg,14px);padding:10px 14px;background:var(--panel);font-size:13px;color:var(--mute);line-height:1.9}
+.acctsum b{color:var(--gold-t);font-size:16px}
 .row .mk{display:flex;gap:14px;margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);font-size:11px;color:var(--mute)}
 .row .mk label{display:flex;align-items:center;gap:5px;cursor:pointer}
 .row .mk input{width:15px;height:15px;margin:0;accent-color:var(--gold)}
@@ -306,6 +308,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 
   <section id="log">
     <div class="tools adm"><button class="ghost" id="dlLog">⬇️ سجل الفواتير</button><button class="ghost" id="backupBtn">📦 نسخة احتياطية</button></div>
+    <div class="adm acctsum" id="acctSum" hidden></div>
     <div class="ordq" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;border:1px solid var(--gold);border-radius:var(--r-lg,14px);padding:0 12px;background:var(--panel)">
       <span style="font-weight:800;color:var(--gold-t);direction:ltr">🔎 ORD-</span>
       <input id="oq" inputmode="numeric" autocomplete="off" placeholder="رقم الطلب" style="flex:1;border:0;background:none;direction:ltr;text-align:left;font-size:18px;padding:12px 0;color:inherit;outline:none">
@@ -611,7 +614,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '99';
+const APP_VERSION = '100';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2062,7 +2065,15 @@ function undoRedeem(id) {
   if ((+d.redeems[i].used || 0) > 0 || d.redeems[i].applied) { toast('ما يمكن التراجع: انطبق على فاتورة'); return; }
   d.redeems.splice(i, 1); saveDb(d); publishPointsSoon(); toast('تم التراجع عن الاستبدال'); try { renderStats(); } catch (e) {}
 }
+function renderAcctSum() {   // v100: ملخص الدعم الفني فقط — فواتير لم تُدخل للحساب بعد (لا يتأثر بالبحث)
+  const el = $('acctSum'); if (!el) return;
+  const L = DATA.log.filter(r => isLive(r)), todo = L.filter(r => !r.acct), paid = todo.filter(r => r.paid);
+  const sum = a => a.reduce((t, r) => t + (+r.total || 0), 0);
+  el.hidden = false;
+  el.innerHTML = `🏦 بانتظار الإدخال للحساب: <b>${todo.length}</b> فاتورة · <b>${fmt(sum(todo))}</b> ريال<br>منها مدفوعة من العميل: ${paid.length} فاتورة · ${fmt(sum(paid))} ريال`;
+}
 function renderLog() {
+  try { renderAcctSum(); } catch (e) {}
   const q = $('q').value.trim().toLowerCase(), oq = ($('oq') ? $('oq').value : '').replace(/[^0-9]/g, '');
   const rows = DATA.log.slice().reverse().filter(r => oq ? String(r.num) === oq : !q ||
     (r.client + ' ' + r.phone + ' ' + r.num + ' ' + r.desc + ' ' + (r.code || '')).toLowerCase().includes(q));
@@ -2311,7 +2322,7 @@ $('logList').addEventListener('click', e => {
   const ed = e.target.closest('[data-ed]'); if (ed) { openEdit(ed.dataset.ed); return; }
   const mk = e.target.closest('[data-mk]'); if (mk) {
     const key = mk.dataset.key, field = mk.dataset.mk, on = mk.checked;
-    google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) { if (on) r[field] = todayStr(); else delete r[field]; } })
+    google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) { if (on) r[field] = todayStr(); else delete r[field]; } try { renderAcctSum(); } catch (x) {} })
       .withFailureHandler(er => { mk.checked = !on; toast('تعذّر الحفظ: ' + ((er && er.message) || er)); }).markInvoice({ key: key, field: field, on: on });
     return;
   }
