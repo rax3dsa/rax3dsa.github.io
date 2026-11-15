@@ -358,15 +358,16 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button class="ghost" id="cuRefresh" style="margin-top:8px">🔄 تحديث الحالة</button>
   </section>
 
-  <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button><button class="ghost" id="monthNow">📧 التقرير الشهري الآن</button></div>    <div class="goal adm" id="goalCard" style="display:none">
+  <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button><button class="ghost" id="monthNow">📧 التقرير الشهري الآن</button></div>    <div id="statList"></div>
+    <div class="goal adm" id="goalCard" style="display:none">
       <div class="goal-top"><span>🎯 هدف المبيعات</span><b id="goalAmt"></b></div>
       <div class="goal-bar"><i id="goalBar"></i></div>
       <div class="goal-sub"><span>المحقق <b id="goalSales"></b></span><span>باقي <b id="goalLeft"></b> ريال</span></div>
       <div class="loss" id="gapBox" style="display:none">
         <div class="loss-top"><span>📉 الخسارة عن السعر المقترح</span><b id="gapAmt"></b></div>
         <div class="loss-bar"><i id="gapBar"></i></div>
+        <div id="gapProf" style="display:none"><div class="loss-top" style="margin-top:10px"><span>🟢 هامش الربح بدون الخصومات</span><b id="gapProfAmt"></b></div><div class="loss-bar"><i id="gapProfBar" style="background:var(--good)"></i></div></div>
         <div class="loss-sub" id="gapTxt"></div>
-        <div id="gapProf" style="display:none"><div class="loss-bar"><i id="gapProfBar" style="background:var(--good)"></i></div><div class="loss-sub" id="gapProfTxt"></div></div>
       </div>
       <div class="loss" id="prnBox" style="display:none">
         <div class="loss-top"><span>🖨 استرداد سعر الطابعة</span><b id="prnAmt"></b></div>
@@ -374,7 +375,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
         <div class="loss-sub" id="prnTxt" style="line-height:1.8"></div>
       </div>
     </div>
-    <div id="statList"></div>
+    <div id="statPeriods"></div>
   </section>
   <section id="settings">
     <div class="period">
@@ -619,7 +620,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '115';
+const APP_VERSION = '116';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2156,13 +2157,12 @@ function renderStats() {
   const d0 = new Date(t + 'T00:00:00'); d0.setDate(d0.getDate() - 6);
   const wk = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
   const periods = [
-    ['اليوم', r => r.date === t],
-    ['آخر 7 أيام', r => r.date >= wk && r.date <= t],
-    ['هذا الشهر', r => r.date.startsWith(y + '-' + m)],
-    ['هذه السنة', r => r.date.startsWith(y)],
-    ['الإجمالي', () => true]
+    ['أسبوعي (آخر 7 أيام)', r => r.date >= wk && r.date <= t],
+    ['شهري (هذا الشهر)', r => r.date.startsWith(y + '-' + m)],
+    ['سنوي (هذه السنة)', r => r.date.startsWith(y)]
   ];
-  $('statList').innerHTML = statsChartHtml() + periods.map(([name, f]) => {
+  $('statList').innerHTML = statsChartHtml();
+  $('statPeriods').innerHTML = periods.map(([name, f]) => {
     const rs = DATA.log.filter(r => isLive(r) && f(r)), s = k => rs.reduce((a, r) => a + r[k], 0);
     return `<div class="period"><h3>${name}</h3><div class="kv">
       <div>الفواتير<b>${rs.length}</b></div><div>القطع<b>${s('qty')}</b></div><div>المبيعات<b>${fmt(s('total'))}</b></div>
@@ -2793,15 +2793,16 @@ function renderGoal(g) {
   const loss = Math.max(0, gap);
   $('gapAmt').textContent = fmtN(loss) + ' ريال';
   $('gapBar').style.width = loss > 0 ? Math.max(2, Math.min(100, loss / stage * 100)).toFixed(1) + '%' : '0%';
-  const pf = g.printer && Number.isFinite(+g.printer.profit) ? Math.max(0, +g.printer.profit) + loss : null;   // v114: هامش الربح بدون الخصومات = صافي الربح + الخصم   // v113: خط أخضر تحت الشريط = صافي الربح (نفس مقياس الشريط الأحمر) للمقارنة
+  const pf = g.printer && Number.isFinite(+g.printer.profit) ? Math.max(0, +g.printer.profit) + loss : null;   // هامش الربح بدون الخصومات = صافي الربح + الخصم
   $('gapProf').style.display = pf === null ? 'none' : '';
   if (pf !== null) {
     $('gapProfBar').style.width = pf > 0 ? Math.max(2, Math.min(100, pf / stage * 100)).toFixed(1) + '%' : '0%';
-    $('gapProfTxt').innerHTML = 'هامش الربح بدون الخصومات: <b>' + fmtN(pf) + '</b> ريال' + (pf > 0 && loss > 0 ? ' · الخصم يعادل <b>' + (loss / pf * 100).toFixed(1) + '%</b> منه' : '');
+    $('gapProfAmt').textContent = fmtN(pf) + ' ريال';
   }
-  $('gapTxt').textContent = loss > 0 ? 'يرتفع لما تبيعون أقل من المقترح، وينزل لما تبيعون أعلى منه'
+  const pctTxt = pf && loss > 0 ? 'الخصم يعادل <b>' + (loss / pf * 100).toFixed(1) + '%</b> من الهامش · ' : '';
+  $('gapTxt').innerHTML = pctTxt + (loss > 0 ? 'يرتفع لما تبيعون أقل من المقترح، وينزل لما تبيعون أعلى منه'
                           : gap < 0 ? 'تم التعويض ✔ وبعتوا فوق المقترح بـ ' + fmtN(-gap) + ' ريال'
-                          : 'لا توجد خسارة ✔';
+                          : 'لا توجد خسارة ✔');
 }
 function renderPrinter(pr) {
   const box = $('prnBox'); if (!box) return;
