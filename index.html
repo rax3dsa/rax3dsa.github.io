@@ -2072,16 +2072,17 @@ function renderAcctSum() {   // v100: ملخص الدعم الفني فقط — 
   el.hidden = false;
   el.innerHTML = `🏦 بانتظار الإدخال للحساب: <b>${todo.length}</b> فاتورة · <b>${fmt(sum(todo))}</b> ريال<br>منها مدفوعة من العميل: ${paid.length} فاتورة · ${fmt(sum(paid))} ريال`;
 }
+// v106: «الخصم التلقائي» عن السعر المقترح = المقترح − سعر البيع (داخلي فقط: السجل والإحصائيات، ولا يدخل في الفاتورة المطبوعة ولا يغيّر الإجمالي)
+const gapOf = r => isLive(r) && Number(r.sugg) > 0 ? Math.round((Number(r.sugg) - Number(r.total)) * 100) / 100 : 0;
 function renderLog() {
   try { renderAcctSum(); } catch (e) {}
   const q = $('q').value.trim().toLowerCase(), oq = ($('oq') ? $('oq').value : '').replace(/[^0-9]/g, '');
   const rows = DATA.log.slice().reverse().filter(r => oq ? String(r.num) === oq : !q ||
     (r.client + ' ' + r.phone + ' ' + r.num + ' ' + r.desc + ' ' + (r.code || '')).toLowerCase().includes(q));
-  const gapOf = r => isLive(r) && Number(r.sugg) > 0 ? Math.round((Number(r.sugg) - Number(r.total)) * 100) / 100 : 0;   // v106: نفس حساب بطاقة «الخسارة عن السعر المقترح»
   const isLoss = r => isLive(r) && Number(r.profit) < -0.005;   // v104: بيعت بخسارة (الربح أقل من صفر) — العلامة ومبلغ الخسارة تظهر للدعم الفني ومدخل البيانات فقط (قرار المالك) ولا تدخل في الفاتورة المطبوعة
   $('logList').innerHTML = rows.length ? rows.map(r => `
     <div class="row"${isLoss(r) ? ' style="border-color:var(--bad)"' : ''}>
-      <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}${isLoss(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">⚠️ بيعت بأقل من التكلفة ' + fmt(-r.profit) + ' ريال</span>' : ''}${gapOf(r) > 0.005 ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">📉 أقل من المقترح ' + fmt(gapOf(r)) + ' ريال</span>' : ''}${!isLive(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">🚫 ملغاة</span>' : ''}${pts(r) ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pts(r) + '</span>' : ''}</b><span class="amt"${!isLive(r) ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(r.total)} ريال</span></div>
+      <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}${isLoss(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">⚠️ بيعت بأقل من التكلفة ' + fmt(-r.profit) + ' ريال</span>' : ''}${gapOf(r) > 0.005 ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">📉 خصم عن المقترح ' + fmt(gapOf(r)) + ' ريال</span>' : ''}${!isLive(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">🚫 ملغاة</span>' : ''}${pts(r) ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pts(r) + '</span>' : ''}</b><span class="amt"${!isLive(r) ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(r.total)} ريال</span></div>
       <p>${esc(r.desc)}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
       <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}<button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
@@ -2136,7 +2137,7 @@ function renderStats() {
     const rs = DATA.log.filter(r => isLive(r) && f(r)), s = k => rs.reduce((a, r) => a + r[k], 0);
     return `<div class="period"><h3>${name}</h3><div class="kv">
       <div>الفواتير<b>${rs.length}</b></div><div>القطع<b>${s('qty')}</b></div><div>المبيعات<b>${fmt(s('total'))}</b></div>
-      <div>الخصومات<b>${fmt(s('disc'))}</b></div><div>صافي الربح<b>${fmt(s('profit'))}</b></div>
+      <div>الخصومات<b>${fmt(s('disc'))}</b></div><div>خصم عن المقترح<b>${fmt(rs.reduce((t, r) => t + Math.max(0, gapOf(r)), 0))}</b></div><div>صافي الربح<b>${fmt(s('profit'))}</b></div>
       <div>متوسط الفاتورة<b>${rs.length ? fmt(s('total') / rs.length) : 0}</b></div><div>⭐ نقاط الولاء<b>${rs.reduce((a, r) => a + pts(r), 0)}</b></div></div></div>`;
   }).join('') + loyaltyCard();
 }
