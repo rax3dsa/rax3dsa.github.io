@@ -615,7 +615,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '109';
+const APP_VERSION = '110';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -3265,6 +3265,23 @@ try { if (localStorage.getItem('rax3d_updated')) { localStorage.removeItem('rax3
 
 // v47: ترحيل الرمز من نص صريح إلى هاش، وترحيل مفاتيح نقاط الولاء للصيغة الجديدة (مرة وحدة من جوال الدعم الفني)
 migratePins().catch(() => {});
+// v110: بطلب المالك مرة وحدة — ORD-1: اسم الموقع + سعر الموقع 145 + خصم تلقائي (6 = 4.14%)؛ ORD-2 وORD-3: فواتير طلب خاص (بلا سعر مقترح). الإجماليات ما تتغير.
+try {
+  if (!localStorage.getItem('rax3d_v110_ord123')) {
+    const d = loadDb();
+    if (d.role === 'admin' && Array.isArray(d.log)) {
+      const g = n => d.log.find(x => Number(x.num) === n);
+      const a = g(1);
+      if (a && Array.isArray(a.items) && a.items.length === 1 && Number(a.total) === 139) {
+        const it = a.items[0]; it.desc = 'طقم حامل وكوب جانبي مع غطاء xBloom'; it.unit = 145; it.line = 145; it.dp = Math.round(6 / 145 * 1e6) / 1e4; it.auto = false;
+        a.sub = 145; a.disc = 6; a.total = 139; a.sugg = 145; a.edited = todayStr(); a.desc = withColor(it) + ' (1)';
+      }
+      [2, 3].forEach(n => { const r = g(n); if (r && !/^طلب خاص/.test(r.desc || '')) { r.desc = 'طلب خاص: ' + r.desc; if (Array.isArray(r.items) && r.items[0] && !/^طلب خاص/.test(r.items[0].desc || '')) r.items[0].desc = 'طلب خاص: ' + r.items[0].desc; r.sugg = 0; r.edited = todayStr(); } });
+      saveDb(d);
+    }
+    localStorage.setItem('rax3d_v110_ord123', '1');
+  }
+} catch (e) {}
 // v109: تصحيح فاتورة ORD-9 مرة وحدة بطلب المالك: الاسم الصحيح بالموقع + سعر المفرد بالموقع (44) + نسبة الخصم تلقائي — الإجمالي يبقى 60
 try {
   if (!localStorage.getItem('rax3d_v109_ord9')) {
