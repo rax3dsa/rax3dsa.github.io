@@ -3265,7 +3265,7 @@ try { if (localStorage.getItem('rax3d_updated')) { localStorage.removeItem('rax3
 
 // v47: ترحيل الرمز من نص صريح إلى هاش، وترحيل مفاتيح نقاط الولاء للصيغة الجديدة (مرة وحدة من جوال الدعم الفني)
 migratePins().catch(() => {});
-// v110: بطلب المالك مرة وحدة — ORD-1: اسم الموقع + سعر الموقع 145 + خصم تلقائي (6 = 4.14%)؛ ORD-7: سعر الموقع 145 + خصم 35 (24.14%)؛ ORD-2 وORD-3: فواتير طلب خاص (بلا سعر مقترح). الإجماليات ما تتغير.
+// v110: بطلب المالك مرة وحدة — ORD-1: اسم الموقع + سعر الموقع 145 + خصم تلقائي (6 = 4.14%)؛ ORD-7: سعر الموقع 145 + خصم 35 (24.14%)؛ ORD-4/5/6: المقترح = سعر الموقع + اسم الهدية؛ ORD-2 وORD-3: فواتير طلب خاص (بلا سعر مقترح). الإجماليات ما تتغير.
 try {
   if (!localStorage.getItem('rax3d_v110_ord123')) {
     const d = loadDb();
@@ -3281,6 +3281,7 @@ try {
         const it = c7.items[0]; it.desc = 'قناع اليقطين (مقاس M)'; it.unit = 145; it.line = 145; it.dp = Math.round(35 / 145 * 1e6) / 1e4; it.auto = false;
         c7.sub = 145; c7.disc = 35; c7.total = 110; c7.sugg = 145; c7.edited = todayStr(); c7.desc = withColor(it) + ' (1)';
       }
+      [[4, 145], [5, 145], [6, 25]].forEach(([n, sp]) => { const r = g(n); if (r && Array.isArray(r.items) && r.items[0]) { r.sugg = sp; r.items.forEach(i => { if (i.gift && /ريترو/.test(i.desc || '')) i.desc = 'طقم 3 مقابض ريترو xBloom Studio'; }); r.desc = r.items.map((i, k) => withColor(i) + (i.gift ? ' (هدية)' : ' (' + i.q + ')')).join(' ، '); r.edited = todayStr(); } });
       [2, 3].forEach(n => { const r = g(n); if (r && !/^طلب خاص/.test(r.desc || '')) { r.desc = 'طلب خاص: ' + r.desc; if (Array.isArray(r.items) && r.items[0] && !/^طلب خاص/.test(r.items[0].desc || '')) r.items[0].desc = 'طلب خاص: ' + r.items[0].desc; r.sugg = 0; r.edited = todayStr(); } });
       saveDb(d);
     }
