@@ -615,7 +615,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '110';
+const APP_VERSION = '111';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2114,27 +2114,31 @@ function lastMonths(n) {   // آخر n أشهر (حتى لو ما فيها مب�
   return out;
 }
 function monthTotals(ym) { const rs = DATA.log.filter(r => isLive(r) && String(r.date).startsWith(ym)); return { n: rs.length, sales: rs.reduce((a, r) => a + (+r.total || 0), 0), profit: rs.reduce((a, r) => a + (+r.profit || 0), 0) }; }
-function chartSvg(labels, a, b) {   // أعمدة: المبيعات (ذهبي) وصافي الربح (أخضر)
-  const W = 340, H = 190, top = 22, base = 166, n = labels.length, slot = (W - 20) / n, bw = Math.min(18, slot / 2 - 4);
-  const max = Math.max(1, ...a, ...b), hgt = v => Math.max(0, v) / max * (base - top);
+function lastDays(n) {   // آخر n أيام (تنتهي باليوم)، كل يوم بصيغة YYYY-MM-DD
+  const out = [];
+  for (let k = n - 1; k >= 0; k--) { const d = new Date(DATA.today + 'T00:00:00'); d.setDate(d.getDate() - k); out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')); }
+  return out;
+}
+function dayTotals(day) { const rs = DATA.log.filter(r => isLive(r) && r.date === day); return { n: rs.length, sales: rs.reduce((a, r) => a + (+r.total || 0), 0), profit: rs.reduce((a, r) => a + (+r.profit || 0), 0), loss: rs.reduce((a, r) => a + Math.max(0, gapOf(r)), 0) }; }
+function chartSvg(labels, a, b, c) {   // أعمدة: المبيعات (ذهبي) وصافي الربح (أخضر) والخسارة (أحمر)
+  const W = 340, H = 190, top = 22, base = 166, n = labels.length, slot = (W - 20) / n, bw = Math.min(16, slot / 3 - 2);
+  const max = Math.max(1, ...a, ...b, ...c), hgt = v => Math.max(0, v) / max * (base - top);
   let g = `<line x1="10" y1="${base}" x2="${W - 10}" y2="${base}" style="stroke:var(--line)"/>`;
   for (let k = 1; k <= 3; k++) { const yy = base - (base - top) * k / 3; g += `<line x1="10" y1="${yy}" x2="${W - 10}" y2="${yy}" style="stroke:var(--row-line)"/>`; }
+  const bar = (x, v, fill, tf) => { const h = hgt(v); return `<rect x="${x}" y="${base - h}" width="${bw}" height="${h}" rx="2" style="fill:${fill}"/>` + (v ? `<text x="${x + bw / 2}" y="${base - h - 3}" font-size="8" style="fill:${tf}" text-anchor="middle">${fmtN(v)}</text>` : ''); };
   labels.forEach((l, i) => {
-    const cx = W - 10 - slot * (i + 0.5), x1 = cx + 1, x2 = cx - bw - 1, ha = hgt(a[i]), hb = hgt(b[i]);
-    g += `<rect x="${x1}" y="${base - ha}" width="${bw}" height="${ha}" rx="3" style="fill:var(--gold)"/>`;
-    g += `<rect x="${x2}" y="${base - hb}" width="${bw}" height="${hb}" rx="3" style="fill:${b[i] < 0 ? 'var(--bad)' : 'var(--good)'}"/>`;
-    if (a[i]) g += `<text x="${x1 + bw / 2}" y="${base - ha - 4}" font-size="9" style="fill:var(--text)" text-anchor="middle">${fmtN(a[i])}</text>`;
-    if (b[i]) g += `<text x="${x2 + bw / 2}" y="${base - hb - 4}" font-size="9" style="fill:${b[i] < 0 ? 'var(--bad)' : 'var(--mute)'}" text-anchor="middle">${fmtN(b[i])}</text>`;
-    g += `<text x="${cx}" y="${base + 16}" font-size="10" style="fill:var(--mute)" text-anchor="middle">${esc(l)}</text>`;
+    const cx = W - 10 - slot * (i + 0.5), x1 = cx + bw / 2 + 1, x2 = cx - bw / 2, x3 = cx - bw * 1.5 - 1;
+    g += bar(x1, a[i], 'var(--gold)', 'var(--text)') + bar(x2, b[i], b[i] < 0 ? 'var(--bad)' : 'var(--good)', 'var(--mute)') + bar(x3, c[i], 'var(--bad)', 'var(--bad)');
+    g += `<text x="${cx}" y="${base + 16}" font-size="9" style="fill:var(--mute)" text-anchor="middle">${esc(l)}</text>`;
   });
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="رسم بياني للمبيعات وصافي الربح" style="display:block;font-family:inherit">${g}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="رسم بياني يومي للمبيعات وصافي الربح والخسارة" style="display:block;font-family:inherit">${g}</svg>`;
 }
-function statsChartHtml() {
-  const ms = lastMonths(6), t = ms.map(monthTotals);
-  const rows = ms.slice().reverse().map((mo, i) => { const v = t[ms.length - 1 - i]; return `<tr><td>${monthName(mo)}</td><td>${v.n}</td><td>${fmt(v.sales)}</td><td style="color:${v.profit < 0 ? 'var(--bad)' : 'inherit'}">${fmt(v.profit)}</td></tr>`; }).join('');
-  return `<div class="period"><h3>📊 المبيعات وصافي الربح — آخر 6 أشهر</h3>
-    <div style="display:flex;gap:16px;font-size:12px;color:var(--mute);margin:-4px 0 6px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--gold);margin-left:5px"></i>المبيعات</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--good);margin-left:5px"></i>صافي الربح</span></div>${chartSvg(ms.map(mo => AR_MONTHS[+mo.split('-')[1] - 1]), t.map(v => r2(v.sales)), t.map(v => r2(v.profit)))}
-    <div style="overflow-x:auto;margin-top:10px"><table class="st"><thead><tr><th>الشهر</th><th>الفواتير</th><th>المبيعات</th><th>صافي الربح</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+function statsChartHtml() {   // v111: يومي (آخر 7 أيام) بدل آخر 6 أشهر + عمود الخسارة (خصم عن المقترح)
+  const ds = lastDays(7), t = ds.map(dayTotals), dl = d => +d.slice(8) + '/' + +d.slice(5, 7);
+  const rows = ds.slice().reverse().map((d, i) => { const v = t[ds.length - 1 - i]; return `<tr><td>${dl(d)}</td><td>${v.n}</td><td>${fmt(v.sales)}</td><td style="color:${v.loss > 0.005 ? 'var(--bad)' : 'inherit'}">${fmt(v.loss)}</td><td style="color:${v.profit < 0 ? 'var(--bad)' : 'inherit'}">${fmt(v.profit)}</td></tr>`; }).join('');
+  return `<div class="period"><h3>📊 المبيعات والخسارة وصافي الربح — يوميًا (آخر 7 أيام)</h3>
+    <div style="display:flex;gap:14px;font-size:12px;color:var(--mute);margin:-4px 0 6px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--gold);margin-left:5px"></i>المبيعات</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--good);margin-left:5px"></i>صافي الربح</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--bad);margin-left:5px"></i>الخسارة</span></div>${chartSvg(ds.map(dl), t.map(v => r2(v.sales)), t.map(v => r2(v.profit)), t.map(v => r2(v.loss)))}
+    <div style="overflow-x:auto;margin-top:10px"><table class="st"><thead><tr><th>اليوم</th><th>الفواتير</th><th>المبيعات</th><th>الخسارة</th><th>صافي الربح</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function renderStats() {
   const t = DATA.today, [y, m] = t.split('-');
