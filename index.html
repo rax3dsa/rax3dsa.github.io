@@ -359,8 +359,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button class="ghost" id="cuRefresh" style="margin-top:8px">🔄 تحديث الحالة</button>
   </section>
 
-  <section id="stats"><div class="tools"><button class="ghost" id="dlStats">⬇️ تحميل الإحصائيات</button><button class="ghost" id="monthNow">📧 التقرير الشهري الآن</button></div>
-    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
+  <section id="stats">    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
     <div class="tools"><button class="ghost" id="repBtn" style="width:100%">📈 تحميل تحليل الوضع الكامل (للفترة المحددة)</button></div>    <div id="statList"></div>
     <div class="goal adm" id="goalCard" style="display:none">
       <div class="goal-top"><span>🎯 هدف المبيعات</span><b id="goalAmt"></b></div>
@@ -2604,12 +2603,6 @@ function initRepDates() {   // افتراضيًا: من أول فاتورة إل
   $('repFrom').value = DATA.log.reduce((m, r) => r.date && r.date < m ? r.date : m, DATA.today); $('repTo').value = DATA.today;
 }
 
-// الإحصائيات (Excel): الفترات + كل شهر
-$('dlStats').onclick = () => {
-  if (!DATA) return;
-  deliverFile(buildStatsXlsx(), 'إحصائيات RAX3D ' + DATA.today + '.xlsx').catch(e => alert('تعذّر الحفظ: ' + ((e && e.message) || e)));
-};
-
 // ================= التقرير الشهري: الإحصائيات + السجل + كل الفواتير PDF =================
 const ymOf = d => String(d).slice(0, 7);
 const ymAdd = (ym, k) => { const [y, m] = ym.split('-').map(Number), d = new Date(y, m - 1 + k, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
@@ -2941,7 +2934,6 @@ function load() {
       const cy = CARRY || {}; CARRY = null;
       if (d.pinNotice || cy.pinNotice) showOk('تم تعديل الرقم السري بنجاح', 'من الحين تدخل بالرقم الجديد');
       if ($('recMail') && !$('recMail').value) $('recMail').value = d.recMail || '';
-      if (d.role === 'admin') setTimeout(checkMonthly, 4000);
       if (LINK.order || LINK.piece) setTimeout(handleLinks, 300);
     })
     .withFailureHandler(err => {
@@ -3407,14 +3399,6 @@ if (loadDb().role === 'partner' && !location.hash.includes('reset=')) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { resetSkip = null; checkReset(); } });
 }
 
-$('monthNow').onclick = () => {
-  if (!DATA || monthlyBusy) return;
-  const ym = ymOf(DATA.today);
-  if (!confirm('إرسال تقرير ' + monthName(ym) + ' (حتى اليوم) إلى إيميلك الحين؟\nفيه الإحصائيات والسجل وكل فواتير الشهر PDF.')) return;
-  monthlyBusy = true; const b = $('monthNow'); b.disabled = true; b.textContent = '⏳ جاري التجهيز…';
-  sendMonthlyReport(ym, true).then(r => toast(r === 'sent' ? '📊 انرسل التقرير لإيميلك ✔' : r === 'activate' ? '📧 فعّل إيميلك أول مرة' : '⚠️ ما انرسل — تأكد من الإنترنت'))
-    .catch(e => toast('⚠️ ' + errTxt(e))).finally(() => { monthlyBusy = false; b.disabled = false; b.textContent = '📧 التقرير الشهري الآن'; });
-};
 // --- رسائل لمرة وحدة ---
 function showOk(t, sub) { $('okTitle').textContent = t; $('okText').textContent = sub || ''; $('okSheet').classList.add('on'); }
 $('okBtn').onclick = () => $('okSheet').classList.remove('on');
