@@ -359,7 +359,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button class="ghost" id="cuRefresh" style="margin-top:8px">🔄 تحديث الحالة</button>
   </section>
 
-  <section id="stats">    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
+  <section id="stats"><div id="statDash"></div>    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
     <div class="tools"><button class="ghost" id="repBtn" style="width:100%">📈 تحميل تحليل الوضع الكامل (للفترة المحددة)</button></div>    <div id="statList"></div>
     <div class="goal adm" id="goalCard" style="display:none">
       <div class="goal-top"><span>🎯 هدف المبيعات</span><b id="goalAmt"></b></div>
@@ -2281,6 +2281,33 @@ function gapVsProfitHtml(loss, profit) {   // v113: شريط أحمر (خصم ع
   return `<div class="loss-bar" style="margin-top:12px"><i style="width:${w(ls)}"></i></div><div class="loss-bar" style="margin-top:4px"><i style="width:${w(pf)};background:var(--good)"></i></div>
     <div class="loss-sub">🔴 خصم عن المقترح ${fmt(ls)} · 🟢 هامش الربح بدون الخصومات ${fmt(pf)}${pf > 0 && ls > 0 ? ' · الخصم يعادل <b>' + (ls / pf * 100).toFixed(1) + '%</b> منه' : ''}</div>`;
 }
+// ===== لوحة التقارير (فكرة المالك 5، 11-16): أرباح الأسبوع، أكثر القطع ربحًا، تنبيهات (ألوان ناقصة، طلبات متأخرة). كلها من بيانات التطبيق الحالية =====
+function dayOff(t, n) { const d = new Date(t + 'T00:00:00'); d.setDate(d.getDate() - n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function itemProfits(rs) {   // ربح الفاتورة يتوزع على قطعها بنسبة قيمة كل سطر؛ الاسم بدون اللون
+  const m = new Map();
+  rs.forEach(r => { const its = r.items || [], tot = its.reduce((a, i) => a + (Number(i.line) || 0), 0) || 1;
+    its.forEach(i => { const k = String(i.desc || '').trim(); if (!k) return; const o = m.get(k) || { n: k, q: 0, p: 0 }; o.q += Number(i.q) || 0; o.p += (Number(r.profit) || 0) * ((Number(i.line) || 0) / tot); m.set(k, o); }); });
+  return [...m.values()].sort((a, b) => b.p - a.p);
+}
+function dashHtml() {
+  const t = DATA.today, live = DATA.log.filter(isLive), sum = (rs, k) => rs.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+  const cur = live.filter(r => r.date >= dayOff(t, 6) && r.date <= t), prev = live.filter(r => r.date >= dayOff(t, 13) && r.date <= dayOff(t, 7));
+  const pc = sum(cur, 'profit'), pp = sum(prev, 'profit'), ch = pp > 0 ? Math.round((pc - pp) / pp * 100) : null;
+  const trend = ch === null ? '<span style="color:var(--mute)">لا يوجد أسبوع سابق للمقارنة</span>' : `<span style="color:${ch >= 0 ? 'var(--good,#4CAF50)' : 'var(--bad,#e5533d)'}">${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch)}% عن الأسبوع الماضي (${fmt(pp)})</span>`;
+  const top = itemProfits(live.filter(r => r.date >= dayOff(t, 29) && r.date <= t)).filter(x => x.p > 0).slice(0, 5), mx = top.length ? top[0].p : 1;
+  // التنبيهات
+  if (!STK) { try { stkLoadLocal(); } catch (e) {} }
+  const low = (STK && STK.rows || []).filter(r => r.buy || r.q === 0), out0 = low.filter(r => !r.buy && r.q === 0);
+  const late = live.filter(r => { const age = (new Date(t + 'T00:00:00') - new Date(String(r.date) + 'T00:00:00')) / 864e5, st = r.stage != null ? Number(r.stage) : (age > 10 ? 4 : 0); return st < 4 && age > 5 && age <= 60; });
+  const al = [];
+  if (low.length) al.push('🧵 <b>ألوان تحتاج شراء:</b> ' + esc(low.slice(0, 8).map(r => r.t + ' ' + r.c + (r.q === 0 ? ' (نفد)' : '')).join('، ')) + (low.length > 8 ? ' و' + (low.length - 8) + ' أخرى' : ''));
+  if (late.length) al.push('⏳ <b>طلبات مضى عليها أكثر من 5 أيام ولم تُسلَّم:</b> ' + late.slice(0, 8).map(r => 'ORD-' + esc(String(r.num))).join('، ') + (late.length > 8 ? ' و' + (late.length - 8) + ' أخرى' : '') + ' <span style="color:var(--mute)">(غيّر المرحلة من سجل الفواتير)</span>');
+  return `<div class="period"><h3>📊 أرباح آخر 7 أيام</h3><div style="font-size:30px;font-weight:600;direction:ltr;text-align:right">${fmt(pc)} <small style="font-size:14px;font-weight:400;color:var(--mute)">ر.س</small></div>
+    <div style="font-size:13px;margin:4px 0 10px">${trend}</div>
+    <div class="kv"><div>الفواتير<b>${cur.length}</b></div><div>المبيعات<b>${fmt(sum(cur, 'total'))}</b></div><div>متوسط الفاتورة<b>${cur.length ? fmt(sum(cur, 'total') / cur.length) : 0}</b></div></div></div>
+  <div class="period"><h3>🏆 القطع الأكثر ربحًا (آخر 30 يومًا)</h3>${top.length ? top.map((x, i) => `<div style="margin:0 0 9px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span>${i + 1}. ${esc(x.n)} <span style="color:var(--mute)">× ${x.q}</span></span><b style="direction:ltr">${fmt(x.p)}</b></div><div style="height:6px;border-radius:4px;background:var(--line);margin-top:3px"><i style="display:block;height:100%;width:${Math.max(4, Math.round(x.p / mx * 100))}%;border-radius:4px;background:linear-gradient(90deg,var(--gold-d),var(--gold))"></i></div></div>`).join('') : '<p class="hint" style="margin:0">لا توجد مبيعات في آخر 30 يومًا.</p>'}</div>
+  <div class="period"><h3>🔔 تنبيهات</h3>${al.length ? al.map(x => '<p style="margin:0 0 8px;line-height:1.8;font-size:13px">' + x + '</p>').join('') : '<p class="hint" style="margin:0">✅ لا توجد تنبيهات: لا نقص في الألوان ولا طلبات متأخرة.</p>'}</div>`;
+}
 function renderStats() {
   try { initRepDates(); } catch (e) {}
   const t = DATA.today, [y, m] = t.split('-');
@@ -2291,6 +2318,7 @@ function renderStats() {
     ['شهري (هذا الشهر)', r => r.date.startsWith(y + '-' + m)],
     ['سنوي (هذه السنة)', r => r.date.startsWith(y)]
   ];
+  try { $('statDash').innerHTML = dashHtml(); } catch (e) { $('statDash').innerHTML = ''; }
   $('statList').innerHTML = statsChartHtml();
   $('statPeriods').innerHTML = periods.map(([name, f]) => {
     const rs = DATA.log.filter(r => isLive(r) && f(r)), s = k => rs.reduce((a, r) => a + r[k], 0);
