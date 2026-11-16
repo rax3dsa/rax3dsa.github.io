@@ -359,7 +359,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button class="ghost" id="cuRefresh" style="margin-top:8px">🔄 تحديث الحالة</button>
   </section>
 
-  <section id="stats">    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
+  <section id="stats"><div id="statDash"></div>    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
     <div class="tools"><button class="ghost" id="repBtn" style="width:100%">📈 تحميل تحليل الوضع الكامل (للفترة المحددة)</button></div>    <div id="statList"></div>
     <div class="goal adm" id="goalCard" style="display:none">
       <div class="goal-top"><span>🎯 هدف المبيعات</span><b id="goalAmt"></b></div>
@@ -983,7 +983,23 @@ async function publicWritePoints(token, p) {
   const tgt = { repo: PTS_REPO, token: token, _public: PTS_PATH };
   await updateJson(tgt, PTS_PATH, null, cur => (cur && cur.v === 2 && JSON.stringify(cur.p) === JSON.stringify(p)) ? undefined : { v: 2, updated: Date.now(), p: p }, 'تحديث أرصدة نقاط الولاء');
 }
-const publishPointsSoon = () => { publishPoints().catch(() => {}); };
+// ===== مراحل الطلب للعميل (تتبّع الطلب في المتجر): tracking_private.json في المستودع الخاص: جوال ← طلباته (رقم، تاريخ، مرحلة، قطع). الـ worker يقرأ منه بعد تحقق المتجر من الجوال. =====
+// المرحلة تتحدد من قائمة «مرحلة الطلب» في كل فاتورة (الدعم الفني). الفاتورة بلا مرحلة: أقدم من 10 أيام = «تم التسليم»، وإلا «تم اعتماد الطلب».
+const STAGES = ['تم اعتماد الطلب', 'قيد الطباعة', 'التجميع والفحص', 'جاهز للتسليم', 'تم التسليم'];
+async function publishTracking() {
+  const sync = getSync(); if (!sync) return 0;
+  const db0 = loadDb(), now = Date.now(), o = {};
+  (db0.log || []).forEach(r => {
+    if (!isLive(r)) return; const ph = normPhone(r.phone); if (ph.length < 9) return;
+    const t = Date.parse(r.date) || now, age = (now - t) / 864e5; if (age > 180) return;
+    const st = r.stage != null ? Math.max(0, Math.min(4, Number(r.stage) || 0)) : (age > 10 ? 4 : 0);
+    (o[ph] = o[ph] || []).push({ n: Number(r.num) || r.num, d: String(r.date), st: st, it: (r.items || []).slice(0, 6).map(i => String(i.desc || '').slice(0, 60) + (i.q > 1 ? ' ×' + i.q : '')) });
+  });
+  for (const k in o) o[k] = o[k].sort((a, b) => b.n - a.n).slice(0, 15);
+  await updateJson(sync, 'tracking_private.json', null, cur => (cur && cur.v === 1 && JSON.stringify(cur.o) === JSON.stringify(o)) ? undefined : { v: 1, updated: Date.now(), o: o }, 'تحديث مراحل الطلبات (خاص)');
+  return Object.keys(o).length;
+}
+const publishPointsSoon = () => { publishPoints().catch(() => {}); publishTracking().catch(() => {}); };
 let flushing = null;
 function flushPending() {   // جوال مدخل البيانات يرسل فواتيره للدعم الفني
   if (flushing) return flushing;
@@ -1465,6 +1481,12 @@ const API = {
     db.pending.push(Object.assign({ num: r.num, by: 'partner', edit: true, prices: prices, ts: Date.now(), date: todayStr() }, shared ? { key: d.key } : {})); saveDb(db);
     flushPending().catch(() => {});
     return { num: r.num, total: r.total };
+  },
+  async setStage(d) {   // مرحلة الطلب (0..4) للتتبّع في المتجر: الدعم الفني فقط
+    const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
+    const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
+    r.stage = Math.max(0, Math.min(4, Math.floor(+d.stage) || 0));
+    saveDb(db); publishPointsSoon(); return { ok: true, stage: r.stage };
   },
   async markInvoice(d) {   // v99: علامتا الدعم الفني (دفع العميل / أُدخل للحساب) — للتتبع فقط، لا تدخل في أي حساب أو توزيع
     const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
@@ -2212,6 +2234,7 @@ function renderLog() {
       <p>${esc(r.desc)}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
       <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}${isLive(r) ? `<button class="pdf dl pt" data-ed="${esc(rk(r))}">✏️ تعديل السعر</button>` : ''}<button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
+      ${isLive(r) ? `<div class="adm mk"><label>📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${esc(rk(r))}">${STAGES.map((n, i) => `<option value="${i}"${(r.stage != null ? Number(r.stage) : ((Date.now() - (Date.parse(r.date) || Date.now())) / 864e5 > 10 ? 4 : 0)) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
       ${isLive(r) ? `<div class="adm mk"><label><input type="checkbox" data-mk="paid" data-key="${esc(rk(r))}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${esc(rk(r))}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label></div>` : ''}
     </div>`).join('')
     : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : (acctOnly ? 'كل الفواتير أُدخلت للحساب ✔' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».')}</div>`;
@@ -2258,6 +2281,33 @@ function gapVsProfitHtml(loss, profit) {   // v113: شريط أحمر (خصم ع
   return `<div class="loss-bar" style="margin-top:12px"><i style="width:${w(ls)}"></i></div><div class="loss-bar" style="margin-top:4px"><i style="width:${w(pf)};background:var(--good)"></i></div>
     <div class="loss-sub">🔴 خصم عن المقترح ${fmt(ls)} · 🟢 هامش الربح بدون الخصومات ${fmt(pf)}${pf > 0 && ls > 0 ? ' · الخصم يعادل <b>' + (ls / pf * 100).toFixed(1) + '%</b> منه' : ''}</div>`;
 }
+// ===== لوحة التقارير (فكرة المالك 5، 11-16): أرباح الأسبوع، أكثر القطع ربحًا، تنبيهات (ألوان ناقصة، طلبات متأخرة). كلها من بيانات التطبيق الحالية =====
+function dayOff(t, n) { const d = new Date(t + 'T00:00:00'); d.setDate(d.getDate() - n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function itemProfits(rs) {   // ربح الفاتورة يتوزع على قطعها بنسبة قيمة كل سطر؛ الاسم بدون اللون
+  const m = new Map();
+  rs.forEach(r => { const its = r.items || [], tot = its.reduce((a, i) => a + (Number(i.line) || 0), 0) || 1;
+    its.forEach(i => { const k = String(i.desc || '').trim(); if (!k) return; const o = m.get(k) || { n: k, q: 0, p: 0 }; o.q += Number(i.q) || 0; o.p += (Number(r.profit) || 0) * ((Number(i.line) || 0) / tot); m.set(k, o); }); });
+  return [...m.values()].sort((a, b) => b.p - a.p);
+}
+function dashHtml() {
+  const t = DATA.today, live = DATA.log.filter(isLive), sum = (rs, k) => rs.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+  const cur = live.filter(r => r.date >= dayOff(t, 6) && r.date <= t), prev = live.filter(r => r.date >= dayOff(t, 13) && r.date <= dayOff(t, 7));
+  const pc = sum(cur, 'profit'), pp = sum(prev, 'profit'), ch = pp > 0 ? Math.round((pc - pp) / pp * 100) : null;
+  const trend = ch === null ? '<span style="color:var(--mute)">لا يوجد أسبوع سابق للمقارنة</span>' : `<span style="color:${ch >= 0 ? 'var(--good,#4CAF50)' : 'var(--bad,#e5533d)'}">${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch)}% عن الأسبوع الماضي (${fmt(pp)})</span>`;
+  const top = itemProfits(live.filter(r => r.date >= dayOff(t, 29) && r.date <= t)).filter(x => x.p > 0).slice(0, 5), mx = top.length ? top[0].p : 1;
+  // التنبيهات
+  if (!STK) { try { stkLoadLocal(); } catch (e) {} }
+  const low = (STK && STK.rows || []).filter(r => r.buy || r.q === 0), out0 = low.filter(r => !r.buy && r.q === 0);
+  const late = live.filter(r => { const age = (new Date(t + 'T00:00:00') - new Date(String(r.date) + 'T00:00:00')) / 864e5, st = r.stage != null ? Number(r.stage) : (age > 10 ? 4 : 0); return st < 4 && age > 5 && age <= 60; });
+  const al = [];
+  if (low.length) al.push('🧵 <b>ألوان تحتاج شراء:</b> ' + esc(low.slice(0, 8).map(r => r.t + ' ' + r.c + (r.q === 0 ? ' (نفد)' : '')).join('، ')) + (low.length > 8 ? ' و' + (low.length - 8) + ' أخرى' : ''));
+  if (late.length) al.push('⏳ <b>طلبات مضى عليها أكثر من 5 أيام ولم تُسلَّم:</b> ' + late.slice(0, 8).map(r => 'ORD-' + esc(String(r.num))).join('، ') + (late.length > 8 ? ' و' + (late.length - 8) + ' أخرى' : '') + ' <span style="color:var(--mute)">(غيّر المرحلة من سجل الفواتير)</span>');
+  return `<div class="period"><h3>📊 أرباح آخر 7 أيام</h3><div style="font-size:30px;font-weight:600;direction:ltr;text-align:right">${fmt(pc)} <small style="font-size:14px;font-weight:400;color:var(--mute)">ر.س</small></div>
+    <div style="font-size:13px;margin:4px 0 10px">${trend}</div>
+    <div class="kv"><div>الفواتير<b>${cur.length}</b></div><div>المبيعات<b>${fmt(sum(cur, 'total'))}</b></div><div>متوسط الفاتورة<b>${cur.length ? fmt(sum(cur, 'total') / cur.length) : 0}</b></div></div></div>
+  <div class="period"><h3>🏆 القطع الأكثر ربحًا (آخر 30 يومًا)</h3>${top.length ? top.map((x, i) => `<div style="margin:0 0 9px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span>${i + 1}. ${esc(x.n)} <span style="color:var(--mute)">× ${x.q}</span></span><b style="direction:ltr">${fmt(x.p)}</b></div><div style="height:6px;border-radius:4px;background:var(--line);margin-top:3px"><i style="display:block;height:100%;width:${Math.max(4, Math.round(x.p / mx * 100))}%;border-radius:4px;background:linear-gradient(90deg,var(--gold-d),var(--gold))"></i></div></div>`).join('') : '<p class="hint" style="margin:0">لا توجد مبيعات في آخر 30 يومًا.</p>'}</div>
+  <div class="period"><h3>🔔 تنبيهات</h3>${al.length ? al.map(x => '<p style="margin:0 0 8px;line-height:1.8;font-size:13px">' + x + '</p>').join('') : '<p class="hint" style="margin:0">✅ لا توجد تنبيهات: لا نقص في الألوان ولا طلبات متأخرة.</p>'}</div>`;
+}
 function renderStats() {
   try { initRepDates(); } catch (e) {}
   const t = DATA.today, [y, m] = t.split('-');
@@ -2268,6 +2318,7 @@ function renderStats() {
     ['شهري (هذا الشهر)', r => r.date.startsWith(y + '-' + m)],
     ['سنوي (هذه السنة)', r => r.date.startsWith(y)]
   ];
+  try { $('statDash').innerHTML = dashHtml(); } catch (e) { $('statDash').innerHTML = ''; }
   $('statList').innerHTML = statsChartHtml();
   $('statPeriods').innerHTML = periods.map(([name, f]) => {
     const rs = DATA.log.filter(r => isLive(r) && f(r)), s = k => rs.reduce((a, r) => a + r[k], 0);
@@ -2459,6 +2510,12 @@ function savePdf(num) {
     fileReady(blob, name, prev);
   });
 }
+$('logList').addEventListener('change', e => {
+  const sel = e.target.closest('[data-stg]'); if (!sel) return;
+  const key = sel.dataset.key, v = +sel.value;
+  google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) r.stage = v; toast('تم تحديث المرحلة: ' + STAGES[v]); })
+    .withFailureHandler(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))).setStage({ key: key, stage: v });
+});
 $('logList').addEventListener('click', e => {
   const ed = e.target.closest('[data-ed]'); if (ed) { if (DATA && DATA.role === 'partner') openPriceEdit(ed.dataset.ed); else openEdit(ed.dataset.ed); return; }
   const mk = e.target.closest('[data-mk]'); if (mk) {
