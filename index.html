@@ -360,7 +360,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button class="ghost" id="cuRefresh" style="margin-top:8px">🔄 تحديث الحالة</button>
   </section>
 
-  <section id="stats"><div id="statDash"></div>    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
+  <section id="stats"><div id="statDash"></div><div id="pollBox"></div>    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
     <div class="tools"><button class="ghost" id="repBtn" style="width:100%">📈 تحميل تحليل الوضع الكامل (للفترة المحددة)</button></div>    <div id="statList"></div>
     <div class="goal adm" id="goalCard" style="display:none">
       <div class="goal-top"><span>🎯 هدف المبيعات</span><b id="goalAmt"></b></div>
@@ -972,7 +972,8 @@ async function publishPoints() {
   const db0 = loadDb(); (db0.log || []).forEach(r => { if (!isLive(r)) return; const ph = normPhone(r.phone); if (ph.length >= 9 && !bal.has(ph)) bal.set(ph, ptsBalanceFor(ph, db0)); });
   // 1) النسخة الخاصة (مستودع rax3d-data): جوال ← نقاط. الـ worker يقرأ منها لما العميل يفتح المتجر، فما عاد يحتاج الموقع ملف عام فيه الأرصدة.
   const priv = {}; for (const [ph, v] of bal) if (v > 0) priv[ph] = v;
-  await updateJson(sync, 'points_private.json', null, cur => (cur && cur.v === 1 && JSON.stringify(cur.p) === JSON.stringify(priv)) ? undefined : { v: 1, updated: Date.now(), p: priv }, 'تحديث أرصدة النقاط (خاص)');
+  const tiers = {}; for (const [ph, v] of spendByPhone(db0.log)) tiers[ph] = [tierIdx(v), Math.round(v)];   // مستوى الولاء وإجمالي المشتريات (الـ worker يرجعهما للمتجر)
+  await updateJson(sync, 'points_private.json', null, cur => (cur && cur.v === 1 && JSON.stringify(cur.p) === JSON.stringify(priv) && JSON.stringify(cur.t) === JSON.stringify(tiers)) ? undefined : { v: 1, updated: Date.now(), p: priv, t: tiers }, 'تحديث أرصدة النقاط والمستويات (خاص)');
   // النسخة العامة (points.json في المتجر) أُلغيت نهائياً: الأرصدة تُقرأ من الـ worker فقط.
   try { localStorage.setItem('rax3d_pts_v', '3'); } catch (e) {}
   return Object.keys(priv).length;
@@ -1220,6 +1221,10 @@ const API = {
       profit: R2(lines.reduce((a, l) => a + l.profit, 0)), sugg: R2(lines.reduce((a, l) => a + l.sugg, 0)),
       sub: R2(lines.reduce((a, l) => a + l.line, 0)), items: lines.map(l => Object.assign({ desc: l.desc, color: l.color, q: l.q, unit: l.unit, line: l.line, cost: l.cost, w: l.w, h: l.h, m: l.m, sec: l.sec, type: l.type, auto: l.auto, dp: l.dp }, l.acc > 0 ? { acc: l.acc } : {}))
     };
+    try {   // هدية مفاجأة عند ترقية العميل لمستوى أعلى (تذكير للمالك؛ الهدية نفسها بقراره)
+      const ph = normPhone(rec.phone);
+      if (ph.length >= 9) { const b = spendByPhone(db.log).get(ph) || 0, ti = tierIdx(b + (Number(rec.total) || 0)); if (ti > tierIdx(b) && ti > 0) { rec.gift = TIERS[ti][0]; setTimeout(() => toast('🎁 ' + (rec.client || 'العميل') + ' وصل للمستوى ' + TIERS[ti][1] + ' ' + TIERS[ti][0] + ': جهّز هدية مفاجأة'), 700); } }
+    } catch (e) {}
     if (role === 'admin') applyLoyalty(db, rec);   // v56: خصم/قطعة مجانية من نقاط الولاء تنضاف تلقائياً
     const cats = its.map(it => Object.assign({ desc: String(it.desc).trim(), w: +it.w || 0, h: +it.h || 0, m: +it.m || 0, sec: +it.sec || 0, price: +it.price > 0 ? +it.price : 0 }, +it.acc > 0 ? { acc: +it.acc } : {}));
     db.log.push(rec); db.nextNum = Math.max(db.nextNum, num + 1);
@@ -1483,6 +1488,12 @@ const API = {
     flushPending().catch(() => {});
     return { num: r.num, total: r.total };
   },
+  async setPrinter(d) {   // الطابعة التي طبعت الفاتورة (للتقارير): الدعم الفني فقط
+    const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
+    const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
+    if (PRINTERS.includes(d.printer)) r.printer = d.printer; else delete r.printer;
+    saveDb(db); return { ok: true };
+  },
   async setStage(d) {   // مرحلة الطلب (0..4) للتتبّع في المتجر: الدعم الفني فقط
     const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
     const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
@@ -1492,7 +1503,7 @@ const API = {
   async markInvoice(d) {   // v99: علامتا الدعم الفني (دفع العميل / أُدخل للحساب) — للتتبع فقط، لا تدخل في أي حساب أو توزيع
     const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
     const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
-    const f = d.field === 'acct' ? 'acct' : 'paid';
+    const f = ({ acct: 'acct', giftdone: 'giftdone' })[d.field] || 'paid';
     if (d.on) r[f] = todayStr(); else delete r[f];
     saveDb(db); return { ok: true };
   },
@@ -1573,6 +1584,60 @@ function loyalty(phone, r) {   // يرجع { earned: نقاط هذي الفات�
   const log = (loadDb().log || []); let bal = r ? 0 : ptsBalanceFor(ph);
   for (const x of (r ? log : [])) { if (isLive(x) && normPhone(x.phone) === ph) bal += Math.floor(+x.total || 0); if (r && x === r) break; if (r && rk(x) === rk(r)) break; }
   return { earned: r && isLive(r) ? Math.floor(+r.total || 0) : 0, balance: bal };
+}
+// ===== مستويات الولاء (فكرة المالك 6، 11-16): برونزي / ذهبي / أسطوري حسب إجمالي مشتريات العميل (الفواتير غير الملغاة). نفس الحدود في المتجر (TIERS في app.js): غيّرها في المكانين =====
+const TIERS = [['برونزي', '🥉', 0], ['ذهبي', '🥇', 1000], ['أسطوري', '👑', 3000]];   // [الاسم، الشارة، الحد الأدنى بالريال]
+const tierIdx = spend => TIERS.reduce((a, t, i) => spend >= t[2] ? i : a, 0);
+function spendByPhone(log) { const m = new Map(); (log || []).forEach(r => { if (!isLive(r)) return; const ph = normPhone(r.phone); if (ph.length < 9) return; m.set(ph, (m.get(ph) || 0) + (Number(r.total) || 0)); }); return m; }
+let SPM = new Map();   // إجمالي المشتريات لكل جوال، يُحدَّث في renderLog
+const tierTag = r => { const ph = normPhone(r.phone); if (ph.length < 9 || !SPM.has(ph)) return ''; const t = TIERS[tierIdx(SPM.get(ph))]; return ` <span class="tag p" title="مستوى الولاء">${t[1]} ${t[0]}</span>`; };
+// ===== ربحية الطابعات والألوان (فكرة المالك 7، 11-16) =====
+const PRINTERS = ['P2S', 'A1 mini'];   // أسماء الطابعات في قائمة الفاتورة؛ لإضافة طابعة أضف اسمها هنا
+const colorKey = c => { const k = String(c || '').trim(); return STK_BYN[CN(k)] || k || 'بدون لون'; };
+function itemEcon(r) {   // ربح كل سطر = قيمته − كلفته − حصته من الخصم؛ وقت الطباعة والوزن من بيانات السطر (للوحدة × العدد)
+  const its = r.items || [], sub = its.reduce((a, i) => a + (Number(i.line) || 0), 0) || 1, disc = Number(r.disc) || 0;
+  return its.map(i => { const q = Number(i.q) || 1, line = Number(i.line) || 0; return { color: colorKey(i.color), p: line - (Number(i.cost) || 0) * q - disc * line / sub, hrs: ((+i.h || 0) + (+i.m || 0) / 60 + (+i.sec || 0) / 3600) * q, g: (+i.w || 0) * q }; });
+}
+function econHtml(rs) {
+  const pr = new Map(), cl = new Map(); let noTime = 0;
+  rs.forEach(r => {
+    const e = itemEcon(r), hrs = e.reduce((a, x) => a + x.hrs, 0), key = PRINTERS.includes(r.printer) ? r.printer : 'غير محدد';
+    if (!hrs) noTime++;
+    const o = pr.get(key) || { n: 0, h: 0, p: 0 }; o.n++; o.h += hrs; o.p += Number(r.profit) || 0; pr.set(key, o);
+    e.forEach(x => { const c = cl.get(x.color) || { g: 0, p: 0, n: 0 }; c.g += x.g; c.p += x.p; c.n++; cl.set(x.color, c); });
+  });
+  const prRows = [...pr].sort((a, b) => b[1].p - a[1].p).map(([k, o]) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;border-top:1px solid var(--line);padding:7px 0"><span>${esc(k)} <span style="color:var(--mute)">· ${o.n} فاتورة${o.h ? ' · ' + fmt(R2(o.h)) + ' ساعة' : ''}</span></span><b style="direction:ltr">${fmt(R2(o.p))}${o.h ? ' <small style="color:var(--mute)">(' + fmt(R2(o.p / o.h)) + '/س)</small>' : ''}</b></div>`).join('');
+  const clRows = [...cl].sort((a, b) => b[1].p - a[1].p).slice(0, 8).map(([k, o]) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;border-top:1px solid var(--line);padding:7px 0"><span>${esc(k)} <span style="color:var(--mute)">· ${o.n} سطر${o.g ? ' · ' + fmt(Math.round(o.g)) + ' غ' : ''}</span></span><b style="direction:ltr">${fmt(R2(o.p))}${o.g ? ' <small style="color:var(--mute)">(' + fmt(R2(o.p / o.g * 100)) + '/100غ)</small>' : ''}</b></div>`).join('');
+  const none = !PRINTERS.some(p => pr.has(p)) ? '<p class="hint" style="margin:8px 0 0">اختر الطابعة في كل فاتورة (قائمة «🖨 الطابعة» في السجل) لتظهر ربحية كل جهاز.</p>' : '';
+  return `<div class="period"><h3>🖨 ربحية الطابعات (آخر 30 يومًا)</h3>${prRows || '<p class="hint" style="margin:0">لا فواتير.</p>'}${none}${noTime ? `<p class="hint" style="margin:8px 0 0">${noTime} فاتورة بلا وقت طباعة مسجّل، فلا تدخل في الربح/ساعة.</p>` : ''}</div>
+  <div class="period"><h3>🎨 ربحية الألوان (آخر 30 يومًا)</h3>${clRows || '<p class="hint" style="margin:0">لا فواتير.</p>'}<p class="hint" style="margin:8px 0 0">ربح السطر = قيمته − كلفته − حصته من الخصم. الأقواس: الربح لكل 100 غرام.</p></div>`;
+}
+// ===== تصويت الأسبوع (فكرة المالك 8، 11-16): الخيارات من أقسام المتجر الحالية فقط (لا قسم جديد). poll.json في المستودع الخاص، والنتائج من الـ worker =====
+const SHOP_CATS = ['الإضاءات', 'الديكور', 'إكسسوارات المكتب', 'إكسسوارات القهوة', 'سناك وضيافة', 'ميداليات', 'إكسسوارات السيارة', 'ألعاب وقيمرز', 'التوزيعات'];   // نفس أسماء أقسام المتجر (CAT_ORDER في app.js) بدون «التخفيضات»؛ عدّلها لو تغيّرت الأقسام
+async function renderPoll() {
+  const box = document.getElementById('pollBox'); if (!box) return;
+  const end0 = dayOff(DATA.today, -7);
+  box.innerHTML = `<div class="period"><h3>🗳️ تصويت الأسبوع على القسم القادم</h3><div id="pollNow" class="hint" style="margin:0 0 10px">جاري جلب التصويت الحالي…</div>
+    <label for="pollT">السؤال</label><input id="pollT" maxlength="80" value="من أي قسم تبي القطعة الجاية؟">
+    <label>الأقسام المشاركة (من أقسام المتجر فقط)</label><div id="pollOpts" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${SHOP_CATS.map(c => `<label style="display:flex;gap:6px;align-items:center;margin:0;font-size:13px"><input type="checkbox" value="${esc(c)}" style="width:auto"> ${esc(c)}</label>`).join('')}</div>
+    <label for="pollE">آخر يوم للتصويت</label><input type="date" id="pollE" value="${end0}">
+    <div class="tools"><button class="save" id="pollGo" style="flex:1">📣 نشر التصويت</button><button class="ghost" id="pollStop" style="flex:1">⏹ إيقاف</button></div><div class="hint" id="pollMsg"></div></div>`;
+  const msg = t => { document.getElementById('pollMsg').textContent = t; };
+  document.getElementById('pollGo').onclick = async () => {
+    const opts = [...box.querySelectorAll('#pollOpts input:checked')].map(x => x.value), title = document.getElementById('pollT').value.trim().slice(0, 80), end = document.getElementById('pollE').value;
+    if (opts.length < 2 || opts.length > 6) return msg('اختر من 2 إلى 6 أقسام.'); if (!title) return msg('اكتب السؤال.'); if (!/^\d{4}-\d{2}-\d{2}$/.test(end) || end < DATA.today) return msg('اختر تاريخ نهاية اليوم أو بعده.');
+    const sync = getSync(); if (!sync) return msg('اربط الترقيم المشترك أولاً (الإحصائيات ← الترقيم المشترك).');
+    try { await updateJson(sync, 'poll.json', null, () => ({ id: 'P' + Date.now(), title, opts, end, at: new Date().toISOString() }), 'تصويت جديد'); msg('✔ نُشر التصويت، يظهر في المتجر خلال دقيقة.'); } catch (e) { msg('تعذّر النشر: ' + ((e && e.message) || e)); }
+  };
+  document.getElementById('pollStop').onclick = async () => {
+    const sync = getSync(); if (!sync) return msg('اربط الترقيم المشترك أولاً.');
+    try { await updateJson(sync, 'poll.json', null, () => ({ id: '', title: '', opts: [], end: '', at: new Date().toISOString() }), 'إيقاف التصويت'); msg('✔ أُوقف التصويت.'); } catch (e) { msg('تعذّر الإيقاف: ' + ((e && e.message) || e)); }
+  };
+  try {
+    const j = await (await fetch(PAY_API + '/poll', { cache: 'no-store' })).json(), now = document.getElementById('pollNow');
+    if (j && j.ok && j.poll) { const rows = j.poll.opts.map(o => [o, (j.c && j.c[o]) | 0]).sort((a, b) => b[1] - a[1]), tot = rows.reduce((a, x) => a + x[1], 0); now.innerHTML = `<b>${esc(j.poll.title)}</b> (يغلق ${esc(j.poll.end)}) · ${tot} صوت<br>` + rows.map(x => esc(x[0]) + ' <b>' + x[1] + '</b>').join(' · '); }
+    else now.textContent = 'لا يوجد تصويت نشط الآن.';
+  } catch (e) { document.getElementById('pollNow').textContent = 'تعذّر جلب التصويت الحالي (تأكد من الاتصال).'; }
 }
 // ===== QR (فكرة المالك 2، 11-16): رابط متابعة الطلب على الفاتورة وملصق للعبوة. المكتبة qr.min.js؛ لو ما تحمّلت تظهر الفاتورة بدون QR =====
 const TRACK_URL = n => 'https://rax3d.com/?track=1&o=' + encodeURIComponent(n);
@@ -2256,16 +2321,18 @@ const gapOf = r => isLive(r) && Number(r.sugg) > 0 ? Math.round((Number(r.sugg) 
 function renderLog() {
   try { renderAcctSum(); } catch (e) {}
   const q = $('q').value.trim().toLowerCase(), oq = ($('oq') ? $('oq').value : '').replace(/[^0-9]/g, '');
+  SPM = spendByPhone(DATA.log);
   const rows = DATA.log.slice().reverse().filter(r => acctOnly && !(isLive(r) && !r.acct) ? false : oq ? String(r.num) === oq : !q ||
     (r.client + ' ' + r.phone + ' ' + r.num + ' ' + r.desc + ' ' + (r.code || '')).toLowerCase().includes(q));
   const isLoss = r => isLive(r) && Number(r.profit) < -0.005;   // v104: بيعت بخسارة (الربح أقل من صفر) — العلامة ومبلغ الخسارة تظهر للدعم الفني ومدخل البيانات فقط (قرار المالك) ولا تدخل في الفاتورة المطبوعة
   $('logList').innerHTML = rows.length ? rows.map(r => `
     <div class="row"${isLoss(r) ? ' style="border-color:var(--bad)"' : ''}>
-      <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}${isLoss(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">⚠️ بيعت بأقل من التكلفة ' + fmt(-r.profit) + ' ريال</span>' : ''}${gapOf(r) > 0.005 ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">📉 خصم عن المقترح ' + fmt(gapOf(r)) + ' ريال</span>' : ''}${!isLive(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">🚫 ملغاة</span>' : ''}${pts(r) ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pts(r) + '</span>' : ''}</b><span class="amt"${!isLive(r) ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(r.total)} ريال</span></div>
+      <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${tierTag(r)}${r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}${isLoss(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">⚠️ بيعت بأقل من التكلفة ' + fmt(-r.profit) + ' ريال</span>' : ''}${gapOf(r) > 0.005 ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">📉 خصم عن المقترح ' + fmt(gapOf(r)) + ' ريال</span>' : ''}${!isLive(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">🚫 ملغاة</span>' : ''}${pts(r) ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pts(r) + '</span>' : ''}</b><span class="amt"${!isLive(r) ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(r.total)} ريال</span></div>
       <p>${esc(r.desc)}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
       <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}${isLive(r) ? `<button class="pdf dl pt" data-ed="${esc(rk(r))}">✏️ تعديل السعر</button>` : ''}<button class="pdf" data-qr="${esc(rk(r))}">🏷️ ملصق QR</button><button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
-      ${isLive(r) ? `<div class="adm mk"><label>📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${esc(rk(r))}">${STAGES.map((n, i) => `<option value="${i}"${(r.stage != null ? Number(r.stage) : ((Date.now() - (Date.parse(r.date) || Date.now())) / 864e5 > 10 ? 4 : 0)) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
+      ${isLive(r) && r.gift ? `<div class="adm mk"><label><input type="checkbox" data-mk="giftdone" data-key="${esc(rk(r))}"${r.giftdone ? ' checked' : ''}> 🎁 هدية مفاجأة (وصل العميل للمستوى ${esc(r.gift)}) تم تسليمها</label></div>` : ''}
+      ${isLive(r) ? `<div class="adm mk"><label>🖨 الطابعة <select data-prn data-key="${esc(rk(r))}"><option value="">غير محدد</option>${PRINTERS.map(p => `<option${r.printer === p ? ' selected' : ''}>${p}</option>`).join('')}</select></label> &nbsp; <label>📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${esc(rk(r))}">${STAGES.map((n, i) => `<option value="${i}"${(r.stage != null ? Number(r.stage) : ((Date.now() - (Date.parse(r.date) || Date.now())) / 864e5 > 10 ? 4 : 0)) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
       ${isLive(r) ? `<div class="adm mk"><label><input type="checkbox" data-mk="paid" data-key="${esc(rk(r))}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${esc(rk(r))}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label></div>` : ''}
     </div>`).join('')
     : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : (acctOnly ? 'كل الفواتير أُدخلت للحساب ✔' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».')}</div>`;
@@ -2333,10 +2400,12 @@ function dashHtml() {
   const al = [];
   if (low.length) al.push('🧵 <b>ألوان تحتاج شراء:</b> ' + esc(low.slice(0, 8).map(r => r.t + ' ' + r.c + (r.q === 0 ? ' (نفد)' : '')).join('، ')) + (low.length > 8 ? ' و' + (low.length - 8) + ' أخرى' : ''));
   if (late.length) al.push('⏳ <b>طلبات مضى عليها أكثر من 5 أيام ولم تُسلَّم:</b> ' + late.slice(0, 8).map(r => 'ORD-' + esc(String(r.num))).join('، ') + (late.length > 8 ? ' و' + (late.length - 8) + ' أخرى' : '') + ' <span style="color:var(--mute)">(غيّر المرحلة من سجل الفواتير)</span>');
+  const econ = econHtml(live.filter(r => r.date >= dayOff(t, 29) && r.date <= t));
   return `<div class="period"><h3>📊 أرباح آخر 7 أيام</h3><div style="font-size:30px;font-weight:600;direction:ltr;text-align:right">${fmt(pc)} <small style="font-size:14px;font-weight:400;color:var(--mute)">ر.س</small></div>
     <div style="font-size:13px;margin:4px 0 10px">${trend}</div>
     <div class="kv"><div>الفواتير<b>${cur.length}</b></div><div>المبيعات<b>${fmt(sum(cur, 'total'))}</b></div><div>متوسط الفاتورة<b>${cur.length ? fmt(sum(cur, 'total') / cur.length) : 0}</b></div></div></div>
   <div class="period"><h3>🏆 القطع الأكثر ربحًا (آخر 30 يومًا)</h3>${top.length ? top.map((x, i) => `<div style="margin:0 0 9px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span>${i + 1}. ${esc(x.n)} <span style="color:var(--mute)">× ${x.q}</span></span><b style="direction:ltr">${fmt(x.p)}</b></div><div style="height:6px;border-radius:4px;background:var(--line);margin-top:3px"><i style="display:block;height:100%;width:${Math.max(4, Math.round(x.p / mx * 100))}%;border-radius:4px;background:linear-gradient(90deg,var(--gold-d),var(--gold))"></i></div></div>`).join('') : '<p class="hint" style="margin:0">لا توجد مبيعات في آخر 30 يومًا.</p>'}</div>
+  ${econ}
   <div class="period"><h3>🔔 تنبيهات</h3>${al.length ? al.map(x => '<p style="margin:0 0 8px;line-height:1.8;font-size:13px">' + x + '</p>').join('') : '<p class="hint" style="margin:0">✅ لا توجد تنبيهات: لا نقص في الألوان ولا طلبات متأخرة.</p>'}</div>`;
 }
 function renderStats() {
@@ -2350,6 +2419,7 @@ function renderStats() {
     ['سنوي (هذه السنة)', r => r.date.startsWith(y)]
   ];
   try { $('statDash').innerHTML = dashHtml(); } catch (e) { $('statDash').innerHTML = ''; }
+  try { renderPoll(); } catch (e) {}
   $('statList').innerHTML = statsChartHtml();
   $('statPeriods').innerHTML = periods.map(([name, f]) => {
     const rs = DATA.log.filter(r => isLive(r) && f(r)), s = k => rs.reduce((a, r) => a + r[k], 0);
@@ -2542,6 +2612,11 @@ function savePdf(num) {
   });
 }
 $('logList').addEventListener('change', e => {
+  const pe = e.target.closest('[data-prn]'); if (pe) {
+    google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === pe.dataset.key); if (r) { if (pe.value) r.printer = pe.value; else delete r.printer; } toast('تم تحديث الطابعة' + (pe.value ? ': ' + pe.value : '')); })
+      .withFailureHandler(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))).setPrinter({ key: pe.dataset.key, printer: pe.value });
+    return;
+  }
   const sel = e.target.closest('[data-stg]'); if (!sel) return;
   const key = sel.dataset.key, v = +sel.value;
   google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) r.stage = v; toast('تم تحديث المرحلة: ' + STAGES[v]); })
