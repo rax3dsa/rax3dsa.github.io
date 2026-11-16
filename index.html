@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="RAX3D">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1e1c18">
+<script src="qr.min.js"></script>
 <script>/* ارفض التشغيل داخل إطار موقع آخر (clickjacking): GitHub Pages ما يسمح بترويسة تمنع التأطير */if(window.top!==window.self){try{window.top.location=window.location.href}catch(_){document.documentElement.style.display="none"}}</script>
 <script>
 (function(){try{var m=localStorage.getItem('rax_theme')||'dark',d=document.documentElement;
@@ -1573,6 +1574,34 @@ function loyalty(phone, r) {   // يرجع { earned: نقاط هذي الفات�
   for (const x of (r ? log : [])) { if (isLive(x) && normPhone(x.phone) === ph) bal += Math.floor(+x.total || 0); if (r && x === r) break; if (r && rk(x) === rk(r)) break; }
   return { earned: r && isLive(r) ? Math.floor(+r.total || 0) : 0, balance: bal };
 }
+// ===== QR (فكرة المالك 2، 11-16): رابط متابعة الطلب على الفاتورة وملصق للعبوة. المكتبة qr.min.js؛ لو ما تحمّلت تظهر الفاتورة بدون QR =====
+const TRACK_URL = n => 'https://rax3d.com/?track=1&o=' + encodeURIComponent(n);
+function drawQr(c, text, x, y, size) {   // يرسم QR (هامش 4 وحدات) على canvas؛ false لو تعذّر
+  try {
+    const q = qrcode(0, 'M'); q.addData(text); q.make(); const n = q.getModuleCount(), m = size / (n + 8);
+    c.fillStyle = '#fff'; c.fillRect(x, y, size, size); c.fillStyle = '#111';
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) c.fillRect(Math.round(x + (k + 4) * m), Math.round(y + (r + 4) * m), Math.ceil(m), Math.ceil(m));
+    return true;
+  } catch (e) { return false; }
+}
+function drawLabel(r) {   // ملصق عبوة 600×400: QR لمتابعة الطلب + رقم الطلب
+  const cv = document.createElement('canvas'); cv.width = 600; cv.height = 400; const c = cv.getContext('2d');
+  const F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
+  c.fillStyle = '#FBF5E6'; c.fillRect(0, 0, 600, 400); c.strokeStyle = '#B8902A'; c.lineWidth = 6; c.strokeRect(8, 8, 584, 384);
+  drawQr(c, TRACK_URL(r.num), 30, 60, 290);
+  c.textBaseline = 'middle'; c.textAlign = 'center'; c.direction = 'rtl';
+  c.fillStyle = '#B8902A'; c.font = '800 46px ' + F; c.fillText('RAX3D', 455, 85);
+  c.fillStyle = '#1a1a1a'; c.font = '700 40px ' + F; c.direction = 'ltr'; c.fillText('ORD-' + r.num, 455, 160); c.direction = 'rtl';
+  c.fillStyle = '#444'; c.font = '600 28px ' + F; c.fillText('امسح لمتابعة طلبك', 455, 225);
+  c.font = '400 24px ' + F; c.direction = 'ltr'; c.fillText('rax3d.com', 455, 275); c.fillText('@rax3d.sa', 455, 315);
+  return cv;
+}
+function shareBlob(blob, name) {   // مشاركة/تنزيل بدون إرسال نسخة للإيميل (deliverFile يرسل نسخة)
+  const file = new File([blob], name, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file] }).catch(e => { if (!(e && e.name === 'AbortError')) throw e; });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  return Promise.resolve();
+}
 function drawInvoice(r, logo) {
   const W = 1240, H = 1754, M = 80, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const c = cv.getContext('2d'), F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
@@ -1691,9 +1720,11 @@ function drawInvoice(r, logo) {
   // الفوتر
   const fy = H - 230;
   c.fillStyle = GOLD; c.fillRect(M, fy, W - 2 * M, 5);
-  txt('شكراً لتعاملكم مع RAX3D', W / 2, fy + 50, { a: 'center', s: 30, w: 700, c: GOLD });
-  txt('Instagram: @rax3d.sa   |   TikTok: @rax3d.sa   |   Email: rax3d.sa@hotmail.com', W / 2, fy + 100, { a: 'center', ltr: true, s: 24, c: '#444' });
-  txt('رقم وثيقة العمل الحر: \u2066FL-255870895\u2069', W / 2, fy + 145, { a: 'center', s: 23, c: '#444' });
+  const qrOk = drawQr(c, TRACK_URL(r.num), M, fy + 36, 130), fx = qrOk ? W / 2 + 70 : W / 2;   // QR لمتابعة الطلب يسار الفوتر
+  if (qrOk) txt('امسح لمتابعة طلبك', M + 75, fy + 22, { a: 'center', s: 19, w: 600, c: '#444' });
+  txt('شكراً لتعاملكم مع RAX3D', fx, fy + 50, { a: 'center', s: 30, w: 700, c: GOLD });
+  txt('Instagram: @rax3d.sa   |   TikTok: @rax3d.sa   |   Email: rax3d.sa@hotmail.com', fx, fy + 100, { a: 'center', ltr: true, s: 24, c: '#444' });
+  txt('رقم وثيقة العمل الحر: \u2066FL-255870895\u2069', fx, fy + 145, { a: 'center', s: 23, c: '#444' });
   c.fillStyle = '#111'; c.fillRect(M, fy + 185, W - 2 * M, 14);
   return cv;
 }
@@ -2233,7 +2264,7 @@ function renderLog() {
       <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}${isLoss(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">⚠️ بيعت بأقل من التكلفة ' + fmt(-r.profit) + ' ريال</span>' : ''}${gapOf(r) > 0.005 ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">📉 خصم عن المقترح ' + fmt(gapOf(r)) + ' ريال</span>' : ''}${!isLive(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">🚫 ملغاة</span>' : ''}${pts(r) ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pts(r) + '</span>' : ''}</b><span class="amt"${!isLive(r) ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(r.total)} ريال</span></div>
       <p>${esc(r.desc)}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
-      <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}${isLive(r) ? `<button class="pdf dl pt" data-ed="${esc(rk(r))}">✏️ تعديل السعر</button>` : ''}<button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
+      <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}${isLive(r) ? `<button class="pdf dl pt" data-ed="${esc(rk(r))}">✏️ تعديل السعر</button>` : ''}<button class="pdf" data-qr="${esc(rk(r))}">🏷️ ملصق QR</button><button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
       ${isLive(r) ? `<div class="adm mk"><label>📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${esc(rk(r))}">${STAGES.map((n, i) => `<option value="${i}"${(r.stage != null ? Number(r.stage) : ((Date.now() - (Date.parse(r.date) || Date.now())) / 864e5 > 10 ? 4 : 0)) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
       ${isLive(r) ? `<div class="adm mk"><label><input type="checkbox" data-mk="paid" data-key="${esc(rk(r))}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${esc(rk(r))}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label></div>` : ''}
     </div>`).join('')
@@ -2522,6 +2553,11 @@ $('logList').addEventListener('click', e => {
     const key = mk.dataset.key, field = mk.dataset.mk, on = mk.checked;
     google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) { if (on) r[field] = todayStr(); else delete r[field]; } try { renderAcctSum(); } catch (x) {} })
       .withFailureHandler(er => { mk.checked = !on; toast('تعذّر الحفظ: ' + ((er && er.message) || er)); }).markInvoice({ key: key, field: field, on: on });
+    return;
+  }
+  const qb = e.target.closest('[data-qr]'); if (qb) {
+    const r = DATA.log.find(x => rk(x) === qb.dataset.qr); if (!r) return;
+    drawLabel(r).toBlob(bl => { if (!bl) { toast('تعذّر إنشاء الملصق'); return; } shareBlob(bl, 'ملصق-ORD-' + r.num + '.png').catch(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))); }, 'image/png');
     return;
   }
   const b = e.target.closest('[data-dl]'); if (!b) return;
