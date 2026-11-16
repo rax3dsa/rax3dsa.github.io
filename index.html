@@ -1592,7 +1592,7 @@ function spendByPhone(log) { const m = new Map(); (log || []).forEach(r => { if 
 let SPM = new Map();   // إجمالي المشتريات لكل جوال، يُحدَّث في renderLog
 const tierTag = r => { const ph = normPhone(r.phone); if (ph.length < 9 || !SPM.has(ph)) return ''; const t = TIERS[tierIdx(SPM.get(ph))]; return ` <span class="tag p" title="مستوى الولاء">${t[1]} ${t[0]}</span>`; };
 // ===== ربحية الطابعات والألوان (فكرة المالك 7، 11-16) =====
-const PRINTERS = ['P2S', 'A1 mini'];   // أسماء الطابعات في قائمة الفاتورة؛ لإضافة طابعة أضف اسمها هنا
+const PRINTERS = ['P2S'];   // قرار المالك (11-16): عنده طابعة واحدة فقط P2S (لا A1 mini) دائمًا؛ كل الفواتير تُنسب لها، وقائمة «الطابعة» تظهر فقط لو أُضيفت طابعة ثانية هنا
 const colorKey = c => { const k = String(c || '').trim(); return STK_BYN[CN(k)] || k || 'بدون لون'; };
 function itemEcon(r) {   // ربح كل سطر = قيمته − كلفته − حصته من الخصم؛ وقت الطباعة والوزن من بيانات السطر (للوحدة × العدد)
   const its = r.items || [], sub = its.reduce((a, i) => a + (Number(i.line) || 0), 0) || 1, disc = Number(r.disc) || 0;
@@ -1601,14 +1601,14 @@ function itemEcon(r) {   // ربح كل سطر = قيمته − كلفته − �
 function econHtml(rs) {
   const pr = new Map(), cl = new Map(); let noTime = 0;
   rs.forEach(r => {
-    const e = itemEcon(r), hrs = e.reduce((a, x) => a + x.hrs, 0), key = PRINTERS.includes(r.printer) ? r.printer : 'غير محدد';
+    const e = itemEcon(r), hrs = e.reduce((a, x) => a + x.hrs, 0), key = PRINTERS.includes(r.printer) ? r.printer : (PRINTERS.length === 1 ? PRINTERS[0] : 'غير محدد');
     if (!hrs) noTime++;
     const o = pr.get(key) || { n: 0, h: 0, p: 0 }; o.n++; o.h += hrs; o.p += Number(r.profit) || 0; pr.set(key, o);
     e.forEach(x => { const c = cl.get(x.color) || { g: 0, p: 0, n: 0 }; c.g += x.g; c.p += x.p; c.n++; cl.set(x.color, c); });
   });
   const prRows = [...pr].sort((a, b) => b[1].p - a[1].p).map(([k, o]) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;border-top:1px solid var(--line);padding:7px 0"><span>${esc(k)} <span style="color:var(--mute)">· ${o.n} فاتورة${o.h ? ' · ' + fmt(R2(o.h)) + ' ساعة' : ''}</span></span><b style="direction:ltr">${fmt(R2(o.p))}${o.h ? ' <small style="color:var(--mute)">(' + fmt(R2(o.p / o.h)) + '/س)</small>' : ''}</b></div>`).join('');
   const clRows = [...cl].sort((a, b) => b[1].p - a[1].p).slice(0, 8).map(([k, o]) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;border-top:1px solid var(--line);padding:7px 0"><span>${esc(k)} <span style="color:var(--mute)">· ${o.n} سطر${o.g ? ' · ' + fmt(Math.round(o.g)) + ' غ' : ''}</span></span><b style="direction:ltr">${fmt(R2(o.p))}${o.g ? ' <small style="color:var(--mute)">(' + fmt(R2(o.p / o.g * 100)) + '/100غ)</small>' : ''}</b></div>`).join('');
-  const none = !PRINTERS.some(p => pr.has(p)) ? '<p class="hint" style="margin:8px 0 0">اختر الطابعة في كل فاتورة (قائمة «🖨 الطابعة» في السجل) لتظهر ربحية كل جهاز.</p>' : '';
+  const none = PRINTERS.length > 1 && !PRINTERS.some(p => pr.has(p)) ? '<p class="hint" style="margin:8px 0 0">اختر الطابعة في كل فاتورة (قائمة «🖨 الطابعة» في السجل) لتظهر ربحية كل جهاز.</p>' : '';
   return `<div class="period"><h3>🖨 ربحية الطابعات (آخر 30 يومًا)</h3>${prRows || '<p class="hint" style="margin:0">لا فواتير.</p>'}${none}${noTime ? `<p class="hint" style="margin:8px 0 0">${noTime} فاتورة بلا وقت طباعة مسجّل، فلا تدخل في الربح/ساعة.</p>` : ''}</div>
   <div class="period"><h3>🎨 ربحية الألوان (آخر 30 يومًا)</h3>${clRows || '<p class="hint" style="margin:0">لا فواتير.</p>'}<p class="hint" style="margin:8px 0 0">ربح السطر = قيمته − كلفته − حصته من الخصم. الأقواس: الربح لكل 100 غرام.</p></div>`;
 }
@@ -2332,7 +2332,7 @@ function renderLog() {
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
       <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}${isLive(r) ? `<button class="pdf dl pt" data-ed="${esc(rk(r))}">✏️ تعديل السعر</button>` : ''}<button class="pdf" data-qr="${esc(rk(r))}">🏷️ ملصق QR</button><button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
       ${isLive(r) && r.gift ? `<div class="adm mk"><label><input type="checkbox" data-mk="giftdone" data-key="${esc(rk(r))}"${r.giftdone ? ' checked' : ''}> 🎁 هدية مفاجأة (وصل العميل للمستوى ${esc(r.gift)}) تم تسليمها</label></div>` : ''}
-      ${isLive(r) ? `<div class="adm mk"><label>🖨 الطابعة <select data-prn data-key="${esc(rk(r))}"><option value="">غير محدد</option>${PRINTERS.map(p => `<option${r.printer === p ? ' selected' : ''}>${p}</option>`).join('')}</select></label> &nbsp; <label>📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${esc(rk(r))}">${STAGES.map((n, i) => `<option value="${i}"${(r.stage != null ? Number(r.stage) : ((Date.now() - (Date.parse(r.date) || Date.now())) / 864e5 > 10 ? 4 : 0)) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
+      ${isLive(r) ? `<div class="adm mk"><label>${PRINTERS.length > 1 ? `🖨 الطابعة <select data-prn data-key="${esc(rk(r))}"><option value="">غير محدد</option>${PRINTERS.map(p => `<option${r.printer === p ? ' selected' : ''}>${p}</option>`).join('')}</select></label> &nbsp; <label>` : ''}📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${esc(rk(r))}">${STAGES.map((n, i) => `<option value="${i}"${(r.stage != null ? Number(r.stage) : ((Date.now() - (Date.parse(r.date) || Date.now())) / 864e5 > 10 ? 4 : 0)) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
       ${isLive(r) ? `<div class="adm mk"><label><input type="checkbox" data-mk="paid" data-key="${esc(rk(r))}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${esc(rk(r))}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label></div>` : ''}
     </div>`).join('')
     : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : (acctOnly ? 'كل الفواتير أُدخلت للحساب ✔' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».')}</div>`;
