@@ -983,7 +983,23 @@ async function publicWritePoints(token, p) {
   const tgt = { repo: PTS_REPO, token: token, _public: PTS_PATH };
   await updateJson(tgt, PTS_PATH, null, cur => (cur && cur.v === 2 && JSON.stringify(cur.p) === JSON.stringify(p)) ? undefined : { v: 2, updated: Date.now(), p: p }, 'تحديث أرصدة نقاط الولاء');
 }
-const publishPointsSoon = () => { publishPoints().catch(() => {}); };
+// ===== مراحل الطلب للعميل (تتبّع الطلب في المتجر): tracking_private.json في المستودع الخاص: جوال ← طلباته (رقم، تاريخ، مرحلة، قطع). الـ worker يقرأ منه بعد تحقق المتجر من الجوال. =====
+// المرحلة تتحدد من قائمة «مرحلة الطلب» في كل فاتورة (الدعم الفني). الفاتورة بلا مرحلة: أقدم من 10 أيام = «تم التسليم»، وإلا «تم اعتماد الطلب».
+const STAGES = ['تم اعتماد الطلب', 'قيد الطباعة', 'التجميع والفحص', 'جاهز للتسليم', 'تم التسليم'];
+async function publishTracking() {
+  const sync = getSync(); if (!sync) return 0;
+  const db0 = loadDb(), now = Date.now(), o = {};
+  (db0.log || []).forEach(r => {
+    if (!isLive(r)) return; const ph = normPhone(r.phone); if (ph.length < 9) return;
+    const t = Date.parse(r.date) || now, age = (now - t) / 864e5; if (age > 180) return;
+    const st = r.stage != null ? Math.max(0, Math.min(4, Number(r.stage) || 0)) : (age > 10 ? 4 : 0);
+    (o[ph] = o[ph] || []).push({ n: Number(r.num) || r.num, d: String(r.date), st: st, it: (r.items || []).slice(0, 6).map(i => String(i.desc || '').slice(0, 60) + (i.q > 1 ? ' ×' + i.q : '')) });
+  });
+  for (const k in o) o[k] = o[k].sort((a, b) => b.n - a.n).slice(0, 15);
+  await updateJson(sync, 'tracking_private.json', null, cur => (cur && cur.v === 1 && JSON.stringify(cur.o) === JSON.stringify(o)) ? undefined : { v: 1, updated: Date.now(), o: o }, 'تحديث مراحل الطلبات (خاص)');
+  return Object.keys(o).length;
+}
+const publishPointsSoon = () => { publishPoints().catch(() => {}); publishTracking().catch(() => {}); };
 let flushing = null;
 function flushPending() {   // جوال مدخل البيانات يرسل فواتيره للدعم الفني
   if (flushing) return flushing;
@@ -1465,6 +1481,12 @@ const API = {
     db.pending.push(Object.assign({ num: r.num, by: 'partner', edit: true, prices: prices, ts: Date.now(), date: todayStr() }, shared ? { key: d.key } : {})); saveDb(db);
     flushPending().catch(() => {});
     return { num: r.num, total: r.total };
+  },
+  async setStage(d) {   // مرحلة الطلب (0..4) للتتبّع في المتجر: الدعم الفني فقط
+    const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
+    const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
+    r.stage = Math.max(0, Math.min(4, Math.floor(+d.stage) || 0));
+    saveDb(db); publishPointsSoon(); return { ok: true, stage: r.stage };
   },
   async markInvoice(d) {   // v99: علامتا الدعم الفني (دفع العميل / أُدخل للحساب) — للتتبع فقط، لا تدخل في أي حساب أو توزيع
     const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
@@ -2212,6 +2234,7 @@ function renderLog() {
       <p>${esc(r.desc)}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
       <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}${isLive(r) ? `<button class="pdf dl pt" data-ed="${esc(rk(r))}">✏️ تعديل السعر</button>` : ''}<button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
+      ${isLive(r) ? `<div class="adm mk"><label>📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${esc(rk(r))}">${STAGES.map((n, i) => `<option value="${i}"${(r.stage != null ? Number(r.stage) : ((Date.now() - (Date.parse(r.date) || Date.now())) / 864e5 > 10 ? 4 : 0)) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
       ${isLive(r) ? `<div class="adm mk"><label><input type="checkbox" data-mk="paid" data-key="${esc(rk(r))}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${esc(rk(r))}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label></div>` : ''}
     </div>`).join('')
     : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : (acctOnly ? 'كل الفواتير أُدخلت للحساب ✔' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».')}</div>`;
@@ -2459,6 +2482,12 @@ function savePdf(num) {
     fileReady(blob, name, prev);
   });
 }
+$('logList').addEventListener('change', e => {
+  const sel = e.target.closest('[data-stg]'); if (!sel) return;
+  const key = sel.dataset.key, v = +sel.value;
+  google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) r.stage = v; toast('تم تحديث المرحلة: ' + STAGES[v]); })
+    .withFailureHandler(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))).setStage({ key: key, stage: v });
+});
 $('logList').addEventListener('click', e => {
   const ed = e.target.closest('[data-ed]'); if (ed) { if (DATA && DATA.role === 'partner') openPriceEdit(ed.dataset.ed); else openEdit(ed.dataset.ed); return; }
   const mk = e.target.closest('[data-mk]'); if (mk) {
