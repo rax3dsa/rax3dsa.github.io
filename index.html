@@ -269,6 +269,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button type="button" id="navT"><span id="navTx">فاتورة جديدة</span><span><i id="navDot" hidden style="width:9px;height:9px;border-radius:50%;background:#e5484d"></i><b>▾</b></span></button>
     <div class="nl">
     <button class="on" data-tab="new">فاتورة جديدة</button>
+    <button data-tab="orders" id="ordersTab">الطلبات<i id="ordersDot" hidden></i></button>
     <button data-tab="log">السجل</button>
     <button data-tab="stats" class="adm">الإحصائيات</button>
     <button data-tab="settings" class="adm">الإعدادات</button>
@@ -293,6 +294,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div id="items"></div>
     <datalist id="catList"></datalist>
     <button class="add" id="addBtn">+ إضافة قطعة</button>
+  </section>
+
+  <section id="orders">
+    <h2 style="margin:6px 0 2px;font-size:20px">📦 طلبات الموقع</h2>
+    <div class="hint" id="ordSync" style="margin-bottom:8px">جاري جلب الطلبات…</div>
+    <div id="ordFilter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <div id="ordList"></div>
+    <div class="tools"><button class="ghost" id="ordRefresh" type="button">🔄 تحديث</button><button class="ghost" id="ordNotif" type="button">🔔 فعّل إشعارات الطلبات</button></div>
   </section>
 
   <section id="log">
@@ -1498,7 +1507,7 @@ const API = {
     const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
     const r = db.log.find(x => rk(x) === d.key); if (!r) throw new Error('الفاتورة غير موجودة');
     r.stage = Math.max(0, Math.min(4, Math.floor(+d.stage) || 0));
-    saveDb(db); publishPointsSoon(); return { ok: true, stage: r.stage };
+    saveDb(db); publishPointsSoon(); if (r.online) ordSetStage(Number(r.num), r.stage).catch(() => {}); return { ok: true, stage: r.stage };
   },
   async markInvoice(d) {   // v99: علامتا الدعم الفني (دفع العميل / أُدخل للحساب) — للتتبع فقط، لا تدخل في أي حساب أو توزيع
     const db = loadDb(); if (db.role !== 'admin') throw new Error('NOT_ADMIN');
@@ -1639,6 +1648,66 @@ async function renderPoll() {
     else now.textContent = 'لا يوجد تصويت نشط الآن.';
   } catch (e) { document.getElementById('pollNow').textContent = 'تعذّر جلب التصويت الحالي (تأكد من الاتصال).'; }
 }
+// ===== طلبات الموقع (طلب المالك 11-17): قسم «الطلبات» للدعم الفني ومدخل البيانات معًا. المصدر partner_log.json (الـ worker يضيف كل طلب من الموقع)، والمرحلة في order_stages.json المشترك (يقرأها الـ worker فيراها العميل في المتجر) =====
+let ORD = [], ORD_ST = {}, ORD_F = -1, ORD_OK = false;
+const ordNum = r => Number(r.num);
+async function ordLoad() {
+  const sync = getSync(); if (!sync) { document.getElementById('ordSync').textContent = 'اربط الترقيم المشترك أولاً (الإحصائيات ← الترقيم المشترك) لتظهر الطلبات.'; return false; }
+  try {
+    const [pl, sg] = await Promise.all([readJson(sync, 'partner_log.json', []), readJson(sync, 'order_stages.json', { v: 1, o: {} })]);
+    const arr = Array.isArray(pl.data) ? pl.data : [], voided = new Set(arr.filter(x => x && x.void != null).map(x => Number(x.void)));
+    ORD = arr.filter(x => x && x.online && !voided.has(ordNum(x))).sort((a, b) => ordNum(b) - ordNum(a)); ORD_ST = (sg.data && sg.data.o) || {}; ORD_OK = true;
+    document.getElementById('ordSync').textContent = 'آخر تحديث ' + nowStr(); return true;
+  } catch (e) { document.getElementById('ordSync').textContent = 'تعذّر جلب الطلبات: ' + ((e && e.message) || e); return false; }
+}
+const ordSt = r => { const o = ORD_ST[String(ordNum(r))]; return o ? Math.max(0, Math.min(4, +o.st || 0)) : (r.stage != null ? Math.max(0, Math.min(4, +r.stage || 0)) : 0); };
+const ordPay = r => r.cod ? '💵 دفع عند الاستلام' : '💳 دفع إلكتروني';
+const ordMode = r => r.mode === 'delivery' || (r.mode == null && !r.cod && Number(r.ship) > 0) ? '🚚 توصيل' : '🤝 استلام مباشر';
+function ordSpend(ph) { let v = 0; ORD.forEach(r => { if (normPhone(r.phone) === ph) v += Number(r.total) || 0; }); return v; }
+function ordCounts() { const c = [0, 0, 0, 0, 0]; ORD.forEach(r => { c[ordSt(r)]++; }); return c; }
+function ordRender() {
+  const c = ordCounts(), tot = ORD.length;
+  document.getElementById('ordFilter').innerHTML = [['الكل', tot, -1]].concat(STAGES.map((n, i) => [n, c[i], i])).map(([n, k, i]) => `<button type="button" data-of="${i}" class="${ORD_F === i ? 'save' : 'ghost'}" style="padding:7px 12px;font-size:13px">${esc(n)} <b>${k}</b></button>`).join('');
+  const rows = ORD.filter(r => ORD_F < 0 || ordSt(r) === ORD_F), db = loadDb();
+  document.getElementById('ordList').innerHTML = rows.length ? rows.map(r => {
+    const ph = normPhone(r.phone), sp = ordSpend(ph), ti = TIERS[tierIdx(sp)], pts = (DATA && DATA.role === 'admin') ? ptsBalanceFor(ph, db) : null;
+    return `<div class="row"><div class="row-h"><b>${esc(r.client || 'بدون اسم')}</b> <span class="tag p">${ti[1]} ${ti[0]}</span>${pts != null ? ` <span class="tag p">⭐ ${pts}</span>` : ''}</div>
+      <p>${esc(r.desc || '')}</p>
+      <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(String(r.num))}</b> &nbsp; ${esc(r.date || '')} &nbsp; <a href="tel:${esc(r.phone || '')}" dir="ltr">${esc(r.phone || '')}</a></span><span>${fmt(Number(r.total) || 0)} ر.س</span></div>
+      <div class="hint" style="margin:6px 0">${ordPay(r)} · ${ordMode(r)}</div>
+      <div class="adm mk" style="display:block"><label>📦 مرحلة الطلب <select data-ost data-num="${esc(String(r.num))}">${STAGES.map((n, i) => `<option value="${i}"${ordSt(r) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div></div>`;
+  }).join('') : '<div class="empty">لا طلبات في هذه المرحلة.</div>';
+  const n0 = c[0]; document.getElementById('ordersDot').hidden = !n0; document.getElementById('ordersDot').textContent = n0 || '';
+}
+async function ordSetStage(num, st) {   // يكتب المرحلة في الملف المشترك (كل من المالك ومدخل البيانات)، ولو في سجل المالك الفاتورة نفسها تتحدّث وتنعكس للعميل
+  const sync = getSync(); if (!sync) throw new Error('اربط الترقيم المشترك أولاً');
+  await updateJson(sync, 'order_stages.json', { v: 1, o: {} }, d => { d = d && d.o ? d : { v: 1, o: {} }; d.o[String(num)] = { st: st, at: new Date().toISOString(), by: (DATA && DATA.role) || '' }; return d; }, 'مرحلة الطلب ORD-' + num + ': ' + STAGES[st]);
+  ORD_ST[String(num)] = { st: st };
+  try { const db = loadDb(); if (db.role === 'admin') { const r = db.log.find(x => Number(x.num) === Number(num)); if (r) { r.stage = st; saveDb(db); publishPointsSoon(); } } } catch (e) {}
+}
+document.getElementById('ordFilter').addEventListener('click', e => { const b = e.target.closest('[data-of]'); if (!b) return; ORD_F = +b.dataset.of; ordRender(); });
+document.getElementById('ordList').addEventListener('change', e => {
+  const s = e.target.closest('[data-ost]'); if (!s) return; const num = +s.dataset.num, st = +s.value;
+  ordSetStage(num, st).then(() => { ordRender(); toast('تم تحديث ORD-' + num + ': ' + STAGES[st]); }).catch(er => { toast('تعذّر الحفظ: ' + ((er && er.message) || er)); ordLoad().then(ordRender); });
+});
+document.getElementById('ordRefresh').onclick = () => { ordLoad().then(ordRender); };
+document.getElementById('ordNotif').onclick = () => { if (!('Notification' in window)) return toast('المتصفح لا يدعم الإشعارات. ستظهر لك رسالة داخل التطبيق وتصلك رسالة بالإيميل.'); Notification.requestPermission().then(p => toast(p === 'granted' ? '✔ فُعّلت إشعارات الطلبات' : 'لم تُفعَّل الإشعارات')); };
+let ORD_SEEN_KEY = 'rax3d_ord_seen';
+async function ordPoll() {   // تنبيه فوري داخل التطبيق لما يجي طلب جديد من الموقع (لكل من المالك وأحمد؛ ويصل الاثنين إيميل من الـ worker)
+  if (!getSync() || !DATA) return; const ok = await ordLoad(); if (!ok) return;
+  const mx = ORD.reduce((a, r) => Math.max(a, ordNum(r)), 0); let seen = null; try { seen = localStorage.getItem(ORD_SEEN_KEY); } catch (e) {}
+  if (seen === null) { try { localStorage.setItem(ORD_SEEN_KEY, String(mx)); } catch (e) {} }
+  else if (mx > +seen) {
+    const fresh = ORD.filter(r => ordNum(r) > +seen); try { localStorage.setItem(ORD_SEEN_KEY, String(mx)); } catch (e) {}
+    const r = fresh[0], t = '🛒 طلب جديد ' + (fresh.length > 1 ? '(' + fresh.length + ') ' : '') + 'ORD-' + r.num + ' · ' + (r.client || '') + ' · ' + fmt(Number(r.total) || 0) + ' ر.س';
+    toast(t); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {}
+    try { if ('Notification' in window && Notification.permission === 'granted') new Notification('RAX3D', { body: t }); } catch (e) {}
+  }
+  ordRender(); try { if (document.getElementById('stats').classList.contains('on')) renderStats(); } catch (e) {}
+}
+setInterval(() => { if (!document.hidden) ordPoll(); }, 45000);
+setTimeout(() => { ordPoll().catch(() => {}); }, 4000);
+document.querySelector('nav button[data-tab="orders"]').addEventListener('click', () => { ordLoad().then(ordRender); });
 // ===== QR (فكرة المالك 2، 11-16): رابط متابعة الطلب على الفاتورة وملصق للعبوة. المكتبة qr.min.js؛ لو ما تحمّلت تظهر الفاتورة بدون QR =====
 const TRACK_URL = n => 'https://rax3d.com/?track=1&o=' + encodeURIComponent(n);
 function drawQr(c, text, x, y, size) {   // يرسم QR (هامش 4 وحدات) على canvas؛ false لو تعذّر
@@ -1649,16 +1718,32 @@ function drawQr(c, text, x, y, size) {   // يرسم QR (هامش 4 وحدات) 
     return true;
   } catch (e) { return false; }
 }
-function drawLabel(r) {   // ملصق عبوة 600×400: QR لمتابعة الطلب + رقم الطلب
-  const cv = document.createElement('canvas'); cv.width = 600; cv.height = 400; const c = cv.getContext('2d');
+function drawIg(c, x, y, z) {   // شعار انستقرام: مربع بتدرّج + كاميرا
+  const g = c.createLinearGradient(x, y + z, x + z, y); g.addColorStop(0, '#FEDA75'); g.addColorStop(.35, '#FA7E1E'); g.addColorStop(.65, '#D62976'); g.addColorStop(1, '#4F5BD5');
+  c.fillStyle = g; c.beginPath(); c.roundRect(x, y, z, z, z * .28); c.fill();
+  c.strokeStyle = '#fff'; c.lineWidth = z * .075; c.beginPath(); c.roundRect(x + z * .19, y + z * .19, z * .62, z * .62, z * .18); c.stroke();
+  c.beginPath(); c.arc(x + z / 2, y + z / 2, z * .15, 0, 7); c.stroke(); c.fillStyle = '#fff'; c.beginPath(); c.arc(x + z * .68, y + z * .32, z * .045, 0, 7); c.fill();
+}
+function drawTt(c, x, y, z) {   // شعار تيك توك: مربع أسود + نوتة بظل سماوي وأحمر
+  c.fillStyle = '#000'; c.beginPath(); c.roundRect(x, y, z, z, z * .22); c.fill();
+  const note = (dx, col) => { c.fillStyle = col; c.strokeStyle = col; c.lineWidth = z * .085; c.lineCap = 'round';
+    c.beginPath(); c.arc(x + z * .42 + dx, y + z * .68, z * .13, 0, 7); c.fill();
+    c.beginPath(); c.moveTo(x + z * .53 + dx, y + z * .66); c.lineTo(x + z * .53 + dx, y + z * .24); c.bezierCurveTo(x + z * .55 + dx, y + z * .34, x + z * .66 + dx, y + z * .4, x + z * .78 + dx, y + z * .4); c.stroke(); };
+  note(-z * .03, '#25F4EE'); note(z * .03, '#FE2C55'); note(0, '#fff');
+}
+async function drawLabel(r) {   // ملصق عبوة 600×400: QR لمتابعة الطلب + رقم الطلب + شعار الموقع وانستقرام وتيك توك مع الحسابات
+  const cv = document.createElement('canvas'); cv.width = 600; cv.height = 400; const c = cv.getContext('2d'), logo = await getLogo();
   const F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
   c.fillStyle = '#FBF5E6'; c.fillRect(0, 0, 600, 400); c.strokeStyle = '#B8902A'; c.lineWidth = 6; c.strokeRect(8, 8, 584, 384);
-  drawQr(c, TRACK_URL(r.num), 30, 60, 290);
+  drawQr(c, TRACK_URL(r.num), 28, 56, 290);
   c.textBaseline = 'middle'; c.textAlign = 'center'; c.direction = 'rtl';
-  c.fillStyle = '#B8902A'; c.font = '800 46px ' + F; c.fillText('RAX3D', 455, 85);
-  c.fillStyle = '#1a1a1a'; c.font = '700 40px ' + F; c.direction = 'ltr'; c.fillText('ORD-' + r.num, 455, 160); c.direction = 'rtl';
-  c.fillStyle = '#444'; c.font = '600 28px ' + F; c.fillText('امسح لمتابعة طلبك', 455, 225);
-  c.font = '400 24px ' + F; c.direction = 'ltr'; c.fillText('rax3d.com', 455, 275); c.fillText('@rax3d.sa', 455, 315);
+  c.fillStyle = '#B8902A'; c.font = '800 44px ' + F; c.fillText('RAX3D', 455, 78);
+  c.fillStyle = '#1a1a1a'; c.font = '700 38px ' + F; c.direction = 'ltr'; c.fillText('ORD-' + r.num, 455, 135); c.direction = 'rtl';
+  c.fillStyle = '#444'; c.font = '600 25px ' + F; c.fillText('امسح لمتابعة طلبك', 455, 183);
+  // الشعارات والحسابات (كل سطر: شعار ثم النص)
+  const rows = [['rax3d.com', y => { if (logo) { const h = 34, w = logo.width / logo.height * h; c.drawImage(logo, 352, y - h / 2, Math.min(w, 70), h); } else { c.fillStyle = '#B8902A'; c.beginPath(); c.arc(369, y, 17, 0, 7); c.fill(); } }], ['@rax3d.sa', y => drawIg(c, 352, y - 17, 34)], ['@rax3d.sa', y => drawTt(c, 352, y - 17, 34)]];
+  c.direction = 'ltr'; c.textAlign = 'left'; c.fillStyle = '#222'; c.font = '600 24px ' + F;
+  rows.forEach(([t, ic], k) => { const y = 238 + k * 52; ic(y); c.fillStyle = '#222'; c.font = '600 24px ' + F; c.fillText(t, 428, y); });
   return cv;
 }
 function shareBlob(blob, name) {   // مشاركة/تنزيل بدون إرسال نسخة للإيميل (deliverFile يرسل نسخة)
@@ -2401,11 +2486,12 @@ function dashHtml() {
   if (low.length) al.push('🧵 <b>ألوان تحتاج شراء:</b> ' + esc(low.slice(0, 8).map(r => r.t + ' ' + r.c + (r.q === 0 ? ' (نفد)' : '')).join('، ')) + (low.length > 8 ? ' و' + (low.length - 8) + ' أخرى' : ''));
   if (late.length) al.push('⏳ <b>طلبات مضى عليها أكثر من 5 أيام ولم تُسلَّم:</b> ' + late.slice(0, 8).map(r => 'ORD-' + esc(String(r.num))).join('، ') + (late.length > 8 ? ' و' + (late.length - 8) + ' أخرى' : '') + ' <span style="color:var(--mute)">(غيّر المرحلة من سجل الفواتير)</span>');
   const econ = econHtml(live.filter(r => r.date >= dayOff(t, 29) && r.date <= t));
+  const oc = ORD_OK ? ordCounts() : null, ordCard = oc ? `<div class="period"><h3>📦 حالة طلبات الموقع</h3><div class="kv">${STAGES.map((n, i) => `<div>${esc(n)}<b>${oc[i]}</b></div>`).join('')}<div>الإجمالي<b>${ORD.length}</b></div></div></div>` : '';
   return `<div class="period"><h3>📊 أرباح آخر 7 أيام</h3><div style="font-size:30px;font-weight:600;direction:ltr;text-align:right">${fmt(pc)} <small style="font-size:14px;font-weight:400;color:var(--mute)">ر.س</small></div>
     <div style="font-size:13px;margin:4px 0 10px">${trend}</div>
     <div class="kv"><div>الفواتير<b>${cur.length}</b></div><div>المبيعات<b>${fmt(sum(cur, 'total'))}</b></div><div>متوسط الفاتورة<b>${cur.length ? fmt(sum(cur, 'total') / cur.length) : 0}</b></div></div></div>
   <div class="period"><h3>🏆 القطع الأكثر ربحًا (آخر 30 يومًا)</h3>${top.length ? top.map((x, i) => `<div style="margin:0 0 9px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span>${i + 1}. ${esc(x.n)} <span style="color:var(--mute)">× ${x.q}</span></span><b style="direction:ltr">${fmt(x.p)}</b></div><div style="height:6px;border-radius:4px;background:var(--line);margin-top:3px"><i style="display:block;height:100%;width:${Math.max(4, Math.round(x.p / mx * 100))}%;border-radius:4px;background:linear-gradient(90deg,var(--gold-d),var(--gold))"></i></div></div>`).join('') : '<p class="hint" style="margin:0">لا توجد مبيعات في آخر 30 يومًا.</p>'}</div>
-  ${econ}
+  ${ordCard}${econ}
   <div class="period"><h3>🔔 تنبيهات</h3>${al.length ? al.map(x => '<p style="margin:0 0 8px;line-height:1.8;font-size:13px">' + x + '</p>').join('') : '<p class="hint" style="margin:0">✅ لا توجد تنبيهات: لا نقص في الألوان ولا طلبات متأخرة.</p>'}</div>`;
 }
 function renderStats() {
@@ -2632,7 +2718,7 @@ $('logList').addEventListener('click', e => {
   }
   const qb = e.target.closest('[data-qr]'); if (qb) {
     const r = DATA.log.find(x => rk(x) === qb.dataset.qr); if (!r) return;
-    drawLabel(r).toBlob(bl => { if (!bl) { toast('تعذّر إنشاء الملصق'); return; } shareBlob(bl, 'ملصق-ORD-' + r.num + '.png').catch(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))); }, 'image/png');
+    drawLabel(r).then(cv => cv.toBlob(bl => { if (!bl) { toast('تعذّر إنشاء الملصق'); return; } shareBlob(bl, 'ملصق-ORD-' + r.num + '.png').catch(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))); }, 'image/png'));
     return;
   }
   const b = e.target.closest('[data-dl]'); if (!b) return;
