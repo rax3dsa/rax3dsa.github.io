@@ -717,6 +717,8 @@ async function pbkdf2(pass, salt, iter, bits) {
 const PIN_ITER = 200000;
 async function pinHashNew(p) { const s = crypto.getRandomValues(new Uint8Array(16)); return 'p2$' + PIN_ITER + '$' + hex(s) + '$' + hex(await pbkdf2(p, s, PIN_ITER)); }
 async function pinCheck(p, stored) { const a = String(stored || '').split('$'); if (a[0] !== 'p2' || !a[3]) return false; return hex(await pbkdf2(p, unhex(a[2]), +a[1])) === a[3]; }
+// رمز مدخل البيانات: نفس تشفير الأدمن (PBKDF2 + ملح). القديم (SHA-256 بلا ملح) يظل يعمل ويترقّى عند أول دخول ناجح
+async function partnerOk(p, stored) { stored = String(stored || ''); if (!p || !stored) return false; if (stored.indexOf('p2$') === 0) return pinCheck(p, stored); return (await hashPin(p)) === stored; }
 let PIN_MEMO = null;   // آخر رمز صحيح بهذي الجلسة (بالذاكرة فقط) عشان ما نعيد الحساب الثقيل مع كل عملية
 async function adminPinOk(db, p) {
   const P = db.pins || {}; if (!p) return false;
@@ -726,7 +728,7 @@ async function adminPinOk(db, p) {
 async function migratePins() {   // ترحيل الرموز المحفوظة نص صريح ← هاش (مرة وحدة عند أول فتح)
   const P = Object.assign({}, loadDb().pins || {}); let ch = false;
   if (P.admin) { P.adminH = await pinHashNew(P.admin); ch = true; }
-  if (P.partner) { P.partnerSH = await hashPin(P.partner); ch = true; }
+  if (P.partner) { P.partnerSH = await pinHashNew(P.partner); ch = true; }
   if (!ch) return false;
   const d2 = loadDb(); d2.pins = Object.assign({}, d2.pins || {}, { adminH: P.adminH || (d2.pins || {}).adminH, partnerSH: P.partnerSH || (d2.pins || {}).partnerSH });
   if (!d2.pins.partnerSH) delete d2.pins.partnerSH; if (!d2.pins.adminH) delete d2.pins.adminH;
@@ -941,19 +943,22 @@ async function auth(db, pin, refresh) {
   if (db.role === 'admin') ok = await adminPinOk(db, p);
   else {
     if (refresh) await pullShared(db);
-    ok = !!p && !!(db.shared && db.shared.partnerHash) && (await hashPin(p)) === db.shared.partnerHash;
+    ok = !!p && !!(db.shared && db.shared.partnerHash) && await partnerOk(p, db.shared.partnerHash);
+    if (ok && String(db.shared.partnerHash).indexOf('p2$') !== 0) upgradePartnerHash(p, db.shared.partnerHash);
   }
   if (ok) { if (db.fails.n) { db.fails = { n: 0, until: 0 }; saveDb(db); } return db.role; }
   db.fails.n = (db.fails.n || 0) + 1;
   if (db.fails.n >= 10) db.fails = { n: 0, until: Date.now() + 15 * 60 * 1000 };
   saveDb(db); throw new Error('BAD_PIN');
 }
+// ترقية هاش مدخل البيانات القديم إلى PBKDF2 بصمت (مرة وحدة، لو فيه ربط مزامنة)
+async function upgradePartnerHash(p, oldHash) { try { const sync = getSync(); if (!sync) return; const nh = await pinHashNew(p); const shared = await updateJson(sync, 'shared.json', null, cur => (cur && cur.partnerHash === oldHash) ? Object.assign({}, cur, { partnerHash: nh }) : undefined, 'ترقية تشفير رمز مدخل البيانات'); const db = loadDb(); if (db.role === 'partner' && shared) { db.shared = shared; saveDb(db); } } catch (e) {} }
 async function adminDb(pin) { const db = loadDb(); if (await auth(db, pin) !== 'admin') throw new Error('NOT_ADMIN'); return db; }
 const partnerSettings = db => Object.assign({}, DEF_SETTINGS, (db.shared && db.shared.settings) || {});
 async function pushShared(newPin) {   // الدعم الفني يرسل الإعدادات والقطع المحفوظة ورمز مدخل البيانات (مشفّر)
   const db = loadDb(), sync = getSync();
   if (db.role !== 'admin' || !sync) return false;
-  const mine = newPin ? await hashPin(newPin) : (db.pins && db.pins.partnerSH ? db.pins.partnerSH : (db.pins && db.pins.partner ? await hashPin(db.pins.partner) : ''));
+  const mine = newPin ? await pinHashNew(newPin) : (db.pins && db.pins.partnerSH ? db.pins.partnerSH : (db.pins && db.pins.partner ? await pinHashNew(db.pins.partner) : ''));
   const data = { v: 1, settings: db.settings, catalog: db.catalog, mail: db.recMail || DEF_MAIL, updated: new Date().toISOString() };
   // لو مدخل البيانات اختار رقمه بنفسه، ما نرجّع الرقم القديم
   await updateJson(sync, 'shared.json', null, cur => Object.assign({}, data, { partnerHash: newPin ? mine : ((cur && cur.partnerHash) || mine), pinChangedTs: newPin ? Date.now() : ((cur && cur.pinChangedTs) || 0) }), 'إعدادات مشتركة');
@@ -1031,7 +1036,7 @@ async function doReset(sync, d) {
     ok = true; x.status = 'done'; x.reply = 'تم تغيير الرقم السري ✔'; x.doneAt = nowStr(); x.doneTs = Date.now(); return arr;
   }, 'تم تغيير رقم مدخل البيانات');
   if (!ok) throw new Error('هذا الرابط مستخدم أو انتهت صلاحيته — اطلب رابط جديد من الدعم الفني');
-  const h = await hashPin(p), ts = Date.now();
+  const h = await pinHashNew(p), ts = Date.now();
   const shared = await updateJson(sync, 'shared.json', null, cur => Object.assign({}, cur || {}, { partnerHash: h, pinChangedTs: ts }), 'رقم سري جديد لمدخل البيانات');
   const db = loadDb(); if (db.role === 'partner') { db.shared = shared; db.fails = { n: 0, until: 0 }; saveDb(db); }
   sendMail((shared && shared.mail) || DEF_MAIL, { _subject: '✅ مدخل البيانات غيّر الرقم السري', 'التفاصيل': 'تم تغيير الرقم السري لمدخل البيانات بعد موافقتك', 'الوقت': nowStr() }).catch(() => {});
@@ -1237,7 +1242,7 @@ const API = {
     const db = await adminDb(pin);
     const a = String((d && d.admin) || '').trim();
     if (!/^[0-9]{4,12}$/.test(a)) throw new Error('الرمز لازم يكون أرقام من 4 إلى 12 خانة');
-    if ((db.pins.partner && a === db.pins.partner) || (db.pins.partnerSH && (await hashPin(a)) === db.pins.partnerSH)) throw new Error('رمز الدعم الفني لازم يختلف عن رمز مدخل البيانات');
+    if ((db.pins.partner && a === db.pins.partner) || (db.pins.partnerSH && await partnerOk(a, db.pins.partnerSH))) throw new Error('رمز الدعم الفني لازم يختلف عن رمز مدخل البيانات');
     db.pins.adminH = await pinHashNew(a); delete db.pins.admin; PIN_MEMO = null; saveDb(db); return true;
   },
   async setPartnerPin(d, pin) {
@@ -1245,7 +1250,7 @@ const API = {
     const p = String((d && d.pin) || '').trim();
     if (!/^[0-9]{4,12}$/.test(p)) throw new Error('الرمز لازم يكون أرقام من 4 إلى 12 خانة');
     if (await adminPinOk(db, p)) throw new Error('رمز مدخل البيانات لازم يختلف عن رمز الدعم الفني');
-    db.pins.partnerSH = await hashPin(p); delete db.pins.partner; saveDb(db);
+    db.pins.partnerSH = await pinHashNew(p); delete db.pins.partner; saveDb(db);
     if (!getSync()) return { synced: false };
     await pushShared(p); return { synced: true };
   },
@@ -1335,7 +1340,7 @@ const API = {
     const sync = { repo: j.r, token: j.t };
     const c = await readJson(sync, 'shared.json', null);
     if (!c.data) throw new Error('الدعم الفني ما فعّل الترقيم المشترك بعد');
-    const h = await hashPin(p);
+    const h = await pinHashNew(p);
     const shared = await updateJson(sync, 'shared.json', null, cur => Object.assign({}, cur || {}, { partnerHash: h }), 'ربط جوال مدخل البيانات');
     setSync(sync);
     const db = loadDb(); db.role = 'partner'; db.shared = shared; db.pins = null; db.fails = { n: 0, until: 0 }; db.seenPinTs = Date.now(); saveDb(db);
