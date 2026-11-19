@@ -22,6 +22,7 @@ var t=document.querySelector('meta[name=theme-color]');if(t)t.setAttribute('cont
 <meta name="referrer" content="no-referrer">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -301,7 +302,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div class="hint" id="ordSync" style="margin-bottom:8px">جاري جلب الطلبات…</div>
     <div id="ordFilter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <div id="ordList"></div>
-    <div class="tools"><button class="ghost" id="ordRefresh" type="button">🔄 تحديث</button><button class="ghost" id="ordNotif" type="button">🔔 فعّل إشعارات الطلبات</button></div>
+    <div class="tools"><button class="ghost" id="ordRefresh" type="button">🔄 تحديث</button><button class="ghost" id="ordNotif" type="button">🔔 فعّل إشعارات الجوال للطلبات</button></div>
   </section>
 
   <section id="log">
@@ -1702,7 +1703,23 @@ document.getElementById('ordList').addEventListener('change', e => {
   ordSetStage(num, st).then(() => { ordRender(); toast('تم تحديث ORD-' + num + ': ' + STAGES[st]); }).catch(er => { toast('تعذّر الحفظ: ' + ((er && er.message) || er)); ordLoad().then(ordRender); });
 });
 document.getElementById('ordRefresh').onclick = () => { ordLoad().then(ordRender); };
-document.getElementById('ordNotif').onclick = () => { if (!('Notification' in window)) return toast('المتصفح لا يدعم الإشعارات. ستظهر لك رسالة داخل التطبيق وتصلك رسالة بالإيميل.'); Notification.requestPermission().then(p => toast(p === 'granted' ? '✔ فُعّلت إشعارات الطلبات' : 'لم تُفعَّل الإشعارات')); };
+const PUSH_API = 'https://rax3d-pay.rax3d.workers.dev';
+const pushB64 = k => Uint8Array.from(atob(k.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - k.length % 4) % 4)), c => c.charCodeAt(0));
+async function pushEnable() {   // إشعار الجوال الفوري (Web Push): الـ worker يرسله لكل جوال مسجّل عند وصول طلب من المتجر
+  if (!('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window)) return toast('هذا المتصفح لا يدعم إشعارات الجوال. على آيفون: افتح الموقع في Safari ← مشاركة ← «إضافة إلى الشاشة الرئيسية» ثم افتح التطبيق من الأيقونة (يحتاج iOS 16.4 أو أحدث).');
+  const sync = getSync(); if (!sync) return toast('اربط الترقيم المشترك أولاً (الإحصائيات ← الترقيم المشترك)');
+  const perm = await Notification.requestPermission(); if (perm !== 'granted') return toast('لم تُفعَّل الإشعارات: اسمح بها من إعدادات الجوال للتطبيق');
+  const reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
+  const k = await (await fetch(PUSH_API + '/push/key', { cache: 'no-store' })).json(); if (!k || !k.ok) throw new Error('تعذّر جلب مفتاح الإشعارات من الـ worker (تأكد من نشره)');
+  const key = pushB64(k.key); let sub = await reg.pushManager.getSubscription();
+  if (sub && sub.options && sub.options.applicationServerKey && String(new Uint8Array(sub.options.applicationServerKey)) !== String(key)) { await sub.unsubscribe(); sub = null; }
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  const j = sub.toJSON();
+  await updateJson(sync, 'push_subs.json', [], arr => { arr = Array.isArray(arr) ? arr : []; const rec = { endpoint: j.endpoint, keys: j.keys, who: (DATA && DATA.role) || '', t: todayStr() }; const i = arr.findIndex(x => x && x.endpoint === rec.endpoint); if (i >= 0) arr[i] = rec; else arr.push(rec); return arr.slice(-10); }, 'تفعيل إشعارات الطلبات');
+  const r = await fetch(PUSH_API + '/push/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: j.endpoint }) }).then(x => x.json()).catch(() => null);
+  toast(r && r.ok ? '✔ فُعّلت إشعارات الطلبات: أرسلنا لك إشعار تجربة' : '✔ سُجّل جوالك، لكن إشعار التجربة تعذّر: ' + ((r && (r.reason || r.status)) || 'الـ worker غير منشور بعد'));
+}
+document.getElementById('ordNotif').onclick = () => { pushEnable().catch(e => toast('تعذّر تفعيل الإشعارات: ' + ((e && e.message) || e))); };
 let ORD_SEEN_KEY = 'rax3d_ord_seen';
 async function ordPoll() {   // تنبيه فوري داخل التطبيق لما يجي طلب جديد من الموقع (لكل من المالك وأحمد؛ ويصل الاثنين إيميل من الـ worker)
   if (!getSync() || !DATA) return; const ok = await ordLoad(); if (!ok) return;
