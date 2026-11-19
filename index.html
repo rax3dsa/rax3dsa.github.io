@@ -2117,10 +2117,12 @@ const STK_ALIAS = { 'رصاصي': 'رمادي', 'كحلي': 'أزرق', 'سما�
 const STK_HEX_X = { 'كحلي': '#1f3a7a', 'رصاصي': '#8f969a' };
 const STK_EN = { white: 'أبيض', black: 'أسود', gray: 'رمادي', grey: 'رمادي', silver: 'رمادي', graphite: 'رمادي', charcoal: 'رمادي', red: 'أحمر', orange: 'برتقالي', yellow: 'أصفر', green: 'أخضر', lime: 'أخضر', olive: 'أخضر', mint: 'أخضر', blue: 'أزرق', navy: 'أزرق', cyan: 'أزرق', sky: 'أزرق', purple: 'بنفسجي', violet: 'بنفسجي', lavender: 'بنفسجي', pink: 'وردي', magenta: 'وردي', rose: 'وردي', gold: 'ذهبي', brown: 'بني', coffee: 'بني', bronze: 'بني', chocolate: 'بني' };
 const STK_BYN = Object.fromEntries(STK_COLORS.map(c => [CN(c), c]));
+const STK_ENN = { 'أبيض': 'White', 'أسود': 'Black', 'رمادي': 'Gray', 'أحمر': 'Red', 'أخضر': 'Green', 'برتقالي': 'Orange', 'أصفر': 'Yellow', 'أزرق': 'Blue', 'بنفسجي': 'Purple', 'وردي': 'Pink', 'ذهبي': 'Gold', 'بني': 'Brown' };   // اختصارات الإضافة السريعة بالاسم الإنجليزي كما تُسجَّل ألوان الفلمنت (كلها تُربط بلون الموقع عبر STK_EN)
 function stkCanon(c, loose) {   // الاسم الرسمي في الموقع، أو '' لو غير معروف. loose = يقبل «اخضر ريميدي» (أول كلمة)
   const n = CN(c); if (STK_BYN[n]) return STK_BYN[n]; if (STK_ALIAS[n]) return STK_ALIAS[n];
   if (loose) { const w = n.split(' ')[0]; if (STK_BYN[w]) return STK_BYN[w]; if (STK_ALIAS[w]) return STK_ALIAS[w]; const hit = [...new Set(n.toLowerCase().split(/[^a-z]+/).map(x => STK_EN[x]).filter(Boolean))]; if (hit.length === 1) return hit[0]; }   // لونان (Blue Green) = جرد فقط، بدون ربط بالموقع return '';   // الإنجليزي كما في استكر الفلمنت: Matte Ice Blue 10100 ← أزرق
 }
+const stkRegName = (ar, d) => { const r = d.rows.find(x => /[A-Za-z]/.test(x.c) && stkRC(x) === ar); return r ? r.c : (STK_ENN[ar] || ar); };   // اسم اللون كما هو مسجل عندك في أي نوع (Dark green, Blue Sky...) وإلا الاسم القياسي
 const stkRC = r => stkCanon(r.c, true) || stkCanon(r.code, true);   // لون الموقع للصف: من الاسم، وإلا من رمز الاستكر (BROWN 10100)
 const stkHexR = r => STK_HEX[stkRC(r)] || stkHex(r.c);
 const stkHex = c => STK_HEX[c] || STK_HEX_X[c] || STK_HEX[stkCanon(c, true)] || '';
@@ -2187,7 +2189,7 @@ function stkRender() {
       <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">لا ألوان في هذا النوع، أضف من الأسفل.</p>');
   const have = new Set(rows.map(stkRC)), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(stkRC));
   const gone = SHOP_COLORS.filter(c => c[1] && !linked.has(c[0])).map(c => c[0]);
-  $('stkQuick').innerHTML = (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => `<button type="button" class="cchip" data-qc="${c[0]}"><i style="background:${c[1]}"></i>${c[0]}</button>`).join('') + '</div>' : '');
+  $('stkQuick').innerHTML = (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => { const nm = stkRegName(c[0], d); return `<button type="button" class="cchip" data-qc="${esc(nm)}" title="${c[0]}"><i style="background:${c[1]}"></i>${esc(nm)}</button>`; }).join('') + '</div>' : '');
   const tsel = $('stkTySel'); if (document.activeElement !== tsel) tsel.innerHTML = d.types.map(t => `<option${t.name === STK_TYPE ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
   $('stkSync').textContent = getSync() ? (STK_OK ? '🔄 مرتبط ومتزامن مع الجهاز الثاني والموقع' : '⚠️ تعذّر الاتصال، المعروض آخر نسخة محفوظة') : '📴 الربط المشترك غير مفعّل: الجرد على هذا الجوال فقط ولا يؤثر على الموقع';
   const n = d.rows.filter(r => r.need).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
