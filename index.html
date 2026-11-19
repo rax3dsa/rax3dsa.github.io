@@ -1440,7 +1440,9 @@ const API = {
       });
       db.log.sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0));
       saveDb(db);   // انحفظت عند الدعم الفني أولاً، بعدين ننظف الملف المشترك
-      return [];
+      // طلبات المتجر (واستردادها) تبقى 30 يومًا في الملف المشترك عشان تبقى ظاهرة في قسم «الطلبات» عند المالك وأحمد؛ استلامها مكرر آمن (نفس المفتاح)، والباقي يُنظَّف
+      const cut = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+      return arr.filter(r => r && (r.online || r.void != null) && String(r.date || r.voidAt || '9999') >= cut);
     }, 'استلام فواتير مدخل البيانات');
     if (catChanged) pushSharedSoon();
     if (imported || voided || repriced) publishPointsSoon();
@@ -1546,7 +1548,7 @@ const API = {
     if (plan.some(x => x.r.by === 'partner' && !x.r.online)) throw new Error('فيه فواتير كتبها مدخل البيانات بعد الفجوة، ما تنتقل تلقائيًا');   // طلبات المتجر تنحفظ بعلامة «مدخل البيانات» لكنها من الـWorker وتنتقل عادي
     if (sync) {
       const inbox = await readJson(sync, 'partner_log.json', []);
-      if (Array.isArray(inbox.data) && inbox.data.length) throw new Error('فيه فواتير ما انستلمت من مدخل البيانات: افتح الإحصائيات ثم أعد المحاولة');
+      if (Array.isArray(inbox.data) && inbox.data.some(x => x && !x.online && x.void == null)) throw new Error('فيه فواتير ما انستلمت من مدخل البيانات: افتح الإحصائيات ثم أعد المحاولة');
       const targets = new Set(plan.map(x => x.to));
       for (const x of plan) {   // 1) ملفات الطلبات (المتجر) تنكتب برقمها الجديد، وعلامة الطلب تتحدث
         if (!x.r.online) continue;
