@@ -304,13 +304,6 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     </div>
     <input class="search" id="q" placeholder="ابحث باسم العميل أو الجوال أو رقم الفاتورة">
     <div id="logList"></div>
-    <div class="period" id="nfcCard" style="margin-top:14px">
-      <h3>🏷 رابط NFC</h3>
-      <p class="hint" style="margin:0 0 8px">الرابط المكتوب على استيكر NFC (تفتح صفحة RAX3D للعميل):</p>
-      <div class="nfcrow"><span id="nfcLinkTxt" dir="ltr"></span><button class="ghost" id="nfcLinkCp" type="button">📋 نسخ</button><button class="ghost" id="nfcLinkOp" type="button">🔗 فتح</button></div>
-      <p class="hint" style="margin:12px 0 8px">لكتابة الرابط على الاستيكر حمّل تطبيق NFC Tools (مجاني):</p>
-      <div class="nfcrow"><span id="nfcAppTxt" dir="ltr"></span><button class="ghost" id="nfcAppCp" type="button">📋 نسخ</button><button class="ghost" id="nfcAppOp" type="button">⬇️ تحميل</button></div>
-    </div>
   </section>
 
   <section id="stock">
@@ -433,6 +426,13 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
       <input id="recMail" type="email" inputmode="email" dir="ltr" autocomplete="off" placeholder="rax3d.sa@hotmail.com">
       <p class="err" id="mailMsg" style="margin:10px 0 0"></p>
       <button class="save" id="mailSave" style="margin-top:8px;font-size:16px;padding:12px">حفظ وإرسال رسالة التفعيل</button>
+    </div>
+      <div class="period" id="nfcCard" style="margin-top:14px">
+      <h3>🏷 رابط NFC</h3>
+      <p class="hint" style="margin:0 0 8px">الرابط المكتوب على استيكر NFC (تفتح صفحة RAX3D للعميل):</p>
+      <div class="nfcrow"><span id="nfcLinkTxt" dir="ltr"></span><button class="ghost" id="nfcLinkCp" type="button">📋 نسخ</button><button class="ghost" id="nfcLinkOp" type="button">🔗 فتح</button></div>
+      <p class="hint" style="margin:12px 0 8px">لكتابة الرابط على الاستيكر حمّل تطبيق NFC Tools (مجاني):</p>
+      <div class="nfcrow"><span id="nfcAppTxt" dir="ltr"></span><button class="ghost" id="nfcAppCp" type="button">📋 نسخ</button><button class="ghost" id="nfcAppOp" type="button">⬇️ تحميل</button></div>
     </div>
   </section>
 </div>
@@ -672,7 +672,7 @@ const isLive = r => !!r && r.status !== 'ملغاة';   // v47: الفاتورة
 // v54: النقطة تنتهي بعد 12 شهراً من تاريخ كسبها (تاريخ الفاتورة)
 const ptsAlive = r => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String((r && r.date) || '')); if (!m) return true; const c = new Date(); c.setFullYear(c.getFullYear() - 1); return new Date(+m[1], +m[2] - 1, +m[3]) >= c; };
 // v55: رصيد العميل = نقاط فواتيره (ما انتهت) ناقص ما استبدله. الاستبدال يخصم من الأقدم أولاً (FIFO).
-const PTS_RULES = { discPts: 1000, discSar: 10, shipPts: 2500, shipSar: 25, freePts: 5000, freeMax: 250 };   // 2500 نقطة = توصيل مجاني: يُخصم رسوم التوصيل (25 ريال، نفس سعر الخصم 1000 = 10)
+const PTS_RULES = { discPts: 1000, discSar: 10, shipPts: 3000, shipSar: 25, freePts: 5000, freeMax: 250 };   // 3000 نقطة = توصيل مجاني: يُخصم رسوم التوصيل (25 ريال، نفس سعر الخصم 1000 = 10)
 // v56: رصيد الاستبدال المعلّق للعميل، يُطبَّق تلقائياً على فاتورته القادمة
 function pendingCredit(db, ph) {
   const rd = (db.redeems || []).filter(x => normPhone(x.phone) === ph);
@@ -2269,7 +2269,7 @@ function loyaltyCard() {   // ترتيب العملاء حسب رصيد نقاط
   const total = list.reduce((a, c) => a + c.pts, 0);
   const rd = (db.redeems || []).slice().reverse().slice(0, 5);
   return `<div class="period"><h3>⭐ نقاط الولاء</h3><div class="kv"><div>العملاء<b>${list.length}</b></div><div>إجمالي النقاط<b>${total}</b></div><div>ريال = نقطة<b>1</b></div></div>
-    <p style="margin:8px 0 0;font-size:12px;color:var(--mute)">1000 نقطة = خصم 10 ريال · 2500 نقطة = توصيل مجاني · 5000 نقطة = قطعة مجانية حتى 250 ريال · تنتهي النقطة بعد 12 شهراً · لا تُستبدل بمبالغ مالية.</p>
+    <p style="margin:8px 0 0;font-size:12px;color:var(--mute)">1000 نقطة = خصم 10 ريال · 3000 نقطة = توصيل مجاني · 5000 نقطة = قطعة مجانية حتى 250 ريال · تنتهي النقطة بعد 12 شهراً · لا تُستبدل بمبالغ مالية.</p>
     ${list.length ? '<div style="margin-top:10px;display:grid;gap:6px">' + list.slice(0, 15).map((c, i) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line,#333);padding-top:6px"><span>${i + 1}. ${esc(c.name || 'بدون اسم')} <small style="color:var(--mute)" dir="ltr">${esc(c.ph)}</small> <small style="color:var(--mute)">· ${c.n} فاتورة</small></span><span style="display:flex;align-items:center;gap:8px"><b style="color:var(--gold-t)">${c.pts}</b>${c.pts >= PTS_RULES.discPts ? `<button type="button" class="ghost" style="margin:0;padding:4px 10px;font-size:12px" onclick="openRedeem('${esc(c.ph)}')">استبدل</button>` : ''}</span></div>`).join('') + '</div>' : '<p style="color:var(--mute)">ما فيه عملاء بجوال بعد.</p>'}
     ${rd.length ? '<div style="margin-top:12px;font-size:12px;color:var(--mute)">آخر الاستبدالات:</div><div style="display:grid;gap:4px;font-size:12px">' + rd.map(x => `<div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.date)} · ${esc(x.name || x.phone)} · ${(x.kind === 'free' ? 'قطعة مجانية' + (x.item ? ' (' + esc(x.item) + ')' : '') : (x.ship ? 'توصيل مجاني (خصم ' + x.sar + ' ريال)' : 'خصم ' + x.sar + ' ريال')) + ((x.kind === 'free' ? x.applied : (+x.used || 0) >= (+x.sar || 1)) ? ' ✓ طُبّق' : ' ⏳ بانتظار فاتورته')} · −${x.pts}</span><button type="button" class="ghost" style="margin:0;padding:2px 8px;font-size:11px" onclick="undoRedeem('${esc(x.id)}')">تراجع</button></div>`).join('') + '</div>' : ''}
     <button type="button" class="ghost" style="margin-top:10px" onclick="const b=this;b.disabled=true;publishPoints().then(n=>toast('✔ اننشرت أرصدة '+n+' عميل للموقع')).catch(e=>toast('تعذّر النشر: '+((e&&e.message)||e))).finally(()=>b.disabled=false)">🔄 انشر الأرصدة للموقع</button></div>`;
