@@ -320,6 +320,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <h2 style="margin:6px 0 2px;font-size:20px">🧵 جرد الفلمنت</h2>
     <div class="hint" id="stkSync" style="margin-bottom:4px"></div>
     <div class="stk-due" id="stkDue" hidden></div>
+    <div id="stkSum"></div>
     <div class="stk-tabs" id="stkTabs"></div>
     <div class="hint" id="stkNote" style="margin:0 0 8px;line-height:1.8"></div>
     <div id="stkBody"></div>
@@ -1706,11 +1707,9 @@ document.getElementById('ordList').addEventListener('click', e => {
   const num = b.dataset.owa || b.dataset.opdf, r = ORD.find(x => String(x.num) === String(num)); if (!r) return;
   const url = TRACK_URL(num);
   if (b.dataset.opdf) { const x = DATA && DATA.log.find(y => Number(y.num) === Number(num) && y.online); if (!x) { toast('الفاتورة لم تُستلم بعد: اضغط تحديث ثم أعد المحاولة'); return; } savePdf(rk(x)); return; }
-  const ph = ordWaPhone(r.phone), txt = 'أهلاً ' + (r.client || '') + '، تم اعتماد طلبك ORD-' + num + ' من RAX3D بمبلغ ' + fmt(Number(r.total) || 0) + ' ريال.\nتابع مرحلة طلبك من هنا:\n' + url + '\n(اكتب رقم جوالك فقط ليفتح طلبك)';
-  const x = DATA && DATA.log.find(y => Number(y.num) === Number(num) && y.online);
-  if (x) { savePdf(rk(x), txt); toast('بعد تجهيز الفاتورة اضغط «حفظ / مشاركة» واختر واتساب: تُرسل الفاتورة مع رابط المتابعة'); return; }
-  if (!ph) { toast('رقم جوال العميل غير صالح لواتساب'); return; }
-  window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(txt), '_blank'); toast('الفاتورة لم تُستلم بعد: أُرسل الرابط فقط، حدّث ثم أعد المحاولة لإرسال الفاتورة معه');
+  const ph = ordWaPhone(r.phone); if (!ph) { toast('رقم جوال العميل غير صالح لواتساب'); return; }
+  const txt = 'أهلاً ' + (r.client || '') + '، تم اعتماد طلبك ORD-' + num + ' من RAX3D.\n' + (r.desc ? 'الطلب: ' + r.desc + '\n' : '') + 'الإجمالي: ' + fmt(Number(r.total) || 0) + ' ريال.\nتابع مرحلة طلبك من هنا:\n' + url + '\n(اكتب رقم جوالك فقط ليفتح طلبك)';
+  window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(txt), '_blank'); toast('فتحنا محادثة العميل والرسالة جاهزة: اضغط إرسال. لإرفاق الفاتورة استخدم زر PDF');
 });
 document.getElementById('ordList').addEventListener('change', e => {
   const s = e.target.closest('[data-ost]'); if (!s) return; const num = +s.dataset.num, st = +s.value;
@@ -2191,6 +2190,8 @@ function stkRowUI(t, c) {   // تحديث الصف المتغيّر فقط (أس
 function stkRender() {
   if (!STK) stkLoadLocal(); const d = STK;
   if (!d.types.some(t => t.name === STK_TYPE)) STK_TYPE = d.types[0].name;
+  { const need = d.rows.filter(r => r.need || r.q === 0), by = {}; need.forEach(r => { (by[r.t] = by[r.t] || []).push(r); });
+    $('stkSum').innerHTML = need.length ? `<div class="row" style="border:1px solid var(--gold);margin-bottom:8px"><b>🛒 المطلوب شراؤه: ${need.length} بكرة (لون)</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${Object.keys(by).map(t => `<button type="button" class="cchip" data-ty="${esc(t)}"><b>${esc(t)}</b> (${by[t].length}): ${by[t].map(r => esc(r.c)).join('، ')}</button>`).join('')}</div></div>` : '<div class="hint" style="margin-bottom:8px">✅ لا يوجد شيء مطلوب شراؤه الآن</div>'; }
   $('stkTabs').innerHTML = d.types.map(t => `<button type="button" data-ty="${esc(t.name)}" class="${t.name === STK_TYPE ? 'on' : ''}">${esc(t.name)}${t.site ? ' 🔗' : ''}</button>`).join('');
   const ty = d.types.find(t => t.name === STK_TYPE), rows = d.rows.filter(r => r.t === STK_TYPE);
   $('stkNote').innerHTML = ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «🔴 نفد» يظهر للعميل بخط أحمر «غير متوفر»، وإذا رجع «🟢 متوفر» يرجع متوفرًا. خانة «للشراء؟» تذكير شراء لك فقط ولا تؤثر على الموقع. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
@@ -2220,6 +2221,7 @@ function stkDueCheck() {
   }
 }
 $('stkTabs').addEventListener('click', e => { const b = e.target.closest('[data-ty]'); if (b) { STK_TYPE = b.dataset.ty; stkRender(); } });
+$('stkSum').addEventListener('click', e => { const b = e.target.closest('[data-ty]'); if (b) { STK_TYPE = b.dataset.ty; stkRender(); } });
 $('stkNote').addEventListener('click', e => {
   const dt = e.target.closest('[data-deltype]');
   if (dt) { const t = STK_TYPE; if (STK.types.length < 2) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'لازم يبقى نوع واحد على الأقل'; return; } if (!confirm('حذف نوع الفلمنت «' + t + '» بكل ألوانه؟')) return; stkEdit(d => { d.types = d.types.filter(x => x.name !== t); d.rows = d.rows.filter(r => r.t !== t); }); return; }
