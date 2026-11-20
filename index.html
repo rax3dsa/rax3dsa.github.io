@@ -1687,6 +1687,7 @@ function ordRender() {
       <p>${esc(r.desc || '')}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(String(r.num))}</b> &nbsp; ${esc(r.date || '')} &nbsp; <a href="tel:${esc(r.phone || '')}" dir="ltr">${esc(r.phone || '')}</a></span><span>${fmt(Number(r.total) || 0)} ر.س</span></div>
       <div class="hint" style="margin:6px 0">${ordPay(r)} · ${ordMode(r)}</div>
+      <div class="acts" style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="pdf" data-owa="${esc(String(r.num))}">💬 أرسل الفاتورة للعميل (واتساب)</button><button type="button" class="pdf" data-ocp="${esc(String(r.num))}">🔗 نسخ رابط المتابعة</button><button type="button" class="pdf" data-opdf="${esc(String(r.num))}">📄 PDF</button></div>
       <div class="adm mk" style="display:block"><label>📦 مرحلة الطلب <select data-ost data-num="${esc(String(r.num))}">${STAGES.map((n, i) => `<option value="${i}"${ordSt(r) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div></div>`;
   }).join('') : '<div class="empty">لا طلبات في هذه المرحلة.</div>';
   const n0 = c[0]; document.getElementById('ordersDot').hidden = !n0; document.getElementById('ordersDot').textContent = n0 || '';
@@ -1698,6 +1699,18 @@ async function ordSetStage(num, st) {   // يكتب المرحلة في المل
   try { const db = loadDb(); if (db.role === 'admin') { const r = db.log.find(x => Number(x.num) === Number(num)); if (r) { r.stage = st; saveDb(db); publishPointsSoon(); } } } catch (e) {}
 }
 document.getElementById('ordFilter').addEventListener('click', e => { const b = e.target.closest('[data-of]'); if (!b) return; ORD_F = +b.dataset.of; ordRender(); });
+// أزرار بطاقة الطلب: إرسال للعميل بواتساب برابط المتابعة، نسخ الرابط، وPDF (11-20)
+const ordWaPhone = p => { const d = normPhone(p); return /^05\d{8}$/.test(d) ? '966' + d.slice(1) : ''; };
+document.getElementById('ordList').addEventListener('click', e => {
+  const b = e.target.closest('[data-owa],[data-ocp],[data-opdf]'); if (!b) return;
+  const num = b.dataset.owa || b.dataset.ocp || b.dataset.opdf, r = ORD.find(x => String(x.num) === String(num)); if (!r) return;
+  const url = TRACK_URL(num);
+  if (b.dataset.ocp) { (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast('✔ نُسخ رابط متابعة ORD-' + num), () => prompt('انسخ الرابط', url)); return; }
+  if (b.dataset.opdf) { const x = DATA && DATA.log.find(y => Number(y.num) === Number(num) && y.online); if (!x) { toast('الفاتورة لم تُستلم بعد: اضغط تحديث ثم أعد المحاولة'); return; } savePdf(rk(x)); return; }
+  const ph = ordWaPhone(r.phone), txt = 'أهلاً ' + (r.client || '') + '، تم اعتماد طلبك ORD-' + num + ' من RAX3D بمبلغ ' + fmt(Number(r.total) || 0) + ' ريال.\nتابع مرحلة طلبك من هنا:\n' + url + '\n(اكتب رقم جوالك فقط ليفتح طلبك)';
+  if (!ph) { toast('رقم جوال العميل غير صالح لواتساب'); return; }
+  window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(txt), '_blank');
+});
 document.getElementById('ordList').addEventListener('change', e => {
   const s = e.target.closest('[data-ost]'); if (!s) return; const num = +s.dataset.num, st = +s.value;
   ordSetStage(num, st).then(() => { ordRender(); toast('تم تحديث ORD-' + num + ': ' + STAGES[st]); }).catch(er => { toast('تعذّر الحفظ: ' + ((er && er.message) || er)); ordLoad().then(ordRender); });
