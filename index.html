@@ -1687,7 +1687,7 @@ function ordRender() {
       <p>${esc(r.desc || '')}</p>
       <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(String(r.num))}</b> &nbsp; ${esc(r.date || '')} &nbsp; <a href="tel:${esc(r.phone || '')}" dir="ltr">${esc(r.phone || '')}</a></span><span>${fmt(Number(r.total) || 0)} ر.س</span></div>
       <div class="hint" style="margin:6px 0">${ordPay(r)} · ${ordMode(r)}</div>
-      <div class="acts" style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="pdf" data-owa="${esc(String(r.num))}">💬 أرسل الفاتورة للعميل (واتساب)</button><button type="button" class="pdf" data-ocp="${esc(String(r.num))}">🔗 نسخ رابط المتابعة</button><button type="button" class="pdf" data-opdf="${esc(String(r.num))}">📄 PDF</button></div>
+      <div class="acts" style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="pdf" data-owa="${esc(String(r.num))}">💬 أرسل الفاتورة + رابط المتابعة</button><button type="button" class="pdf" data-opdf="${esc(String(r.num))}">📄 PDF</button></div>
       <div class="adm mk" style="display:block"><label>📦 مرحلة الطلب <select data-ost data-num="${esc(String(r.num))}">${STAGES.map((n, i) => `<option value="${i}"${ordSt(r) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div></div>`;
   }).join('') : '<div class="empty">لا طلبات في هذه المرحلة.</div>';
   const n0 = c[0]; document.getElementById('ordersDot').hidden = !n0; document.getElementById('ordersDot').textContent = n0 || '';
@@ -1702,14 +1702,15 @@ document.getElementById('ordFilter').addEventListener('click', e => { const b = 
 // أزرار بطاقة الطلب: إرسال للعميل بواتساب برابط المتابعة، نسخ الرابط، وPDF (11-20)
 const ordWaPhone = p => { const d = normPhone(p); return /^05\d{8}$/.test(d) ? '966' + d.slice(1) : ''; };
 document.getElementById('ordList').addEventListener('click', e => {
-  const b = e.target.closest('[data-owa],[data-ocp],[data-opdf]'); if (!b) return;
-  const num = b.dataset.owa || b.dataset.ocp || b.dataset.opdf, r = ORD.find(x => String(x.num) === String(num)); if (!r) return;
+  const b = e.target.closest('[data-owa],[data-opdf]'); if (!b) return;
+  const num = b.dataset.owa || b.dataset.opdf, r = ORD.find(x => String(x.num) === String(num)); if (!r) return;
   const url = TRACK_URL(num);
-  if (b.dataset.ocp) { (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast('✔ نُسخ رابط متابعة ORD-' + num), () => prompt('انسخ الرابط', url)); return; }
   if (b.dataset.opdf) { const x = DATA && DATA.log.find(y => Number(y.num) === Number(num) && y.online); if (!x) { toast('الفاتورة لم تُستلم بعد: اضغط تحديث ثم أعد المحاولة'); return; } savePdf(rk(x)); return; }
   const ph = ordWaPhone(r.phone), txt = 'أهلاً ' + (r.client || '') + '، تم اعتماد طلبك ORD-' + num + ' من RAX3D بمبلغ ' + fmt(Number(r.total) || 0) + ' ريال.\nتابع مرحلة طلبك من هنا:\n' + url + '\n(اكتب رقم جوالك فقط ليفتح طلبك)';
+  const x = DATA && DATA.log.find(y => Number(y.num) === Number(num) && y.online);
+  if (x) { savePdf(rk(x), txt); toast('بعد تجهيز الفاتورة اضغط «حفظ / مشاركة» واختر واتساب: تُرسل الفاتورة مع رابط المتابعة'); return; }
   if (!ph) { toast('رقم جوال العميل غير صالح لواتساب'); return; }
-  window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(txt), '_blank');
+  window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(txt), '_blank'); toast('الفاتورة لم تُستلم بعد: أُرسل الرابط فقط، حدّث ثم أعد المحاولة لإرسال الفاتورة معه');
 });
 document.getElementById('ordList').addEventListener('change', e => {
   const s = e.target.closest('[data-ost]'); if (!s) return; const num = +s.dataset.num, st = +s.value;
@@ -2686,11 +2687,13 @@ function mailFile(blob, name, subject, fields) {   // نسخة من أي ملف 
   notify(subject || fileSubject(name), { 'الرسالة': (fields && fields.msg) || ('📎 الملف مرفق: ' + an) }, { blob: new Blob([blob], { type: /\.pdf$/i.test(an) ? 'application/pdf' : blob.type || 'application/octet-stream' }), name: an })
     .then(r => toast(r === 'sent' ? '📧 انرسلت نسخة لإيميلك' : r === 'activate' ? '📧 فعّل إيميلك أول مرة (رسالة FormSubmit)' : '⚠️ ما انرسل الإيميل — تأكد من الإنترنت'));
 }
-function deliverFile(blob, name) {
+let fileCaption = '';   // نص يُرسل مع الملف عند المشاركة (مثل رابط المتابعة مع الفاتورة)
+function deliverFile(blob, name, cap) {
   if (!mailedFiles.has(name)) mailFile(blob, name);
   const file = new File([blob], name, { type: blob.type });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    return navigator.share({ files: [file] }).then(() => true).catch(e => { if (e && e.name === 'AbortError') return false; throw e; });
+    if (cap) { try { navigator.clipboard && navigator.clipboard.writeText(cap); } catch (_) {} }   // نسخة احتياطية: واتساب أحيانًا يتجاهل النص مع الملف فيُلصق
+    return navigator.share(cap ? { files: [file], text: cap } : { files: [file] }).then(() => true).catch(e => { if (e && e.name === 'AbortError') return false; throw e; });
   }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
@@ -2709,7 +2712,7 @@ function fetchPdf(num, cb) {
 }
 let readyFile = null;
 function openFileSheet(title, msg) {
-  readyFile = null; $('filePrev').style.display = 'none'; $('fileTitle').textContent = title; $('fileMsg').textContent = msg || '';
+  readyFile = null; fileCaption = ''; $('filePrev').style.display = 'none'; $('fileTitle').textContent = title; $('fileMsg').textContent = msg || '';
   const b = $('fileGo'); b.disabled = true; b.textContent = 'جاري التجهيز…'; $('fileSheet').classList.add('on');
 }
 function fileReady(blob, name, prev) {
@@ -2719,7 +2722,7 @@ function fileReady(blob, name, prev) {
 }
 $('fileGo').onclick = () => {
   if (!readyFile) return;
-  deliverFile(readyFile.blob, readyFile.name).then(ok => { if (ok) $('fileSheet').classList.remove('on'); })
+  deliverFile(readyFile.blob, readyFile.name, fileCaption).then(ok => { if (ok) $('fileSheet').classList.remove('on'); })
     .catch(e => { $('fileMsg').textContent = 'تعذّر الحفظ: ' + ((e && e.message) || e); });
 };
 $('fileClose').onclick = () => $('fileSheet').classList.remove('on');
@@ -2737,8 +2740,8 @@ function mailInvoice(id, kind) {
     mailFile(blob, name, subj, { msg: '📎 مرفق ملف الفاتورة رقم ' + r.num + ' بصيغة PDF' });
   });
 }
-function savePdf(num) {
-  openFileSheet('فاتورة رقم ' + String(num).split(':').pop(), '');
+function savePdf(num, cap) {
+  openFileSheet('فاتورة رقم ' + String(num).split(':').pop(), cap ? 'ستُرسل الفاتورة مع رابط المتابعة' : ''); fileCaption = cap || '';
   fetchPdf(num, (err, blob, name, prev) => {
     if (err) { $('fileMsg').textContent = 'تعذّر تجهيز الـ PDF: ' + ((err && err.message) || err); $('fileGo').textContent = 'غير متاح'; return; }
     fileReady(blob, name, prev);
