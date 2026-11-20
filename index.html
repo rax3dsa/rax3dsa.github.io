@@ -2183,7 +2183,7 @@ async function stkFlush() {
   stkRender();
 }
 function stkRowUI(t, c) {   // تحديث الصف المتغيّر فقط (أسرع بكثير من إعادة رسم الجدول كله)
-  const r = stkRow(STK, t, c), el = [...document.querySelectorAll('#stkBody .stk-row')].find(x => x.dataset.c === c); if (!r || !el || STK_TYPE !== t) return stkRender();
+  const r = stkRow(STK, t, c), el = [...document.querySelectorAll('#stkBody .stk-row')].find(x => x.dataset.c === c && x.dataset.t === t); if (!r || !el || STK_ONLY || STK_TYPE !== t) return stkRender();
   el.querySelector('.stk-q b').textContent = r.q; const b = el.querySelector('.stk-b[data-buy]'); b.className = 'stk-b ' + (r.buy ? 'buy' : 'ok'); b.textContent = r.buy ? '🔴 نفد' : '🟢 متوفر'; const nb2 = el.querySelector('.stk-b[data-need]'); if (nb2) { nb2.className = 'stk-b ' + (r.need ? 'need' : 'off'); nb2.textContent = r.need ? '🛒 اشترِ' : 'لا'; }
   const n = STK.rows.filter(x => x.need).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
 }
@@ -2191,14 +2191,14 @@ let STK_ONLY = false;
 function stkRender() {
   if (!STK) stkLoadLocal(); const d = STK;
   if (!d.types.some(t => t.name === STK_TYPE)) STK_TYPE = d.types[0].name;
-  { const need = d.rows.filter(r => r.need || r.q === 0), by = {}; need.forEach(r => { (by[r.t] = by[r.t] || []).push(r); });
-    $('stkSum').innerHTML = need.length ? `<div class="row" style="border:1px solid var(--gold);margin-bottom:8px"><b>🛒 المطلوب شراؤه: ${need.length} بكرة (لون)</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${Object.keys(by).map(t => `<button type="button" class="cchip" data-ty="${esc(t)}"><b>${esc(t)}</b> (${by[t].length}): ${by[t].map(r => esc(r.c)).join('، ')}</button>`).join('')}</div>${STK_ONLY ? '<button type="button" class="linkbtn" data-all="1" style="margin-top:8px">عرض كل الألوان</button>' : '<div class="hint" style="margin-top:6px">اضغط نوعًا لعرض المطلوب شراؤه فقط</div>'}</div>` : '<div class="hint" style="margin-bottom:8px">✅ لا يوجد شيء مطلوب شراؤه الآن</div>'; }
+  { const need = d.rows.filter(r => r.need || r.q === 0), adm = DATA && DATA.role === 'admin';
+    $('stkSum').innerHTML = !adm ? '' : `<div class="row" style="border:1px solid var(--gold);margin-bottom:8px"><b>🛒 المطلوب شراؤه: ${need.length} بكرة (لون)</b><div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="${STK_ONLY ? 'ghost' : 'save'}" data-all="1">عرض كل الألوان</button><button type="button" class="${STK_ONLY ? 'save' : 'ghost'}" data-only="1">عرض المطلوب شراؤه</button></div></div>`; }
   $('stkTabs').innerHTML = d.types.map(t => `<button type="button" data-ty="${esc(t.name)}" class="${t.name === STK_TYPE ? 'on' : ''}">${esc(t.name)}${t.site ? ' 🔗' : ''}</button>`).join('');
-  const ty = d.types.find(t => t.name === STK_TYPE), rows = d.rows.filter(r => r.t === STK_TYPE && (!STK_ONLY || r.need || r.q === 0));
+  const ty = d.types.find(t => t.name === STK_TYPE), rows = STK_ONLY ? d.rows.filter(r => r.need || r.q === 0) : d.rows.filter(r => r.t === STK_TYPE);
   $('stkNote').innerHTML = ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «🔴 نفد» يظهر للعميل بخط أحمر «غير متوفر»، وإذا رجع «🟢 متوفر» يرجع متوفرًا. خانة «للشراء؟» تذكير شراء لك فقط ولا تؤثر على الموقع. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
     : 'هذا النوع غير مربوط بالموقع (للجرد فقط). <button type="button" class="linkbtn" data-site="1">ربطه بالموقع</button>';
   $('stkNote').innerHTML += ' · <button type="button" class="linkbtn" data-deltype="1" style="color:var(--bad)">🗑 حذف هذا النوع</button>';
-  $('stkBody').innerHTML = '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>متوفر بالموقع؟</span><span>للشراء؟</span><span></span></div>' + (rows.length ? rows.map(r => `<div class="stk-row" data-c="${esc(r.c)}"><span class="stk-c"><i style="${stkHexR(r) ? 'background:' + stkHexR(r) : ''}"></i><span>${esc(r.c)}<small class="stk-code" data-code="1">${r.code ? esc(r.code) : '＋ رقم اللون'}</small></span></span>
+  $('stkBody').innerHTML = '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>متوفر بالموقع؟</span><span>للشراء؟</span><span></span></div>' + (rows.length ? rows.map(r => `<div class="stk-row" data-c="${esc(r.c)}" data-t="${esc(r.t)}"><span class="stk-c"><i style="${stkHexR(r) ? 'background:' + stkHexR(r) : ''}"></i><span>${esc(r.c)}${STK_ONLY ? ' <small>· ' + esc(r.t) + '</small>' : ''}<small class="stk-code" data-code="1">${r.code ? esc(r.code) : '＋ رقم اللون'}</small></span></span>
       <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
       <button type="button" class="stk-b ${r.buy ? 'buy' : 'ok'}" data-buy="1">${r.buy ? '🔴 نفد' : '🟢 متوفر'}</button>
       <button type="button" class="stk-b ${r.need ? 'need' : 'off'}" data-need="1">${r.need ? '🛒 اشترِ' : 'لا'}</button>
@@ -2208,6 +2208,7 @@ function stkRender() {
   $('stkQuick').innerHTML = (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => { const nm = stkRegName(c[0], d); return `<button type="button" class="cchip" data-qc="${esc(nm)}" title="${c[0]}"><i style="background:${c[1]}"></i>${esc(nm)}</button>`; }).join('') + '</div>' : '');
   const tsel = $('stkTySel'); if (document.activeElement !== tsel) tsel.innerHTML = d.types.map(t => `<option${t.name === STK_TYPE ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
   $('stkSync').textContent = getSync() ? (STK_OK ? '🔄 مرتبط ومتزامن مع الجهاز الثاني والموقع' : '⚠️ تعذّر الاتصال، المعروض آخر نسخة محفوظة') : '📴 الربط المشترك غير مفعّل: الجرد على هذا الجوال فقط ولا يؤثر على الموقع';
+  ['stkTabs','stkNote','stkQuick'].forEach(i => { $(i).style.display = STK_ONLY ? 'none' : ''; });
   const n = d.rows.filter(r => r.need).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
 }
 function stkDueCheck() {
@@ -2222,14 +2223,14 @@ function stkDueCheck() {
   }
 }
 $('stkTabs').addEventListener('click', e => { const b = e.target.closest('[data-ty]'); if (b) { STK_TYPE = b.dataset.ty; STK_ONLY = false; stkRender(); } });
-$('stkSum').addEventListener('click', e => { if (e.target.closest('[data-all]')) { STK_ONLY = false; stkRender(); return; } const b = e.target.closest('[data-ty]'); if (b) { STK_TYPE = b.dataset.ty; STK_ONLY = true; stkRender(); } });
+$('stkSum').addEventListener('click', e => { if (e.target.closest('[data-all]')) { STK_ONLY = false; stkRender(); } else if (e.target.closest('[data-only]')) { STK_ONLY = true; stkRender(); } });
 $('stkNote').addEventListener('click', e => {
   const dt = e.target.closest('[data-deltype]');
   if (dt) { const t = STK_TYPE; if (STK.types.length < 2) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'لازم يبقى نوع واحد على الأقل'; return; } if (!confirm('حذف نوع الفلمنت «' + t + '» بكل ألوانه؟')) return; stkEdit(d => { d.types = d.types.filter(x => x.name !== t); d.rows = d.rows.filter(r => r.t !== t); }); return; }
   const b = e.target.closest('[data-site]'); if (!b) return; const t = STK_TYPE, v = b.dataset.site === '1'; stkEdit(d => { const x = d.types.find(y => y.name === t); if (x) x.site = v; }); });
 $('stkBody').addEventListener('click', e => {
-  const cd = e.target.closest('[data-code]'); if (cd) { const rw = cd.closest('.stk-row'), t0 = STK_TYPE, c0 = rw && rw.dataset.c, r0 = c0 && stkRow(STK, t0, c0); if (r0) { const v = prompt('رقم اللون كما في الاستكر (مثل: 10100)', r0.code || ''); if (v !== null) stkEdit(d => { const r = stkRow(d, t0, c0); if (r) r.code = v.trim().slice(0, 30); }); } return; }
-  const b = e.target.closest('button'); if (!b) return; const row = b.closest('.stk-row'); if (!row || !row.dataset.c) return; const t = STK_TYPE, c = row.dataset.c, cur = stkRow(STK, t, c); if (!cur) return;
+  const cd = e.target.closest('[data-code]'); if (cd) { const rw = cd.closest('.stk-row'), t0 = (rw && rw.dataset.t) || STK_TYPE, c0 = rw && rw.dataset.c, r0 = c0 && stkRow(STK, t0, c0); if (r0) { const v = prompt('رقم اللون كما في الاستكر (مثل: 10100)', r0.code || ''); if (v !== null) stkEdit(d => { const r = stkRow(d, t0, c0); if (r) r.code = v.trim().slice(0, 30); }); } return; }
+  const b = e.target.closest('button'); if (!b) return; const row = b.closest('.stk-row'); if (!row || !row.dataset.c) return; const t = row.dataset.t || STK_TYPE, c = row.dataset.c, cur = stkRow(STK, t, c); if (!cur) return;
   if (b.dataset.q) { const nq = Math.max(0, Math.min(999, cur.q + (+b.dataset.q))), was = cur.q; stkEdit(d => { const r = stkRow(d, t, c); if (!r) return; r.q = nq; if (nq === 0) { r.buy = true; r.need = true; } else if (was === 0) { r.buy = false; r.need = false; } }, [t, c]); }   // وصل للصفر ← غير متوفر بالموقع + للشراء، وأول ما يوصل مخزون يرجعان
   else if (b.dataset.need) { const nn = !cur.need; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.need = nn; }, [t, c]); }
   else if (b.dataset.buy) { const nb = !cur.buy; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.buy = nb; }, [t, c]); }
