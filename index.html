@@ -801,7 +801,7 @@ function goalFor(sales, start) { let g = start || 10000; while (sales >= g) g *=
 // إضافات التوزيعات (قرار المالك 11-19): [المعرّف، الاسم، السعر للحبة، الكلفة للحبة]. كلفة الميدالية 1 والمغناطيس 3؛ كلفة التعليقتين من المالك (2 و3). نفس الأسعار في المتجر (DIST_ADD في app.js)
 const DIST_ADD = [['m3', 'لاصق 3M (مجاني)', 0, 0], ['key', 'ميدالية', 3, 1], ['mag', 'مغناطيس', 5.5, 3], ['hand', 'تعليقة يد 20 سم', 4, 2], ['car', 'تعليقة سيارة 40 سم', 6, 3]];
 const DIST_TIERS = [[50, 25], [100, 20], [500, 15], [1000, 10]], DIST_FAIL = 5, DIST_PACK = 0.5;
-const DIST_FLOOR = [[50, 3.75], [100, 3.40], [500, 3.00], [1000, 2.65]];   // حد أدنى لسعر الحبة لكل شريحة (المالك 11-14): السعر = الأعلى بين سعر الهامش والحد الأدنى
+const DIST_FLOOR = [[50, 3.00], [100, 2.75], [500, 2.40], [1000, 2.10]];   // حد أدنى لسعر الحبة لكل شريحة (المالك 11-14): السعر = الأعلى بين سعر الهامش والحد الأدنى
 function distUnit(cfg, w, hrs, q, acc, fail, pack) {
   fail = fail == null ? DIST_FAIL : fail; pack = pack == null ? DIST_PACK : pack;
   let m = null; DIST_TIERS.forEach(x => { if (q >= x[0]) m = x[1]; }); if (m === null) return null;
@@ -832,7 +832,7 @@ setTimeout(loadSitePrices, 1500);
 // عرض خاص (المالك 11-15): البطة الكول من 100 حتى 499 حبة = 2.99 للحبة (299 للمئة) — مثل الموقع. أي قطعة غيرها لا تتأثر.
 function distOffer(it, q, dh) {
   if (!dh || q < 100 || q >= 500 || !/البطة الكول/.test(String(it.desc || ''))) return dh;
-  return dh.price > 2.99 ? Object.assign({}, dh, { price: 2.99, floored: false, offer: true }) : dh;
+  return dh;   // عرض البطة 2.99 أُلغي 11-20 (السعر العادي لـ100 صار 2.75)
 }
 function calcLocal(S, it) {
   const w = +it.w || 0, q = +it.q || 1, acc = Math.max(0, +it.acc || 0);   // acc: قطع إضافية للحبة (طقم LED، ميكانيزم ساعة...) تنضاف بسعرها بدون مضاعف
