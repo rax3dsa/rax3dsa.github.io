@@ -198,6 +198,14 @@ input[type=number]{direction:ltr;text-align:center}
 .ofl{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px;margin-bottom:10px}
 .ofl button{width:auto;padding:8px 6px;font-size:13px;border-radius:12px;line-height:1.4}
 .ofl button b{display:block;font-size:16px}
+.lg{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:baseline;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px;color:var(--mute)}
+.lg:first-of-type{border-top:1px solid var(--line)}
+.lg b{color:var(--text);font-size:15px}
+.lg .no{color:var(--gold-t);direction:ltr;font-weight:700}
+.lg .amt{color:var(--gold-t);font-weight:700;text-align:left;font-size:15px}
+.lg .d{grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg.x{opacity:.55}.lg.x .amt{text-decoration:line-through}
+.lg .pdf{padding:2px 12px;font-size:12px;justify-self:start;grid-column:1/-1}
 .ocnt{font-size:12px;color:var(--mute);margin:2px 2px 4px}
 .ogrp{display:flex;justify-content:space-between;align-items:center;margin:14px 2px 8px;font-size:14px;color:var(--gold-t)}
 .ogrp span{font-size:12px;color:var(--mute)}
@@ -292,6 +300,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div class="nl">
     <button class="on" data-tab="new">فاتورة جديدة</button>
     <button data-tab="orders" id="ordersTab">الطلبات<i id="ordersDot" hidden></i></button>
+    <button data-tab="log">السجل</button>
     <button data-tab="stats" class="adm">الإحصائيات</button>
     <button data-tab="settings" class="adm">الإعدادات</button>
     <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
@@ -329,7 +338,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div class="ocnt" id="ordCount"></div>
     <div id="ordList"></div>
     <div class="tools"><button class="ghost" id="ordRefresh" type="button">🔄 تحديث</button><button class="ghost" id="ordNotif" type="button">🔔 فعّل إشعارات الجوال للطلبات</button></div>
+  </section>
+
+  <section id="log">
+    <h2 style="margin:6px 0 2px;font-size:20px">📒 السجل</h2>
+    <div class="hint" style="margin-bottom:8px;font-size:12px">أرشيف الفواتير للقراءة فقط. الإدارة والمتابعة من تبويب «الطلبات».</div>
     <div class="tools adm"><button class="ghost" id="dlLog">⬇️ سجل الفواتير (Excel)</button><button class="ghost" id="backupBtn">📦 نسخة احتياطية</button></div>
+    <input class="search" id="lq" placeholder="ابحث برقم الفاتورة أو اسم العميل أو الجوال">
+    <div class="ocnt" id="logCount"></div>
+    <div id="logList"></div>
   </section>
 
   <section id="stock">
@@ -662,7 +679,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '127';
+const APP_VERSION = '128';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2827,6 +2844,19 @@ function savePdf(num, cap) {
     fileReady(blob, name, prev);
   });
 }
+// ===== السجل (11-21): أرشيف نظيف للقراءة فقط؛ الإدارة والمتابعة والتعديل في تبويب «الطلبات» =====
+let LOG_LIM = 60;
+function renderLog() {
+  if (!DATA) return;
+  const q = $('lq').value.trim().toLowerCase(), all = DATA.log.slice().sort((a, b) => (Number(b.num) || 0) - (Number(a.num) || 0));
+  const rows = all.filter(r => !q || ((r.client || '') + ' ' + (r.phone || '') + ' ' + r.num + ' ' + (r.desc || '')).toLowerCase().includes(q));
+  const shown = rows.slice(0, LOG_LIM), live = rows.filter(isLive), sale = live.reduce((a, r) => a + (Number(r.total) || 0), 0);
+  $('logCount').innerHTML = rows.length ? `${rows.length} فاتورة<span class="adm"> · المبيعات ${fmt(sale)} ريال</span>` : '';
+  $('logList').innerHTML = rows.length ? shown.map(r => `<div class="lg${isLive(r) ? '' : ' x'}"><span><span class="no">ORD-${esc(String(r.num))}</span> &nbsp; <b>${esc(r.client || 'بدون اسم')}</b>${isLive(r) ? '' : ' <span class="tag" style="color:var(--bad);border-color:var(--bad)">ملغاة</span>'}</span><span class="amt">${fmt(Number(r.total) || 0)} ريال</span><span class="d">${esc(r.date || '')}${r.phone ? ' · ' + esc(r.phone) : ''} · ${esc(r.desc || '')}</span><button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></div>`).join('') + (rows.length > shown.length ? `<button type="button" class="ghost" data-lmore="1" style="margin:10px 0">عرض المزيد (${rows.length - shown.length})</button>` : '')
+    : '<div class="empty">' + (q ? 'لا توجد فاتورة تطابق البحث' : 'لا توجد فواتير بعد.') + '</div>';
+}
+$('lq').oninput = () => { LOG_LIM = 60; renderLog(); };
+$('logList').addEventListener('click', e => { if (e.target.closest('[data-lmore]')) { LOG_LIM += 60; renderLog(); return; } const b = e.target.closest('[data-dl]'); if (b) savePdf(b.dataset.num); });
 // سجل الفواتير (Excel)
 function buildLogXlsx(log, title) {
   const admin = DATA.role === 'admin';
@@ -3286,7 +3316,7 @@ function load() {
       showNextNum(d.nextNum);
       if ($('boot')) { $('boot').remove(); $('new').classList.add('on'); $('bar').classList.remove('hide'); resetForm(); }
       else updateTotals();
-      ordRender(); renderStats(); renderSettings(); renderSync(); renderPartnerBox();
+      ordRender(); renderLog(); renderStats(); renderSettings(); renderSync(); renderPartnerBox();
       const cy = CARRY || {}; CARRY = null;
       if (d.pinNotice || cy.pinNotice) showOk('تم تعديل الرقم السري بنجاح', 'من الحين تدخل بالرقم الجديد');
       if ($('recMail') && !$('recMail').value) $('recMail').value = d.recMail || '';
