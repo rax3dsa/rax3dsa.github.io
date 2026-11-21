@@ -189,7 +189,28 @@ input[type=number]{direction:ltr;text-align:center}
 </style>
 <style>.tools{display:flex;gap:8px;margin-bottom:12px}
 .tools .ghost{padding:11px;font-size:15px}
-.row .acts{display:flex;gap:6px}
+.row .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.osrch{display:grid;grid-template-columns:122px 1fr;gap:8px;margin-bottom:10px}
+.osrch .ordq{display:flex;align-items:center;gap:6px;border:1px solid var(--gold);border-radius:var(--r-lg,14px);padding:0 10px;background:var(--panel);min-width:0}
+.osrch .ordq span{font-weight:800;color:var(--gold-t);direction:ltr;font-size:13px;white-space:nowrap}
+.osrch .ordq input{flex:1;min-width:0;width:100%;border:0;background:none;direction:ltr;text-align:left;font-size:16px;padding:11px 0;color:inherit;outline:none}
+.osrch .search{margin:0;min-width:0}
+.ofl{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px;margin-bottom:10px}
+.ofl button{width:auto;padding:8px 6px;font-size:13px;border-radius:12px;line-height:1.4}
+.ofl button b{display:block;font-size:16px}
+.ocnt{font-size:12px;color:var(--mute);margin:2px 2px 4px}
+.ogrp{display:flex;justify-content:space-between;align-items:center;margin:14px 2px 8px;font-size:14px;color:var(--gold-t)}
+.ogrp span{font-size:12px;color:var(--mute)}
+.otags{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0 2px}
+.otags:empty{display:none}
+.otags .tag{margin:0;line-height:1.7}
+.ostp{display:flex;align-items:center;gap:8px;margin:8px 0 2px;font-size:12px;color:var(--mute)}
+.ostp .bar5{display:flex;gap:3px;flex:1}
+.ostp .bar5 i{flex:1;height:5px;border-radius:3px;background:var(--line)}
+.ostp .bar5 i.on{background:var(--gold)}
+.ostp.done .bar5 i.on{background:var(--good)}
+.row .mk{flex-wrap:wrap}
+.row .mk .ostg{flex:1 1 100%}
 .hbtn.upd-on{border-color:var(--gold);color:var(--gold-t);font-weight:700}
 .acctsum{margin-bottom:8px;border:1px solid var(--line);border-radius:var(--r-lg,14px);padding:10px 14px;background:var(--panel);font-size:13px;color:var(--mute);line-height:1.9}
 .acctsum b{color:var(--gold-t);font-size:16px}
@@ -271,7 +292,6 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <div class="nl">
     <button class="on" data-tab="new">فاتورة جديدة</button>
     <button data-tab="orders" id="ordersTab">الطلبات<i id="ordersDot" hidden></i></button>
-    <button data-tab="log">السجل</button>
     <button data-tab="stats" class="adm">الإحصائيات</button>
     <button data-tab="settings" class="adm">الإعدادات</button>
     <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
@@ -298,22 +318,18 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   </section>
 
   <section id="orders">
-    <h2 style="margin:6px 0 2px;font-size:20px">📦 طلبات الموقع</h2>
-    <div class="hint" id="ordSync" style="margin-bottom:8px">جاري جلب الطلبات…</div>
-    <div id="ordFilter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <h2 style="margin:6px 0 2px;font-size:20px">📦 الطلبات</h2>
+    <div class="hint" id="ordSync" style="margin-bottom:8px;font-size:12px">جاري جلب الطلبات…</div>
+    <div class="osrch">
+      <div class="ordq"><span>🔎 ORD-</span><input id="oq" inputmode="numeric" autocomplete="off" placeholder="رقم"></div>
+      <input class="search" id="q" placeholder="ابحث باسم العميل أو الجوال">
+    </div>
+    <div class="ofl" id="ordFilter"></div>
+    <div class="adm acctsum" id="acctSum" hidden></div>
+    <div class="ocnt" id="ordCount"></div>
     <div id="ordList"></div>
     <div class="tools"><button class="ghost" id="ordRefresh" type="button">🔄 تحديث</button><button class="ghost" id="ordNotif" type="button">🔔 فعّل إشعارات الجوال للطلبات</button></div>
-  </section>
-
-  <section id="log">
-    <div class="tools adm"><button class="ghost" id="dlLog">⬇️ سجل الفواتير</button><button class="ghost" id="backupBtn">📦 نسخة احتياطية</button></div>
-    <div class="adm acctsum" id="acctSum" hidden></div>
-    <div class="ordq" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;border:1px solid var(--gold);border-radius:var(--r-lg,14px);padding:0 12px;background:var(--panel)">
-      <span style="font-weight:800;color:var(--gold-t);direction:ltr">🔎 ORD-</span>
-      <input id="oq" inputmode="numeric" autocomplete="off" placeholder="رقم الطلب" style="flex:1;border:0;background:none;direction:ltr;text-align:left;font-size:18px;padding:12px 0;color:inherit;outline:none">
-    </div>
-    <input class="search" id="q" placeholder="ابحث باسم العميل أو الجوال أو رقم الفاتورة">
-    <div id="logList"></div>
+    <div class="tools adm"><button class="ghost" id="dlLog">⬇️ سجل الفواتير (Excel)</button><button class="ghost" id="backupBtn">📦 نسخة احتياطية</button></div>
   </section>
 
   <section id="stock">
@@ -646,7 +662,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '126';
+const APP_VERSION = '127';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1611,7 +1627,7 @@ function loyalty(phone, r) {   // يرجع { earned: نقاط هذي الفات�
 const TIERS = [['برونزي', '🥉', 0], ['ذهبي', '🥇', 1000], ['أسطوري', '👑', 3000]];   // [الاسم، الشارة، الحد الأدنى بالريال]
 const tierIdx = spend => TIERS.reduce((a, t, i) => spend >= t[2] ? i : a, 0);
 function spendByPhone(log) { const m = new Map(); (log || []).forEach(r => { if (!isLive(r)) return; const ph = normPhone(r.phone); if (ph.length < 9) return; m.set(ph, (m.get(ph) || 0) + (Number(r.total) || 0)); }); return m; }
-let SPM = new Map();   // إجمالي المشتريات لكل جوال، يُحدَّث في renderLog
+let SPM = new Map();   // إجمالي المشتريات لكل جوال، يُحدَّث في ordRender
 const tierTag = r => { const ph = normPhone(r.phone); if (ph.length < 9 || !SPM.has(ph)) return ''; const t = TIERS[tierIdx(SPM.get(ph))]; return ` <span class="tag p" title="مستوى الولاء">${t[1]} ${t[0]}</span>`; };
 // ===== ربحية الطابعات والألوان (فكرة المالك 7، 11-16) =====
 const PRINTERS = ['P2S'];   // قرار المالك (11-16): عنده طابعة واحدة فقط P2S (لا A1 mini) دائمًا؛ كل الفواتير تُنسب لها، وقائمة «الطابعة» تظهر فقط لو أُضيفت طابعة ثانية هنا
@@ -1673,25 +1689,82 @@ async function ordLoad() {
     document.getElementById('ordSync').textContent = 'آخر تحديث ' + nowStr(); return true;
   } catch (e) { document.getElementById('ordSync').textContent = 'تعذّر جلب الطلبات: ' + ((e && e.message) || e); return false; }
 }
-const ordSt = r => { const o = ORD_ST[String(ordNum(r))]; return o ? Math.max(0, Math.min(4, +o.st || 0)) : (r.stage != null ? Math.max(0, Math.min(4, +r.stage || 0)) : 0); };
 const ordPay = r => r.cod ? '💵 دفع عند الاستلام' : '💳 دفع إلكتروني';
 const ordMode = r => r.mode === 'delivery' || (r.mode == null && !r.cod && Number(r.ship) > 0) ? '🚚 توصيل' : '🤝 استلام مباشر';
-function ordSpend(ph) { let v = 0; ORD.forEach(r => { if (normPhone(r.phone) === ph) v += Number(r.total) || 0; }); return v; }
+const clampSt = v => Math.max(0, Math.min(4, Math.floor(+v) || 0));
+const ORD_LOC = {};   // مرحلة غيّرتها الآن: تبقى دقيقتين حتى لا تعيدها قراءة الملف المشترك القديمة قبل ما تنكتب
+const ordSt = r => {   // المرحلة: تغيير حديث ← الملف المشترك (طلبات المتجر) ← الفاتورة نفسها ← بلا مرحلة: أقدم من 10 أيام = «تم التسليم» (نفس ما يراه العميل في المتجر)
+  const n = String(ordNum(r)), l = ORD_LOC[n]; if (l && Date.now() - l.t < 120000) return l.st;
+  const o = ORD_ST[n]; if (o) return clampSt(o.st);
+  if (r.stage != null) return clampSt(r.stage);
+  return (Date.now() - (Date.parse(r.date) || Date.now())) / 864e5 > 10 ? 4 : 0;
+};
 function ordCounts() { const c = [0, 0, 0, 0, 0]; ORD.forEach(r => { c[ordSt(r)]++; }); return c; }
+// ===== قائمة الطلبات الموحّدة (طلب المالك 11-21): كل الفواتير القديمة والجديدة هنا بدل «السجل»، مع مرشّح المراحل وبطاقة «بانتظار الإدخال للحساب» =====
+let ORD_LIM = 40;   // عدد البطاقات المعروضة؛ «عرض المزيد» يزيده
+function ordAll() {   // كل الفواتير (الأحدث أولًا) + طلبات المتجر التي لم تُستلم كفاتورة بعد
+  const have = new Set(DATA.log.filter(x => x.online).map(x => Number(x.num)));
+  const pend = ORD.filter(r => !have.has(ordNum(r))).map(r => Object.assign({}, r, { _pending: true }));
+  return DATA.log.concat(pend).sort((a, b) => (Number(b.num) || 0) - (Number(a.num) || 0));
+}
+const ordMonth = r => /^\d{4}-\d{2}/.test(String(r.date || '')) ? String(r.date).slice(0, 7) : '';
+function ordCard(r, bal) {
+  const live = isLive(r), pend = !!r._pending, K = esc(rk(r)), N = esc(String(r.num)), st = ordSt(r), ph = normPhone(r.phone);
+  const loss = live && !pend && Number(r.profit) < -0.005, gp = pend ? 0 : gapOf(r), pp = pend ? 0 : pts(r);
+  const bad = 'style="color:var(--bad);border-color:var(--bad)"';
+  const tags = tierTag(r)
+    + (r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : '')
+    + (pend ? '<span class="tag">⏳ لم تُستلم كفاتورة بعد</span>' : '')
+    + (r.edited ? '<span class="tag">معدّلة</span>' : '')
+    + (loss ? `<span class="tag" ${bad}>⚠️ بيعت بأقل من التكلفة ${fmt(-r.profit)} ريال</span>` : '')
+    + (gp > 0.005 ? `<span class="tag" ${bad}>📉 خصم عن المقترح ${fmt(gp)} ريال</span>` : '')
+    + (!live ? `<span class="tag" ${bad}>🚫 ملغاة</span>` : '')
+    + (pp ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pp + '</span>' : '')
+    + (bal != null && ph.length >= 9 ? '<span class="tag p adm">رصيد ⭐ ' + bal + '</span>' : '');
+  const pay = r.online || pend ? ordPay(r) + ' · ' + ordMode(r) : (r.pay && PAY_LBL[r.pay] ? '💳 ' + PAY_LBL[r.pay] : '');
+  const wa = live && (r.online || ordWaPhone(r.phone));
+  const prn = PRINTERS.length > 1 && !pend ? `<label>🖨 الطابعة <select data-prn data-key="${K}"><option value="">غير محدد</option>${PRINTERS.map(p => `<option${r.printer === p ? ' selected' : ''}>${p}</option>`).join('')}</select></label>` : '';
+  const marks = pend ? '' : `<label><input type="checkbox" data-mk="paid" data-key="${K}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${K}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label>`;
+  const gift = live && r.gift ? `<label><input type="checkbox" data-mk="giftdone" data-key="${K}"${r.giftdone ? ' checked' : ''}> 🎁 هدية مفاجأة (وصل العميل للمستوى ${esc(r.gift)}) تم تسليمها</label>` : '';
+  return `<div class="row"${loss ? ' style="border-color:var(--bad)"' : ''}>
+    <div class="row-h"><b>${esc(r.client || 'بدون اسم')}</b><span class="amt"${!live ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(Number(r.total) || 0)} ريال</span></div>
+    <div class="otags">${tags}</div>
+    <p>${esc(r.desc || '')}</p>
+    <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${N}</b> &nbsp; ${esc(r.date || '')}${r.phone ? ' &nbsp; <a href="tel:' + esc(r.phone) + '" dir="ltr">' + esc(r.phone) + '</a>' : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span></div>
+    ${pay ? `<div class="hint" style="margin:6px 0 0">${pay}</div>` : ''}
+    ${live ? `<div class="ostp${st === 4 ? ' done' : ''}"><span class="bar5">${[0, 1, 2, 3, 4].map(i => `<i${i <= st ? ' class="on"' : ''}></i>`).join('')}</span><span>${esc(STAGES[st])}</span></div>` : ''}
+    <div class="acts">${wa ? `<button type="button" class="pdf" data-owa="${N}">💬 أرسل الفاتورة + رابط المتابعة</button>` : ''}${live && !pend ? `<button class="pdf dl adm" data-ed="${K}">✏️ تعديل</button><button class="pdf dl pt" data-ed="${K}">✏️ تعديل السعر</button>` : ''}${pend ? '' : `<button class="pdf" data-qr="${K}">🏷️ ملصق QR</button>`}<button class="pdf" data-dl="1" data-num="${pend ? N : K}"${pend ? ' data-pend="1"' : ''}>📄 PDF</button></div>
+    ${live ? `<div class="adm mk"><label class="ostg">📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${K}" data-num="${N}">${STAGES.map((n, i) => `<option value="${i}"${st === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label>${prn}${marks}${gift}</div>` : ''}
+  </div>`;
+}
 function ordRender() {
-  const c = ordCounts(), tot = ORD.length;
-  document.getElementById('ordFilter').innerHTML = [['الكل', tot, -1]].concat(STAGES.map((n, i) => [n, c[i], i])).map(([n, k, i]) => `<button type="button" data-of="${i}" class="${ORD_F === i ? 'save' : 'ghost'}" style="padding:7px 12px;font-size:13px">${esc(n)} <b>${k}</b></button>`).join('');
-  const rows = ORD.filter(r => ORD_F < 0 || ordSt(r) === ORD_F), db = loadDb();
-  document.getElementById('ordList').innerHTML = rows.length ? rows.map(r => {
-    const ph = normPhone(r.phone), sp = ordSpend(ph), ti = TIERS[tierIdx(sp)], pts = (DATA && DATA.role === 'admin') ? ptsBalanceFor(ph, db) : null;
-    return `<div class="row"><div class="row-h"><b>${esc(r.client || 'بدون اسم')}</b> <span class="tag p">${ti[1]} ${ti[0]}</span>${pts != null ? ` <span class="tag p">⭐ ${pts}</span>` : ''}</div>
-      <p>${esc(r.desc || '')}</p>
-      <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(String(r.num))}</b> &nbsp; ${esc(r.date || '')} &nbsp; <a href="tel:${esc(r.phone || '')}" dir="ltr">${esc(r.phone || '')}</a></span><span>${fmt(Number(r.total) || 0)} ر.س</span></div>
-      <div class="hint" style="margin:6px 0">${ordPay(r)} · ${ordMode(r)}</div>
-      <div class="acts" style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="pdf" data-owa="${esc(String(r.num))}">💬 أرسل الفاتورة + رابط المتابعة</button><button type="button" class="pdf" data-opdf="${esc(String(r.num))}">📄 PDF</button></div>
-      <div class="adm mk" style="display:block"><label>📦 مرحلة الطلب <select data-ost data-num="${esc(String(r.num))}">${STAGES.map((n, i) => `<option value="${i}"${ordSt(r) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div></div>`;
-  }).join('') : '<div class="empty">لا طلبات في هذه المرحلة.</div>';
-  const n0 = c[0]; document.getElementById('ordersDot').hidden = !n0; document.getElementById('ordersDot').textContent = n0 || '';
+  if (typeof DATA === 'undefined' || !DATA) return;
+  try { renderAcctSum(); } catch (e) {}
+  SPM = spendByPhone(DATA.log);
+  const all = ordAll(), live = all.filter(isLive), c = [0, 0, 0, 0, 0]; live.forEach(r => { c[ordSt(r)]++; });
+  const canc = all.length - live.length; if (ORD_F === 9 && !canc) ORD_F = -1;
+  document.getElementById('ordFilter').innerHTML = [['الكل', all.length, -1]].concat(STAGES.map((n, i) => [n, c[i], i]), canc ? [['🚫 ملغاة', canc, 9]] : []).map(([n, k, i]) => `<button type="button" data-of="${i}" class="${ORD_F === i ? 'save' : 'ghost'}">${esc(n)}<b>${k}</b></button>`).join('');
+  const q = document.getElementById('q').value.trim().toLowerCase(), oq = document.getElementById('oq').value.replace(/[^0-9]/g, '');
+  const rows = all.filter(r => {
+    if (acctOnly && (r._pending || !(isLive(r) && !r.acct))) return false;
+    if (oq) return String(r.num) === oq;
+    if (q) return ((r.client || '') + ' ' + (r.phone || '') + ' ' + r.num + ' ' + (r.desc || '') + ' ' + (r.code || '')).toLowerCase().includes(q);
+    return ORD_F < 0 || (ORD_F === 9 ? !isLive(r) : isLive(r) && ordSt(r) === ORD_F);
+  });
+  const adminRole = DATA.role === 'admin', db = adminRole ? loadDb() : null, bals = {}, cnt = {}, sale = rows.filter(isLive).reduce((a, r) => a + (Number(r.total) || 0), 0);
+  rows.forEach(r => { const m = ordMonth(r); cnt[m] = (cnt[m] || 0) + 1; });
+  const shown = rows.slice(0, ORD_LIM); let html = '', cur = null;
+  shown.forEach(r => {
+    const m = ordMonth(r);
+    if (m !== cur) { cur = m; html += `<div class="ogrp"><b>${m ? esc(monthName(m)) : 'بدون تاريخ'}</b><span>${cnt[m]} طلب</span></div>`; }
+    const ph = normPhone(r.phone); let bal = null;
+    if (adminRole && ph.length >= 9) { if (!(ph in bals)) bals[ph] = ptsBalanceFor(ph, db); bal = bals[ph]; }
+    html += ordCard(r, bal);
+  });
+  document.getElementById('ordCount').innerHTML = rows.length ? `يعرض ${shown.length} من ${rows.length} طلب<span class="adm"> · المبيعات ${fmt(sale)} ريال</span>` : '';
+  document.getElementById('ordList').innerHTML = rows.length ? html + (rows.length > shown.length ? `<button type="button" class="ghost" data-omore="1" style="margin-bottom:12px">عرض المزيد (${rows.length - shown.length})</button>` : '')
+    : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : acctOnly ? 'كل الفواتير أُدخلت للحساب ✔' : ORD_F >= 0 ? 'لا طلبات في هذه المرحلة.' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».'}</div>`;
+  const n0 = ordCounts()[0]; document.getElementById('ordersDot').hidden = !n0; document.getElementById('ordersDot').textContent = n0 || '';
 }
 async function ordSetStage(num, st) {   // يكتب المرحلة في الملف المشترك (كل من المالك ومدخل البيانات)، ولو في سجل المالك الفاتورة نفسها تتحدّث وتنعكس للعميل
   const sync = getSync(); if (!sync) throw new Error('اربط الترقيم المشترك أولاً');
@@ -1699,21 +1772,44 @@ async function ordSetStage(num, st) {   // يكتب المرحلة في المل
   ORD_ST[String(num)] = { st: st };
   try { const db = loadDb(); if (db.role === 'admin') { const r = db.log.find(x => Number(x.num) === Number(num)); if (r) { r.stage = st; saveDb(db); publishPointsSoon(); } } } catch (e) {}
 }
-document.getElementById('ordFilter').addEventListener('click', e => { const b = e.target.closest('[data-of]'); if (!b) return; ORD_F = +b.dataset.of; ordRender(); });
-// أزرار بطاقة الطلب: إرسال للعميل بواتساب برابط المتابعة، نسخ الرابط، وPDF (11-20)
+document.getElementById('ordFilter').addEventListener('click', e => { const b = e.target.closest('[data-of]'); if (!b) return; ORD_F = +b.dataset.of; ORD_LIM = 40; ordRender(); });
+document.getElementById('q').oninput = () => { ORD_LIM = 40; ordRender(); };
+document.getElementById('oq').oninput = () => { const o = document.getElementById('oq'); o.value = o.value.replace(/[^0-9]/g, ''); ORD_LIM = 40; ordRender(); };
+// أزرار بطاقة الطلب: إرسال للعميل بواتساب برابط المتابعة (للطلبات التي لها جوال صالح)، تعديل، ملصق QR، PDF، وعلامات الدعم الفني
 const ordWaPhone = p => { const d = normPhone(p); return /^05\d{8}$/.test(d) ? '966' + d.slice(1) : ''; };
 document.getElementById('ordList').addEventListener('click', e => {
-  const b = e.target.closest('[data-owa],[data-opdf]'); if (!b) return;
-  const num = b.dataset.owa || b.dataset.opdf, r = ORD.find(x => String(x.num) === String(num)); if (!r) return;
-  const url = TRACK_URL(num);
-  if (b.dataset.opdf) { const x = DATA && DATA.log.find(y => Number(y.num) === Number(num) && y.online); if (!x) { toast('الفاتورة لم تُستلم بعد: اضغط تحديث ثم أعد المحاولة'); return; } savePdf(rk(x)); return; }
-  const ph = ordWaPhone(r.phone); if (!ph) { toast('رقم جوال العميل غير صالح لواتساب'); return; }
+  if (e.target.closest('[data-omore]')) { ORD_LIM += 40; ordRender(); return; }
+  const ed = e.target.closest('[data-ed]'); if (ed) { if (DATA && DATA.role === 'partner') openPriceEdit(ed.dataset.ed); else openEdit(ed.dataset.ed); return; }
+  const mk = e.target.closest('[data-mk]'); if (mk) {
+    const key = mk.dataset.key, field = mk.dataset.mk, on = mk.checked;
+    google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) { if (on) r[field] = todayStr(); else delete r[field]; } try { renderAcctSum(); } catch (x) {} })
+      .withFailureHandler(er => { mk.checked = !on; toast('تعذّر الحفظ: ' + ((er && er.message) || er)); }).markInvoice({ key: key, field: field, on: on });
+    return;
+  }
+  const qb = e.target.closest('[data-qr]'); if (qb) {
+    const r = DATA.log.find(x => rk(x) === qb.dataset.qr); if (!r) return;
+    drawLabel(r).then(cv => cv.toBlob(bl => { if (!bl) { toast('تعذّر إنشاء الملصق'); return; } shareBlob(bl, 'ملصق-ORD-' + r.num + '.png').catch(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))); }, 'image/png'));
+    return;
+  }
+  const d = e.target.closest('[data-dl]'); if (d) { if (d.dataset.pend) { toast('الفاتورة لم تُستلم بعد: اضغط تحديث ثم أعد المحاولة'); return; } savePdf(d.dataset.num); return; }
+  const b = e.target.closest('[data-owa]'); if (!b) return;
+  const num = b.dataset.owa, r = ordAll().find(x => String(x.num) === String(num)); if (!r) return;
+  const url = TRACK_URL(num), ph = ordWaPhone(r.phone); if (!ph) { toast('رقم جوال العميل غير صالح لواتساب'); return; }
   const txt = 'أهلاً ' + (r.client || '') + '، تم اعتماد طلبك ORD-' + num + ' من RAX3D.\n' + (r.desc ? 'الطلب: ' + r.desc + '\n' : '') + 'الإجمالي: ' + fmt(Number(r.total) || 0) + ' ريال.\nتابع مرحلة طلبك من هنا:\n' + url + '\n(اكتب رقم جوالك فقط ليفتح طلبك)';
   window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(txt), '_blank'); toast('فتحنا محادثة العميل والرسالة جاهزة: اضغط إرسال. لإرفاق الفاتورة استخدم زر PDF');
 });
 document.getElementById('ordList').addEventListener('change', e => {
-  const s = e.target.closest('[data-ost]'); if (!s) return; const num = +s.dataset.num, st = +s.value;
-  ordSetStage(num, st).then(() => { ordRender(); toast('تم تحديث ORD-' + num + ': ' + STAGES[st]); }).catch(er => { toast('تعذّر الحفظ: ' + ((er && er.message) || er)); ordLoad().then(ordRender); });
+  const pe = e.target.closest('[data-prn]'); if (pe) {
+    google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === pe.dataset.key); if (r) { if (pe.value) r.printer = pe.value; else delete r.printer; } toast('تم تحديث الطابعة' + (pe.value ? ': ' + pe.value : '')); })
+      .withFailureHandler(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))).setPrinter({ key: pe.dataset.key, printer: pe.value });
+    return;
+  }
+  const s = e.target.closest('[data-stg]'); if (!s) return;
+  const key = s.dataset.key, num = +s.dataset.num, st = +s.value, r = DATA.log.find(x => rk(x) === key);
+  const ok = () => { ORD_LOC[String(num)] = { st: st, t: Date.now() }; ordRender(); toast('تم تحديث ORD-' + num + ': ' + STAGES[st]); };
+  if (!r) { ordSetStage(num, st).then(ok).catch(er => { toast('تعذّر الحفظ: ' + ((er && er.message) || er)); ordLoad().then(ordRender); }); return; }   // طلب متجر لم يُستلم كفاتورة: تُكتب في الملف المشترك مباشرة
+  google.script.run.withSuccessHandler(() => { r.stage = st; ok(); })   // setStage يكتب الفاتورة، ولو من المتجر يكتب الملف المشترك أيضًا
+    .withFailureHandler(er => { toast('تعذّر الحفظ: ' + ((er && er.message) || er)); ordRender(); }).setStage({ key: key, stage: st });
 });
 document.getElementById('ordRefresh').onclick = () => { ordLoad().then(ordRender); };
 const PUSH_API = 'https://rax3d-pay.rax3d.workers.dev';
@@ -2444,37 +2540,17 @@ function undoRedeem(id) {
   if ((+d.redeems[i].used || 0) > 0 || d.redeems[i].applied) { toast('ما يمكن التراجع: انطبق على فاتورة'); return; }
   d.redeems.splice(i, 1); saveDb(d); publishPointsSoon(); toast('تم التراجع عن الاستبدال'); try { renderStats(); } catch (e) {}
 }
-let acctOnly = false;   // v112: تصفية السجل لعرض الفواتير غير المُدخلة للحساب فقط (زر في ملخص الدعم الفني)
+let acctOnly = false;   // v112: تصفية الطلبات لعرض الفواتير غير المُدخلة للحساب فقط (زر في ملخص الدعم الفني)
 function renderAcctSum() {   // v100: ملخص الدعم الفني فقط — فواتير لم تُدخل للحساب بعد (لا يتأثر بالبحث)
   const el = $('acctSum'); if (!el) return;
   const L = DATA.log.filter(r => isLive(r)), todo = L.filter(r => !r.acct), paid = todo.filter(r => r.paid);
   const sum = a => a.reduce((t, r) => t + (+r.total || 0), 0);
   el.hidden = false;
   el.innerHTML = `🏦 بانتظار الإدخال للحساب: <b>${todo.length}</b> فاتورة · <b>${fmt(sum(todo))}</b> ريال<br>منها مدفوعة من العميل: ${paid.length} فاتورة · ${fmt(sum(paid))} ريال<br><button type="button" class="pdf" data-acf="1" style="margin-top:8px">${acctOnly ? '✖ إلغاء التصفية (عرض كل الفواتير)' : '📋 عرض هذه الفواتير فقط (' + todo.length + ')'}</button>`;
-  el.onclick = e => { if (e.target.closest('[data-acf]')) { acctOnly = !acctOnly; renderLog(); } };
+  el.onclick = e => { if (e.target.closest('[data-acf]')) { acctOnly = !acctOnly; ORD_LIM = 40; ordRender(); } };
 }
 // v106: «الخصم التلقائي» عن السعر المقترح = المقترح − سعر البيع (داخلي فقط: السجل والإحصائيات، ولا يدخل في الفاتورة المطبوعة ولا يغيّر الإجمالي)
 const gapOf = r => isLive(r) && Number(r.sugg) > 0 ? Math.round((Number(r.sugg) - Number(r.total)) * 100) / 100 : 0;
-function renderLog() {
-  try { renderAcctSum(); } catch (e) {}
-  const q = $('q').value.trim().toLowerCase(), oq = ($('oq') ? $('oq').value : '').replace(/[^0-9]/g, '');
-  SPM = spendByPhone(DATA.log);
-  const rows = DATA.log.slice().reverse().filter(r => acctOnly && !(isLive(r) && !r.acct) ? false : oq ? String(r.num) === oq : !q ||
-    (r.client + ' ' + r.phone + ' ' + r.num + ' ' + r.desc + ' ' + (r.code || '')).toLowerCase().includes(q));
-  const isLoss = r => isLive(r) && Number(r.profit) < -0.005;   // v104: بيعت بخسارة (الربح أقل من صفر) — العلامة ومبلغ الخسارة تظهر للدعم الفني ومدخل البيانات فقط (قرار المالك) ولا تدخل في الفاتورة المطبوعة
-  $('logList').innerHTML = rows.length ? rows.map(r => `
-    <div class="row"${isLoss(r) ? ' style="border-color:var(--bad)"' : ''}>
-      <div class="row-h"><b>${esc(r.client || 'بدون اسم')}${tierTag(r)}${r.online ? '<span class="tag p">' + (r.cod ? '🚚 المتجر · عند الاستلام' : '🛒 المتجر') + '</span>' : r.by === 'partner' ? '<span class="tag p">📝 مدخل البيانات</span>' : ''}${r.edited ? '<span class="tag">معدّلة</span>' : ''}${isLoss(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">⚠️ بيعت بأقل من التكلفة ' + fmt(-r.profit) + ' ريال</span>' : ''}${gapOf(r) > 0.005 ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">📉 خصم عن المقترح ' + fmt(gapOf(r)) + ' ريال</span>' : ''}${!isLive(r) ? '<span class="tag" style="color:var(--bad);border-color:var(--bad)">🚫 ملغاة</span>' : ''}${pts(r) ? '<span class="tag" style="color:var(--gold-t)">⭐ +' + pts(r) + '</span>' : ''}</b><span class="amt"${!isLive(r) ? ' style="text-decoration:line-through;opacity:.55"' : ''}>${fmt(r.total)} ريال</span></div>
-      <p>${esc(r.desc)}</p>
-      <div class="meta"><span><b dir="ltr" style="color:var(--gold-t)">ORD-${esc(r.num)}</b> &nbsp; ${esc(r.date)}${r.phone ? ' &nbsp; ' + esc(r.phone) : ''}${r.code ? ' &nbsp; <span dir="ltr">' + esc(r.code) + '</span>' : ''}</span>
-      <span class="acts">${isLive(r) ? `<button class="pdf dl adm" data-ed="${esc(rk(r))}">✏️ تعديل</button>` : ''}${isLive(r) ? `<button class="pdf dl pt" data-ed="${esc(rk(r))}">✏️ تعديل السعر</button>` : ''}<button class="pdf" data-qr="${esc(rk(r))}">🏷️ ملصق QR</button><button class="pdf" data-dl="1" data-num="${esc(rk(r))}">📄 PDF</button></span></div>
-      ${isLive(r) && r.gift ? `<div class="adm mk"><label><input type="checkbox" data-mk="giftdone" data-key="${esc(rk(r))}"${r.giftdone ? ' checked' : ''}> 🎁 هدية مفاجأة (وصل العميل للمستوى ${esc(r.gift)}) تم تسليمها</label></div>` : ''}
-      ${isLive(r) ? `<div class="adm mk"><label>${PRINTERS.length > 1 ? `🖨 الطابعة <select data-prn data-key="${esc(rk(r))}"><option value="">غير محدد</option>${PRINTERS.map(p => `<option${r.printer === p ? ' selected' : ''}>${p}</option>`).join('')}</select></label> &nbsp; <label>` : ''}📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${esc(rk(r))}">${STAGES.map((n, i) => `<option value="${i}"${(r.stage != null ? Number(r.stage) : ((Date.now() - (Date.parse(r.date) || Date.now())) / 864e5 > 10 ? 4 : 0)) === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
-      ${isLive(r) ? `<div class="adm mk"><label><input type="checkbox" data-mk="paid" data-key="${esc(rk(r))}"${r.paid ? ' checked' : ''}> 💰 دفع العميل</label><label><input type="checkbox" data-mk="acct" data-key="${esc(rk(r))}"${r.acct ? ' checked' : ''}> 🏦 أُدخل للحساب</label></div>` : ''}
-    </div>`).join('')
-    : `<div class="empty">${oq ? 'ما فيه طلب برقم ORD-' + esc(oq) : q ? 'لا توجد فاتورة تطابق البحث' : (acctOnly ? 'كل الفواتير أُدخلت للحساب ✔' : 'لا توجد فواتير بعد. احفظ أول فاتورة من تبويب «فاتورة جديدة».')}</div>`;
-}
-$('q').oninput = renderLog; $('oq').oninput = () => { $('oq').value = $('oq').value.replace(/[^0-9]/g, ''); renderLog(); };
 
 const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 const monthName = ym => { const [yy, mm] = String(ym).split('-'); return AR_MONTHS[+mm - 1] + ' ' + yy; };
@@ -2751,34 +2827,6 @@ function savePdf(num, cap) {
     fileReady(blob, name, prev);
   });
 }
-$('logList').addEventListener('change', e => {
-  const pe = e.target.closest('[data-prn]'); if (pe) {
-    google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === pe.dataset.key); if (r) { if (pe.value) r.printer = pe.value; else delete r.printer; } toast('تم تحديث الطابعة' + (pe.value ? ': ' + pe.value : '')); })
-      .withFailureHandler(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))).setPrinter({ key: pe.dataset.key, printer: pe.value });
-    return;
-  }
-  const sel = e.target.closest('[data-stg]'); if (!sel) return;
-  const key = sel.dataset.key, v = +sel.value;
-  google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) r.stage = v; toast('تم تحديث المرحلة: ' + STAGES[v]); })
-    .withFailureHandler(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))).setStage({ key: key, stage: v });
-});
-$('logList').addEventListener('click', e => {
-  const ed = e.target.closest('[data-ed]'); if (ed) { if (DATA && DATA.role === 'partner') openPriceEdit(ed.dataset.ed); else openEdit(ed.dataset.ed); return; }
-  const mk = e.target.closest('[data-mk]'); if (mk) {
-    const key = mk.dataset.key, field = mk.dataset.mk, on = mk.checked;
-    google.script.run.withSuccessHandler(() => { const r = DATA.log.find(x => rk(x) === key); if (r) { if (on) r[field] = todayStr(); else delete r[field]; } try { renderAcctSum(); } catch (x) {} })
-      .withFailureHandler(er => { mk.checked = !on; toast('تعذّر الحفظ: ' + ((er && er.message) || er)); }).markInvoice({ key: key, field: field, on: on });
-    return;
-  }
-  const qb = e.target.closest('[data-qr]'); if (qb) {
-    const r = DATA.log.find(x => rk(x) === qb.dataset.qr); if (!r) return;
-    drawLabel(r).then(cv => cv.toBlob(bl => { if (!bl) { toast('تعذّر إنشاء الملصق'); return; } shareBlob(bl, 'ملصق-ORD-' + r.num + '.png').catch(er => toast('تعذّر الحفظ: ' + ((er && er.message) || er))); }, 'image/png'));
-    return;
-  }
-  const b = e.target.closest('[data-dl]'); if (!b) return;
-  savePdf(b.dataset.num);
-});
-
 // سجل الفواتير (Excel)
 function buildLogXlsx(log, title) {
   const admin = DATA.role === 'admin';
@@ -3238,7 +3286,7 @@ function load() {
       showNextNum(d.nextNum);
       if ($('boot')) { $('boot').remove(); $('new').classList.add('on'); $('bar').classList.remove('hide'); resetForm(); }
       else updateTotals();
-      renderLog(); renderStats(); renderSettings(); renderSync(); renderPartnerBox();
+      ordRender(); renderStats(); renderSettings(); renderSync(); renderPartnerBox();
       const cy = CARRY || {}; CARRY = null;
       if (d.pinNotice || cy.pinNotice) showOk('تم تعديل الرقم السري بنجاح', 'من الحين تدخل بالرقم الجديد');
       if ($('recMail') && !$('recMail').value) $('recMail').value = d.recMail || '';
