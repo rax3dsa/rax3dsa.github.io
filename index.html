@@ -829,10 +829,10 @@ async function loadSitePrices(force) {
   } catch (e) {}
 }
 setTimeout(loadSitePrices, 1500);
-// عرض خاص (المالك 11-15): البطة الكول من 100 حتى 499 حبة = 2.99 للحبة (299 للمئة) — مثل الموقع. أي قطعة غيرها لا تتأثر.
+// عرض خاص (المالك 11-21): البطة الكول من 100 حتى 499 حبة = 2.50 للحبة (250 للمئة) — مثل الموقع (كان 2.99 وأُلغي 11-20 لأن العادي صار 2.75). أي قطعة غيرها لا تتأثر.
 function distOffer(it, q, dh) {
   if (!dh || q < 100 || q >= 500 || !/البطة الكول/.test(String(it.desc || ''))) return dh;
-  return dh;   // عرض البطة 2.99 أُلغي 11-20 (السعر العادي لـ100 صار 2.75)
+  return dh.price > 2.50 ? Object.assign({}, dh, { price: 2.50, floored: false, offer: true }) : dh;
 }
 function calcLocal(S, it) {
   const w = +it.w || 0, q = +it.q || 1, acc = Math.max(0, +it.acc || 0);   // acc: قطع إضافية للحبة (طقم LED، ميكانيزم ساعة...) تنضاف بسعرها بدون مضاعف
