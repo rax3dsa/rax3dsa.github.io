@@ -304,6 +304,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button data-tab="stats" class="adm">الإحصائيات</button>
     <button data-tab="settings" class="adm">الإعدادات</button>
     <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
+    <button data-tab="buys" class="adm">المشتريات</button>
     <button data-tab="dist" class="adm">التوزيعات</button>
     <button data-tab="custom" class="adm">طلب خاص</button>
     </div>
@@ -366,6 +367,28 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <p class="hint" id="stkMsg" style="margin:8px 0 0"></p>
   </section>
 
+  <section id="buys">
+    <h2 style="margin:6px 0 2px;font-size:20px">🧾 فواتير مشتريات داخلية</h2>
+    <div class="hint" id="buySync" style="margin-bottom:8px"></div>
+    <div class="period">
+      <label for="buyCat">الصنف</label>
+      <select id="buyCat" aria-label="صنف المشتريات"></select>
+      <div id="buyFil" hidden style="display:flex;gap:8px;margin-top:8px">
+        <select id="buyFT" aria-label="نوع الفلمنت" style="flex:1"></select>
+        <select id="buyFC" aria-label="لون الفلمنت" style="flex:1.4"></select>
+      </div>
+      <input id="buyFCT" hidden placeholder="اكتب اسم اللون" style="margin-top:8px" autocomplete="off">
+      <label for="buyDesc" style="margin-top:10px;display:block">الوصف</label>
+      <input id="buyDesc" placeholder="وصف القطعة (يُكتب تلقائيًا عند اختيار الصنف)" autocomplete="off">
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <div style="flex:1"><label for="buyPrice">السعر (ريال)</label><input id="buyPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+        <div style="flex:1"><label for="buyDate">التاريخ</label><input id="buyDate" type="date"></div>
+      </div>
+      <button class="save" id="buyAdd" style="margin-top:12px">＋ حفظ فاتورة المشتريات</button>
+      <p class="hint" id="buyMsg" style="margin:8px 0 0"></p>
+    </div>
+    <div id="buyList"></div>
+  </section>
   <section id="dist">
     <h2 style="margin:6px 0 2px;font-size:20px">🎁 حاسبة التوزيعات</h2>
     <p class="hint" style="line-height:1.8;margin:0 0 10px">اكتب وزن القطعة ووقت طباعتها وعدد التوزيعات، يطلع سعر الحبة والإجمالي وصافي الربح ومدة الطباعة. تسعير خاص غير الجملة العادية، والحد الأدنى 50 حبة.</p>
@@ -679,7 +702,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '128';
+const APP_VERSION = '129';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2446,6 +2469,101 @@ document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () =>
   window.scrollTo(0, 0);
 });
 
+
+/* ---------- v129: فواتير مشتريات داخلية (قطع غيار، فلمنت، أكياس...) — تظهر كعمود ينافس الربح في الإحصائيات ---------- */
+// purchases.json في المستودع الخاص: { v, rows:[{id, date, cat, desc, price}], u }
+const BUY_KEY = 'rax3d_buys';
+const BUY_CATS = [['part', 'قطع غيار للطابعة'], ['fil', 'فلمنت'], ['medal', 'ميداليات'], ['bag', 'أكياس شفافة'], ['bulb', 'لمبات'], ['mag', 'مغناطيس'], ['hand', 'خيط يد 20 سم'], ['car', 'تعليقة سيارة 40 سم'], ['pack', 'أكياس تغليف'], ['other', 'أخرى']];
+let BUYS = null, BUY_BUSY = false, BUY_OK = false;
+function buyNorm(d) {
+  const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100) })).filter(r => r.id && r.price > 0);
+  return { v: 1, rows: rows.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0), u: (d && d.u) || 0 };
+}
+function buyLoad() { if (BUYS) return BUYS; try { BUYS = buyNorm(JSON.parse(localStorage.getItem(BUY_KEY) || 'null')); } catch (e) { BUYS = buyNorm(null); } return BUYS; }
+function buySaveLocal() { try { localStorage.setItem(BUY_KEY, JSON.stringify(BUYS)); } catch (e) {} }
+const buyRows = () => buyLoad().rows;
+const buysOn = day => buyRows().reduce((a, r) => a + (r.date === day ? r.price : 0), 0);
+const buysIn = f => buyRows().reduce((a, r) => a + (f(r) ? r.price : 0), 0);
+async function buySync() {
+  if (BUY_BUSY) return; const sy = getSync(); buyLoad(); BUY_BUSY = true;
+  try {
+    if (!sy) { BUY_OK = false; return; }
+    const r = await readJson(sy, 'purchases.json', null);
+    if (r.data) BUYS = buyNorm(r.data); else if (BUYS.rows.length) await updateJson(sy, 'purchases.json', null, d => d ? undefined : BUYS, 'إنشاء مشتريات داخلية');
+    BUY_OK = true; buySaveLocal();
+  } catch (e) { BUY_OK = false; }
+  finally { BUY_BUSY = false; }
+  buyRender(); try { if ($('stats').classList.contains('on')) renderStats(); } catch (e) {}
+}
+async function buyApply(op, msg) {   // op(d) تُطبَّق محليًا فورًا ثم تُكتب للمستودع المشترك
+  buyLoad(); op(BUYS); BUYS = buyNorm(BUYS); buySaveLocal(); buyRender(); try { renderStats(); } catch (e) {}
+  const sy = getSync(), m = $('buyMsg'); if (!sy) { m.style.color = ''; m.textContent = 'محفوظ على هذا الجوال فقط: الربط المشترك غير مفعّل'; return; }
+  try {
+    const nd = await updateJson(sy, 'purchases.json', null, d => { d = buyNorm(d || BUYS); op(d); d = buyNorm(d); d.u = Date.now(); return d; }, msg);
+    BUYS = buyNorm(nd); BUY_OK = true; buySaveLocal(); m.style.color = 'var(--good)'; m.textContent = 'تم الحفظ ✔'; buyRender(); try { renderStats(); } catch (e) {}
+  } catch (e) { BUY_OK = false; m.style.color = 'var(--bad)'; m.textContent = 'تعذّر الحفظ في المستودع (محفوظ على الجوال): ' + ((e && e.message) || e); }
+}
+function buyColors() {   // الألوان المتفق عليها = ألوان الجرد
+  try { if (!STK) stkLoadLocal(); } catch (e) {}
+  const set = []; (STK && STK.rows || []).forEach(r => { if (r.c && !set.includes(r.c)) set.push(r.c); }); return set;
+}
+function buyDescFill() {
+  const cat = $('buyCat').value, lab = (BUY_CATS.find(c => c[0] === cat) || [])[1] || '';
+  $('buyFil').hidden = $('buyFCT').hidden = true; $('buyFil').style.display = 'none';
+  if (cat === 'fil') {
+    $('buyFil').hidden = false; $('buyFil').style.display = 'flex';
+    const oth = $('buyFC').value === '__o'; $('buyFCT').hidden = !oth;
+    const col = oth ? $('buyFCT').value.trim() : $('buyFC').value;
+    $('buyDesc').value = 'فلمنت ' + ($('buyFT').value || '') + (col ? ' — ' + col : '');
+  } else if (cat === 'other') { if (BUY_LAST === 'fil' || BUY_CATS.some(c => c[1] === $('buyDesc').value)) $('buyDesc').value = ''; }
+  else $('buyDesc').value = lab;
+  BUY_LAST = cat;
+}
+let BUY_LAST = '';
+function buyRender() {
+  if (!$('buyList')) return; const rows = buyRows(), t = todayStr(), ym = t.slice(0, 7);
+  const mo = buysIn(r => r.date.startsWith(ym)), all = buysIn(() => true), sy = getSync();
+  $('buySync').textContent = sy ? (BUY_OK ? '🔗 مربوطة بالمستودع المشترك' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
+  const cl = { part: '🔧', fil: '🧵', medal: '🏅', bag: '🛍', bulb: '💡', mag: '🧲', hand: '🪢', car: '🚗', pack: '📦', other: '🧾' };
+  $('buyList').innerHTML = `<div class="period"><h3>إجمالي المشتريات</h3><div class="kv"><div>هذا الشهر<b>${fmt(mo)}</b></div><div>الكل<b>${fmt(all)}</b></div><div>عدد الفواتير<b>${rows.length}</b></div></div></div>` +
+    (rows.length ? '<div class="period"><h3>آخر المشتريات</h3>' + rows.slice(0, 60).map(r => `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="flex:1;line-height:1.6">${cl[r.cat] || '🧾'} ${esc(r.desc || '—')}<br><small style="color:var(--mute)">${esc(r.date)}</small></span><b style="direction:ltr">${fmt(r.price)}</b><button type="button" class="ghost" data-bd="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="حذف">✕</button></div>`).join('') + '</div>' : '<p class="hint">لا توجد مشتريات بعد.</p>');
+}
+function buyInit() {
+  $('buyCat').innerHTML = BUY_CATS.map(c => `<option value="${c[0]}">${esc(c[1])}</option>`).join('');
+  $('buyDate').value = todayStr();
+  const fillF = () => {
+    let ts = []; try { if (!STK) stkLoadLocal(); ts = (STK.types || []).map(x => x.name); } catch (e) {}
+    if (!ts.length) ts = ['PLA', 'PETG'];
+    const ft = $('buyFT').value, fc = $('buyFC').value;
+    $('buyFT').innerHTML = ts.map(x => `<option>${esc(x)}</option>`).join('');
+    $('buyFC').innerHTML = buyColors().map(x => `<option>${esc(x)}</option>`).join('') + '<option value="__o">أخرى (اكتب الاسم)</option>';
+    if (ts.includes(ft)) $('buyFT').value = ft; if (fc) $('buyFC').value = fc;
+  };
+  fillF();
+  $('buyCat').addEventListener('change', () => { fillF(); buyDescFill(); if ($('buyCat').value === 'other') $('buyDesc').focus(); });
+  ['buyFT', 'buyFC'].forEach(id => $(id).addEventListener('change', buyDescFill)); $('buyFCT').addEventListener('input', buyDescFill);
+  buyDescFill();
+  $('buyAdd').onclick = () => {
+    const desc = $('buyDesc').value.trim(), price = Math.round((+$('buyPrice').value || 0) * 100) / 100, date = $('buyDate').value || todayStr(), m = $('buyMsg');
+    m.style.color = 'var(--bad)';
+    if (!desc) { m.textContent = 'اكتب وصف القطعة أو اختر الصنف'; return; }
+    if (!(price > 0)) { m.textContent = 'اكتب السعر'; return; }
+    const row = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: date, cat: $('buyCat').value, desc: desc, price: price };
+    m.textContent = ''; $('buyPrice').value = ''; if ($('buyCat').value === 'other') $('buyDesc').value = '';
+    buyApply(d => { if (!d.rows.some(x => x.id === row.id)) d.rows.unshift(row); }, 'مشتريات داخلية: ' + desc.slice(0, 40));
+    toast('✔ أُضيفت فاتورة مشتريات: ' + fmt(price) + ' ريال');
+  };
+  $('buyList').addEventListener('click', e => {
+    const b = e.target.closest('[data-bd]'); if (!b) return; const id = b.dataset.bd, r = buyRows().find(x => x.id === id); if (!r) return;
+    if (!confirm('حذف «' + r.desc + '» (' + fmt(r.price) + ' ريال)؟')) return;
+    buyApply(d => { d.rows = d.rows.filter(x => x.id !== id); }, 'حذف فاتورة مشتريات داخلية');
+  });
+  buyRender();
+}
+document.querySelector('nav button[data-tab="buys"]').addEventListener('click', () => { buyInit.done || (buyInit.done = 1); buyRender(); buySync(); });
+document.querySelector('nav button[data-tab="stats"]').addEventListener('click', () => { try { renderStats(); } catch (e) {} });
+try { buyInit(); } catch (e) {}
+
 // ===== حاسبة التوزيعات: الصيغة في distUnit (فوق calcLocal) =====
 function distCalc() {
   const out = $('dOut'), cfg = S || DEF_SETTINGS, val = id => $(id).value === '' ? null : +$(id).value;
@@ -2583,26 +2701,26 @@ function lastDays(n) {   // آخر n أيام (تنتهي باليوم)، كل �
   return out;
 }
 function dayTotals(day) { const rs = DATA.log.filter(r => isLive(r) && r.date === day); return { n: rs.length, sales: rs.reduce((a, r) => a + (+r.total || 0), 0), profit: rs.reduce((a, r) => a + (+r.profit || 0), 0), loss: rs.reduce((a, r) => a + Math.max(0, gapOf(r)), 0) }; }
-function chartSvg(labels, a, b, c) {   // أعمدة: المبيعات (ذهبي) وصافي الربح (أخضر) والخسارة (أحمر)
-  const W = 340, H = 190, top = 22, base = 166, n = labels.length, slot = (W - 20) / n, bw = Math.min(16, slot / 3 - 2);
-  const max = Math.max(1, ...a, ...b.map((v, i) => v + (c[i] || 0)), ...c), hgt = v => Math.max(0, v) / max * (base - top);
+function chartSvg(labels, a, b, c, e) {   // أعمدة: المبيعات (ذهبي) وصافي الربح (أخضر) والخسارة (أحمر)
+  const W = 340, H = 190, top = 22, base = 166, n = labels.length, slot = (W - 20) / n, bw = Math.min(16, slot / (e ? 4 : 3) - 2);
+  const max = Math.max(1, ...a, ...b.map((v, i) => v + (c[i] || 0)), ...c, ...(e || [])), hgt = v => Math.max(0, v) / max * (base - top);
   let g = `<line x1="10" y1="${base}" x2="${W - 10}" y2="${base}" style="stroke:var(--line)"/>`;
   for (let k = 1; k <= 3; k++) { const yy = base - (base - top) * k / 3; g += `<line x1="10" y1="${yy}" x2="${W - 10}" y2="${yy}" style="stroke:var(--row-line)"/>`; }
   const bar = (x, v, fill, tf) => { const h = hgt(v); return `<rect x="${x}" y="${base - h}" width="${bw}" height="${h}" rx="2" style="fill:${fill}"/>` + (v ? `<text x="${x + bw / 2}" y="${base - h - 3}" font-size="8" style="fill:${tf}" text-anchor="middle">${fmtN(v)}</text>` : ''); };
   labels.forEach((l, i) => {
-    const cx = W - 10 - slot * (i + 0.5), x1 = cx + bw / 2 + 1, x2 = cx - bw / 2, x3 = cx - bw * 1.5 - 1;
-    g += bar(x1, a[i], 'var(--gold)', 'var(--text)') + bar(x2, b[i], b[i] < 0 ? 'var(--bad)' : 'var(--good)', 'var(--mute)') + bar(x3, c[i], 'var(--bad)', 'var(--bad)');
+    const cx = W - 10 - slot * (i + 0.5), m = e ? 4 : 3, xr = cx + (m * bw + m - 1) / 2, x1 = xr - bw, x2 = xr - 2 * bw - 1, x3 = xr - 3 * bw - 2, x4 = xr - 4 * bw - 3;
+    g += bar(x1, a[i], 'var(--gold)', 'var(--text)') + bar(x2, b[i], b[i] < 0 ? 'var(--bad)' : 'var(--good)', 'var(--mute)') + bar(x3, c[i], 'var(--bad)', 'var(--bad)') + (e ? bar(x4, e[i], '#e08a2e', '#e08a2e') : '');
     if (c[i] > 0 && b[i] >= 0) { const hb = hgt(b[i]), hx = hgt(b[i] + c[i]) - hb; g += `<rect x="${x2}" y="${base - hb - hx}" width="${bw}" height="${hx}" rx="2" style="fill:none;stroke:var(--good);stroke-dasharray:2 2"/>`; }   // v117: الجزء المنقّط = الخصم الضائع من الربح (هامش بدون الخصم)
     g += `<text x="${cx}" y="${base + 16}" font-size="9" style="fill:var(--mute)" text-anchor="middle">${esc(l)}</text>`;
   });
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="رسم بياني يومي للمبيعات وصافي الربح والخسارة" style="display:block;font-family:inherit">${g}</svg>`;
 }
 function statsChartHtml() {   // v111: يومي (آخر 7 أيام) بدل آخر 6 أشهر + عمود الخسارة (خصم عن المقترح)
-  const ds = lastDays(7), t = ds.map(dayTotals), dl = d => +d.slice(8) + '/' + +d.slice(5, 7);
-  const rows = ds.slice().reverse().map((d, i) => { const v = t[ds.length - 1 - i]; return `<tr><td>${dl(d)}</td><td>${v.n}</td><td>${fmt(v.sales)}</td><td style="color:${v.loss > 0.005 ? 'var(--bad)' : 'inherit'}">${fmt(v.loss)}</td><td style="color:${v.profit < 0 ? 'var(--bad)' : 'inherit'}">${fmt(v.profit)}</td><td>${fmt(v.profit + v.loss)}</td></tr>`; }).join('');
+  const ds = lastDays(7), t = ds.map(dayTotals), bu = ds.map(buysOn), dl = d => +d.slice(8) + '/' + +d.slice(5, 7);
+  const rows = ds.slice().reverse().map((d, i) => { const v = t[ds.length - 1 - i]; return `<tr><td>${dl(d)}</td><td>${v.n}</td><td>${fmt(v.sales)}</td><td style="color:${v.loss > 0.005 ? 'var(--bad)' : 'inherit'}">${fmt(v.loss)}</td><td style="color:${v.profit < 0 ? 'var(--bad)' : 'inherit'}">${fmt(v.profit)}</td><td>${fmt(v.profit + v.loss)}</td><td style="color:${bu[ds.length - 1 - i] > 0 ? '#e08a2e' : 'inherit'}">${fmt(bu[ds.length - 1 - i])}</td><td style="color:${v.profit - bu[ds.length - 1 - i] < 0 ? 'var(--bad)' : 'inherit'}">${fmt(v.profit - bu[ds.length - 1 - i])}</td></tr>`; }).join('');
   return `<div class="period"><h3>📊 المبيعات والخسارة وصافي الربح — يوميًا (آخر 7 أيام)</h3>
-    <div style="display:flex;gap:14px;font-size:12px;color:var(--mute);margin:-4px 0 6px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--gold);margin-left:5px"></i>المبيعات</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--good);margin-left:5px"></i>صافي الربح</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--bad);margin-left:5px"></i>الخسارة</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;border:1px dashed var(--good);margin-left:5px"></i>هامش بدون خصم (المنقّط)</span></div>${chartSvg(ds.map(dl), t.map(v => r2(v.sales)), t.map(v => r2(v.profit)), t.map(v => r2(v.loss)))}
-    <div style="overflow-x:auto;margin-top:10px"><table class="st"><thead><tr><th>اليوم</th><th>الفواتير</th><th>المبيعات</th><th>الخسارة</th><th>صافي الربح</th><th>هامش بدون خصم</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    <div style="display:flex;gap:14px;font-size:12px;color:var(--mute);margin:-4px 0 6px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--gold);margin-left:5px"></i>المبيعات</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--good);margin-left:5px"></i>صافي الربح</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--bad);margin-left:5px"></i>الخسارة</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;border:1px dashed var(--good);margin-left:5px"></i>هامش بدون خصم (المنقّط)</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e08a2e;margin-left:5px"></i>مشتريات داخلية</span></div>${chartSvg(ds.map(dl), t.map(v => r2(v.sales)), t.map(v => r2(v.profit)), t.map(v => r2(v.loss)), bu.map(r2))}
+    <div style="overflow-x:auto;margin-top:10px"><table class="st"><thead><tr><th>اليوم</th><th>الفواتير</th><th>المبيعات</th><th>الخسارة</th><th>صافي الربح</th><th>هامش بدون خصم</th><th>مشتريات</th><th>الربح بعد المشتريات</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function gapVsProfitHtml(loss, profit) {   // v113: شريط أحمر (خصم عن المقترح) وأخضر (صافي الربح) بنفس المقياس لمقارنتهما
   const ls = Math.max(0, +loss || 0), pf = Math.max(0, +profit || 0) + ls, mx = Math.max(pf, ls, 1), w = v => v > 0 ? Math.max(2, v / mx * 100).toFixed(1) + '%' : '0%';
@@ -2657,7 +2775,7 @@ function renderStats() {
     return `<div class="period"><h3>${name}</h3><div class="kv">
       <div>الفواتير<b>${rs.length}</b></div><div>القطع<b>${s('qty')}</b></div><div>المبيعات<b>${fmt(s('total'))}</b></div>
       <div>الخصومات<b>${fmt(s('disc'))}</b></div><div>خصم عن المقترح<b>${fmt(rs.reduce((t, r) => t + Math.max(0, gapOf(r)), 0))}</b></div><div>صافي الربح<b>${fmt(s('profit'))}</b></div>
-      <div>متوسط الفاتورة<b>${rs.length ? fmt(s('total') / rs.length) : 0}</b></div><div>⭐ نقاط الولاء<b>${rs.reduce((a, r) => a + pts(r), 0)}</b></div></div>${gapVsProfitHtml(rs.reduce((t, r) => t + Math.max(0, gapOf(r)), 0), s('profit'))}</div>`;
+      <div>متوسط الفاتورة<b>${rs.length ? fmt(s('total') / rs.length) : 0}</b></div><div>🧾 مشتريات داخلية<b style="color:#e08a2e">${fmt(buysIn(f))}</b></div><div>الربح بعد المشتريات<b style="color:${s('profit') - buysIn(f) < 0 ? 'var(--bad)' : 'inherit'}">${fmt(s('profit') - buysIn(f))}</b></div><div>⭐ نقاط الولاء<b>${rs.reduce((a, r) => a + pts(r), 0)}</b></div></div>${gapVsProfitHtml(rs.reduce((t, r) => t + Math.max(0, gapOf(r)), 0), s('profit'))}</div>`;
   }).join('') + loyaltyCard();
 }
 
