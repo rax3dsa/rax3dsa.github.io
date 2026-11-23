@@ -367,6 +367,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <p class="hint" id="stkMsg" style="margin:8px 0 0"></p>
   </section>
 
+  <style>#buys input[type=date]{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;min-height:46px;text-align:right}#buys input[type=date]::-webkit-date-and-time-value{text-align:right}#buys select,#buys input{max-width:100%;box-sizing:border-box}</style>
   <section id="buys">
     <h2 style="margin:6px 0 2px;font-size:20px">🧾 فواتير مشتريات داخلية</h2>
     <div class="hint" id="buySync" style="margin-bottom:8px"></div>
@@ -377,12 +378,13 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
         <select id="buyFT" aria-label="نوع الفلمنت" style="flex:1"></select>
         <select id="buyFC" aria-label="لون الفلمنت" style="flex:1.4"></select>
       </div>
+      <input id="buyFTT" hidden placeholder="اكتب نوع الفلمنت" style="margin-top:8px" autocomplete="off">
       <input id="buyFCT" hidden placeholder="اكتب اسم اللون" style="margin-top:8px" autocomplete="off">
       <label for="buyDesc" style="margin-top:10px;display:block">الوصف</label>
       <input id="buyDesc" placeholder="وصف القطعة (يُكتب تلقائيًا عند اختيار الصنف)" autocomplete="off">
       <div style="display:flex;gap:8px;margin-top:10px">
-        <div style="flex:1"><label for="buyPrice">السعر (ريال)</label><input id="buyPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
-        <div style="flex:1"><label for="buyDate">التاريخ</label><input id="buyDate" type="date"></div>
+        <div style="flex:1;min-width:0"><label for="buyPrice">السعر (ريال)</label><input id="buyPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+        <div style="flex:1;min-width:0"><label for="buyDate">التاريخ</label><input id="buyDate" type="date"></div>
       </div>
       <button class="save" id="buyAdd" style="margin-top:12px">＋ حفظ فاتورة المشتريات</button>
       <p class="hint" id="buyMsg" style="margin:8px 0 0"></p>
@@ -422,8 +424,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button class="ghost" id="cuRefresh" style="margin-top:8px">🔄 تحديث الحالة</button>
   </section>
 
-  <section id="stats"><div id="statDash"></div><div id="pollBox"></div>    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
-    <div class="tools"><button class="ghost" id="repBtn" style="width:100%">📈 تحميل تحليل الوضع الكامل (للفترة المحددة)</button></div>    <div id="statList"></div>
+  <section id="stats">
     <div class="goal adm" id="goalCard" style="display:none">
       <div class="goal-top"><span>🎯 هدف المبيعات</span><b id="goalAmt"></b></div>
       <div class="goal-bar"><i id="goalBar"></i></div>
@@ -434,12 +435,21 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
         <div id="gapProf" style="display:none"><div class="loss-top" style="margin-top:10px"><span>🟢 هامش الربح بدون الخصومات</span><b id="gapProfAmt"></b></div><div class="loss-bar"><i id="gapProfBar" style="background:var(--good)"></i></div></div>
         <div class="loss-sub" id="gapTxt"></div>
       </div>
+      <div class="loss" id="buyBox" style="display:none">
+        <div class="loss-top"><span>🧾 مشتريات داخلية</span><b id="buyAmt"></b></div>
+        <div class="loss-bar"><i id="buyBar" style="background:#e08a2e"></i></div>
+        <div class="loss-top" style="margin-top:10px"><span>🟢 صافي ربح الفواتير</span><b id="buyProfAmt"></b></div>
+        <div class="loss-bar"><i id="buyProfBar" style="background:var(--good)"></i></div>
+        <div class="loss-sub" id="buyTxt" style="line-height:1.8"></div>
+      </div>
       <div class="loss" id="prnBox" style="display:none">
         <div class="loss-top"><span>🖨 استرداد سعر الطابعة</span><b id="prnAmt"></b></div>
         <div class="loss-bar"><i id="prnBar" style="background:linear-gradient(90deg,var(--gold-d),var(--gold))"></i></div>
         <div class="loss-sub" id="prnTxt" style="line-height:1.8"></div>
       </div>
     </div>
+<div id="statDash"></div><div id="pollBox"></div>    <div class="tools" style="align-items:flex-end"><div style="flex:1"><label for="repFrom">من تاريخ</label><input type="date" id="repFrom"></div><div style="flex:1"><label for="repTo">إلى تاريخ</label><input type="date" id="repTo"></div></div>
+    <div class="tools"><button class="ghost" id="repBtn" style="width:100%">📈 تحميل تحليل الوضع الكامل (للفترة المحددة)</button></div>    <div id="statList"></div>
     <div id="statPeriods"></div>
   </section>
   <section id="settings">
@@ -702,7 +712,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '129';
+const APP_VERSION = '130';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2509,18 +2519,19 @@ function buyColors() {   // الألوان المتفق عليها = ألوان 
 }
 function buyDescFill() {
   const cat = $('buyCat').value, lab = (BUY_CATS.find(c => c[0] === cat) || [])[1] || '';
-  $('buyFil').hidden = $('buyFCT').hidden = true; $('buyFil').style.display = 'none';
+  $('buyFil').hidden = $('buyFCT').hidden = $('buyFTT').hidden = true; $('buyFil').style.display = 'none';
   if (cat === 'fil') {
     $('buyFil').hidden = false; $('buyFil').style.display = 'flex';
-    const oth = $('buyFC').value === '__o'; $('buyFCT').hidden = !oth;
+    const oth = $('buyFC').value === '__o', ot = $('buyFT').value === '__o'; $('buyFCT').hidden = !oth; $('buyFTT').hidden = !ot;
     const col = oth ? $('buyFCT').value.trim() : $('buyFC').value;
-    $('buyDesc').value = 'فلمنت ' + ($('buyFT').value || '') + (col ? ' — ' + col : '');
+    $('buyDesc').value = 'فلمنت ' + (ot ? $('buyFTT').value.trim() : ($('buyFT').value || '')) + (col ? ' — ' + col : '');
   } else if (cat === 'other') { if (BUY_LAST === 'fil' || BUY_CATS.some(c => c[1] === $('buyDesc').value)) $('buyDesc').value = ''; }
   else $('buyDesc').value = lab;
   BUY_LAST = cat;
 }
 let BUY_LAST = '';
 function buyRender() {
+  try { renderBuyBox(); } catch (e) {}
   if (!$('buyList')) return; const rows = buyRows(), t = todayStr(), ym = t.slice(0, 7);
   const mo = buysIn(r => r.date.startsWith(ym)), all = buysIn(() => true), sy = getSync();
   $('buySync').textContent = sy ? (BUY_OK ? '🔗 مربوطة بالمستودع المشترك' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
@@ -2535,13 +2546,13 @@ function buyInit() {
     let ts = []; try { if (!STK) stkLoadLocal(); ts = (STK.types || []).map(x => x.name); } catch (e) {}
     if (!ts.length) ts = ['PLA', 'PETG'];
     const ft = $('buyFT').value, fc = $('buyFC').value;
-    $('buyFT').innerHTML = ts.map(x => `<option>${esc(x)}</option>`).join('');
-    $('buyFC').innerHTML = buyColors().map(x => `<option>${esc(x)}</option>`).join('') + '<option value="__o">أخرى (اكتب الاسم)</option>';
-    if (ts.includes(ft)) $('buyFT').value = ft; if (fc) $('buyFC').value = fc;
+    $('buyFT').innerHTML = ts.map(x => `<option>${esc(x)}</option>`).join('') + '<option value="__o">أخرى</option>';
+    $('buyFC').innerHTML = buyColors().map(x => `<option>${esc(x)}</option>`).join('') + '<option value="__o">أخرى</option>';
+    if (ts.includes(ft) || ft === '__o') $('buyFT').value = ft; if (fc) $('buyFC').value = fc;
   };
   fillF();
   $('buyCat').addEventListener('change', () => { fillF(); buyDescFill(); if ($('buyCat').value === 'other') $('buyDesc').focus(); });
-  ['buyFT', 'buyFC'].forEach(id => $(id).addEventListener('change', buyDescFill)); $('buyFCT').addEventListener('input', buyDescFill);
+  ['buyFT', 'buyFC'].forEach(id => $(id).addEventListener('change', buyDescFill)); $('buyFCT').addEventListener('input', buyDescFill); $('buyFTT').addEventListener('input', buyDescFill);
   buyDescFill();
   $('buyAdd').onclick = () => {
     const desc = $('buyDesc').value.trim(), price = Math.round((+$('buyPrice').value || 0) * 100) / 100, date = $('buyDate').value || todayStr(), m = $('buyMsg');
@@ -3476,7 +3487,7 @@ function renderGoal(g) {
   $('goalBar').style.width = pct.toFixed(1) + '%';
   $('goalSales').textContent = fmtN(g.sales);
   $('goalLeft').textContent = fmtN(g.remaining);
-  renderPrinter(g.printer);
+  renderPrinter(g.printer); try { renderBuyBox(); } catch (e) {}
   const box = $('gapBox');
   if (!g.gapCount) { box.style.display = 'none'; return; }
   box.style.display = '';
@@ -3494,6 +3505,15 @@ function renderGoal(g) {
   $('gapTxt').innerHTML = pctTxt + (loss > 0 ? 'يرتفع لما تبيعون أقل من المقترح، وينزل لما تبيعون أعلى منه'
                           : gap < 0 ? 'تم التعويض ✔ وبعتوا فوق المقترح بـ ' + fmtN(-gap) + ' ريال'
                           : 'لا توجد خسارة ✔');
+}
+function renderBuyBox() {   // v130: خط المشتريات الداخلية ينافس صافي الربح داخل بطاقة الهدف
+  const box = $('buyBox'); if (!box) return; const g = window.__goal, tot = buysIn(() => true);
+  if (!g || !(tot > 0)) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  const pf = g.printer && Number.isFinite(+g.printer.profit) ? Math.max(0, +g.printer.profit) : 0, mx = Math.max(tot, pf, 1), w = v => v > 0 ? Math.max(2, v / mx * 100).toFixed(1) + '%' : '0%';
+  $('buyAmt').textContent = fmtN(tot) + ' ريال'; $('buyBar').style.width = w(tot);
+  $('buyProfAmt').textContent = fmtN(pf) + ' ريال'; $('buyProfBar').style.width = w(pf);
+  $('buyTxt').innerHTML = (pf > 0 ? 'المشتريات تعادل <b>' + (tot / pf * 100).toFixed(1) + '%</b> من صافي الربح · ' : '') + 'الربح بعد المشتريات <b style="color:' + (pf - tot < 0 ? 'var(--bad)' : 'inherit') + '">' + fmtN(pf - tot) + '</b> ريال';
 }
 function renderPrinter(pr) {
   const box = $('prnBox'); if (!box) return;
