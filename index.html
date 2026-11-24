@@ -370,6 +370,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   <style>#buys input[type=date]{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;min-height:46px;text-align:right}#buys input[type=date]::-webkit-date-and-time-value{text-align:right}#buys select,#buys input{max-width:100%;box-sizing:border-box}</style>
   <section id="buys">
     <style>#slBox .slr{display:flex;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}#slBox .slr input[type=checkbox]{width:24px;height:24px;flex:none;margin:0;padding:0;accent-color:var(--gold)}#slBox .sln{flex:1;min-width:0;line-height:1.6;font-size:15px;word-break:break-word}#slBox .slr.dn .sln{text-decoration:line-through;color:var(--mute)}#slBox .slr input.slp{width:84px;flex:none;padding:8px 6px;font-size:15px}#slBox .slx{margin:0;width:auto;padding:6px 10px;flex:none}#slBox .slt{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 4px;font-size:15px}#slBox .slt b{font-size:20px;direction:ltr}</style>
+    <div class="stk-tabs adm" id="buyTabs"><button type="button" class="on" data-bt="sl">🛒 قائمة الشراء</button><button type="button" data-bt="inv">🧾 الفواتير</button></div>
     <div class="period" id="slBox">
       <h3>🛒 قائمة الشراء</h3>
       <div class="hint" id="slSync" style="margin:-4px 0 8px"></div>
@@ -378,7 +379,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
       <p class="hint" id="slMsg" style="margin:8px 0 0"></p>
       <div id="slList"></div>
     </div>
-    <div class="adm">
+    <div class="adm" id="buyInv" hidden>
     <h2 style="margin:6px 0 2px;font-size:20px">🧾 فواتير مشتريات داخلية</h2>
     <div class="hint" id="buySync" style="margin-bottom:8px"></div>
     <div class="period">
@@ -723,7 +724,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '132';
+const APP_VERSION = '133';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2631,6 +2632,13 @@ async function slApply(op, msg) {
     SL = slNorm(nd); SL_OK = true; slSaveLocal(); m.style.color = 'var(--good)'; m.textContent = 'تم الحفظ ✔'; slRender(); return true;
   } catch (e) { SL_OK = false; m.style.color = 'var(--bad)'; m.textContent = 'تعذّر الحفظ في المستودع (محفوظ على الجوال): ' + ((e && e.message) || e); return false; }
 }
+function buyTab(t) {   // v133: تبويبان داخل «المشتريات»: قائمة الشراء / الفواتير
+  if (!slAdm()) t = 'sl';
+  $('slBox').hidden = t !== 'sl'; $('buyInv').hidden = t !== 'inv';
+  document.querySelectorAll('#buyTabs [data-bt]').forEach(b => b.classList.toggle('on', b.dataset.bt === t));
+  try { sessionStorage.setItem('rax3d_buytab', t); } catch (e) {}
+}
+$('buyTabs').addEventListener('click', e => { const b = e.target.closest('[data-bt]'); if (b) buyTab(b.dataset.bt); });
 let slWas = false;
 const slAllDone = () => { const i = slLoad().items; return i.length > 0 && i.every(x => x.done); };
 const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); };
@@ -2665,7 +2673,7 @@ const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); }
   });
   setInterval(() => { try { if ($('buys').classList.contains('on') && !document.hidden) slSync(); } catch (e) {} }, 45000);
 })();
-document.querySelector('nav button[data-tab="buys"]').addEventListener('click', () => { slRender(); slSync(); if (slAdm()) { buyInit.done || (buyInit.done = 1); buyRender(); buySync(); } });
+document.querySelector('nav button[data-tab="buys"]').addEventListener('click', () => { let t = 'sl'; try { t = sessionStorage.getItem('rax3d_buytab') || 'sl'; } catch (e) {} buyTab(t); slRender(); slSync(); if (slAdm()) { buyInit.done || (buyInit.done = 1); buyRender(); buySync(); } });
 document.querySelector('nav button[data-tab="stats"]').addEventListener('click', () => { try { renderStats(); } catch (e) {} });
 try { buyInit(); } catch (e) {}
 
