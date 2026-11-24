@@ -12,6 +12,24 @@
 <meta name="theme-color" content="#1e1c18">
 <script src="qr.min.js"></script>
 <script>/* ارفض التشغيل داخل إطار موقع آخر (clickjacking): GitHub Pages ما يسمح بترويسة تمنع التأطير */if(window.top!==window.self){try{window.top.location=window.location.href}catch(_){document.documentElement.style.display="none"}}</script>
+<script>/* v138: الأرقام تُكتب بالعربية أو الإنجليزية وتُسجَّل بالإنجليزية فقط (كل الحقول). حقول type=number تتحول إلى نص بلوحة أرقام، لأن المتصفح يرفض الأرقام العربية فيها */
+(function () {
+  var AR = '٠١٢٣٤٥٦٧٨٩', FA = '۰۱۲۳۴۵۶۷۸۹', SKIP = { checkbox: 1, radio: 1, file: 1, range: 1, color: 1, date: 1, 'datetime-local': 1, time: 1, month: 1, week: 1, button: 1, submit: 1 };
+  function conv(v, dec) { var o = '', i, c, k; for (i = 0; i < v.length; i++) { c = v.charAt(i); k = AR.indexOf(c); if (k < 0) k = FA.indexOf(c); o += k >= 0 ? String(k) : (c === '٫' || (dec && (c === '،' || c === ','))) ? '.' : c === '٬' ? '' : c; } return o; }
+  function fix(e) {
+    var el = e.target; if (!el || e.isComposing || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') || SKIP[el.type]) return;
+    var v = el.value; if (!v) return; var num = el.hasAttribute('data-num'), n = conv(v, num); if (num) n = n.replace(/[^0-9.\-]/g, '');
+    if (n !== v) { var st = el.selectionStart; el.value = n; try { st = Math.max(0, st - (v.length - n.length)); el.setSelectionRange(st, st); } catch (_) {} }
+  }
+  addEventListener('input', fix, true); addEventListener('change', fix, true);
+  function numify(n) {
+    if (n.nodeType !== 1) return; var l = n.matches && n.matches('input[type=number]') ? [n] : []; if (n.querySelectorAll) l = l.concat([].slice.call(n.querySelectorAll('input[type=number]')));
+    l.forEach(function (i) { i.setAttribute('data-num', '1'); if (!i.getAttribute('inputmode')) i.setAttribute('inputmode', 'decimal'); i.type = 'text'; });
+  }
+  new MutationObserver(function (ms) { ms.forEach(function (m) { m.addedNodes.forEach(numify); }); }).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('DOMContentLoaded', function () { numify(document.body); });
+})();
+</script>
 <script>
 (function(){try{var m=localStorage.getItem('rax_theme')||'dark',d=document.documentElement;
 var l=m==='light'||(m==='auto'&&matchMedia('(prefers-color-scheme: light)').matches);
@@ -87,7 +105,7 @@ section{display:none} section.on{display:block}
 label{display:block;font-size:13px;color:var(--mute);margin-bottom:4px}
 input,select{width:100%;background:var(--field);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;font-size:16px;outline:none}
 input:focus,select:focus{border-color:var(--gold)}
-input[type=number]{direction:ltr;text-align:center}
+input[type=number],input[data-num]{direction:ltr;text-align:center}
 .grid{display:grid;gap:10px}
 .g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:1.3fr 1fr 1fr 1fr;gap:8px}.g3{grid-template-columns:1fr 1fr 1fr}
 
@@ -735,7 +753,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '137';
+const APP_VERSION = '138';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
