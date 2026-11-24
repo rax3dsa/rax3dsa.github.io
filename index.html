@@ -73,7 +73,7 @@ nav .nl button{text-align:start;padding:12px 16px}
 nav .nl button{flex:none;border:0;background:none;border-radius:14px;font-size:14px;color:var(--mute);cursor:pointer;position:relative;white-space:nowrap}
 nav button i{position:absolute;top:5px;inset-inline-end:8px;width:9px;height:9px;border-radius:50%;background:#e5484d}
 .stk-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.stk-tabs button{flex:none;border:1px solid var(--line);background:var(--field);color:var(--mute);border-radius:999px;padding:8px 14px;cursor:pointer}.stk-tabs button.on{background:var(--gold-d);color:#000;font-weight:700;border-color:var(--gold)}
-.stk-row{display:grid;grid-template-columns:1.15fr 1fr .95fr .95fr 28px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.stk-row.hd{color:var(--mute);font-size:12.5px;border-bottom:2px solid var(--line)}
+.stk-row{display:grid;grid-template-columns:1.15fr 1fr .95fr .95fr 28px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.stk-row.acc{grid-template-columns:1.6fr 1.1fr .95fr 28px}.stk-row.hd{color:var(--mute);font-size:12.5px;border-bottom:2px solid var(--line)}
 .stk-code{display:block;font-size:11px;color:var(--mute);cursor:pointer;direction:ltr;text-align:right}.stk-code:not(:empty){margin-top:1px}
 .stk-c{display:flex;align-items:center;gap:8px}.stk-c i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.55);flex:none}
 .stk-q{display:flex;align-items:center;gap:4px}.stk-q button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--text);cursor:pointer;font-size:18px;padding:0}.stk-q b{min-width:26px;text-align:center}
@@ -351,10 +351,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
   </section>
 
   <section id="stock">
-    <h2 style="margin:6px 0 2px;font-size:20px">🧵 جرد الفلمنت</h2>
+    <h2 style="margin:6px 0 2px;font-size:20px">🧵 الجرد</h2>
     <div class="hint" id="stkSync" style="margin-bottom:4px"></div>
     <div class="stk-due" id="stkDue" hidden></div>
-    <div id="stkSum"></div>
     <div class="stk-tabs" id="stkTabs"></div>
     <div class="hint" id="stkNote" style="margin:0 0 8px;line-height:1.8"></div>
     <div id="stkBody"></div>
@@ -363,19 +362,30 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
       <select id="stkTySel" style="flex:1;min-width:90px" aria-label="نوع الفلمنت"></select><input id="stkColTxt" list="stkColList" placeholder="اسم اللون" style="flex:1.4;min-width:110px" autocomplete="off"><datalist id="stkColList"><option>أبيض</option><option>أسود</option><option>رمادي</option><option>أحمر</option><option>برتقالي</option><option>أصفر</option><option>أخضر</option><option>أزرق</option><option>وردي</option><option>ذهبي</option><option>بني</option></datalist><input id="stkCodeTxt" placeholder="رقم اللون كما في الاستكر (اختياري) مثل 10100" style="flex:1 1 100%" autocomplete="off" dir="ltr"><button class="ghost" id="stkAddColor" style="margin:0;width:auto">＋ إضافة</button>
     </div>
     <div style="margin-top:8px;display:flex;gap:8px"><input id="stkTypeTxt" placeholder="نوع فلمنت جديد (مثل PETG)" style="flex:1"><button class="ghost" id="stkAddType" style="margin:0;width:auto">＋ نوع</button></div>
+    <div style="margin-top:8px;display:flex;gap:8px"><input id="stkAccTxt" placeholder="قسم مستلزمات جديد (مثل: أكياس شحن)" style="flex:1" autocomplete="off"><button class="ghost" id="stkAddAcc" style="margin:0;width:auto">＋ قسم</button></div>
     <button class="save" id="stkDone" style="margin-top:14px">✔ تم الجرد (التذكير القادم بعد أسبوعين)</button>
     <p class="hint" id="stkMsg" style="margin:8px 0 0"></p>
   </section>
 
   <style>#buys input[type=date]{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;min-height:46px;text-align:right}#buys input[type=date]::-webkit-date-and-time-value{text-align:right}#buys select,#buys input{max-width:100%;box-sizing:border-box}</style>
   <section id="buys">
-    <style>#slBox .slr{display:flex;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}#slBox .slr input[type=checkbox]{width:24px;height:24px;flex:none;margin:0;padding:0;accent-color:var(--gold)}#slBox .sln{flex:1;min-width:0;line-height:1.6;font-size:15px;word-break:break-word}#slBox .slr.dn .sln{text-decoration:line-through;color:var(--mute)}#slBox .slr input.slp{width:84px;flex:none;padding:8px 6px;font-size:15px}#slBox .slx{margin:0;width:auto;padding:6px 10px;flex:none}#slBox .slt{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 4px;font-size:15px}#slBox .slt b{font-size:20px;direction:ltr}</style>
+    <style>#slBox .slr{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}#slBox .slsub{flex:1 1 100%;display:flex;gap:8px;align-items:center;padding-inline-start:32px}#slBox .slsub label{margin:0;font-size:12px;color:var(--mute);white-space:nowrap}#slBox input.slq{width:64px;flex:none;padding:8px 6px;font-size:15px}#slBox .tg{font-size:11px;color:var(--gold-t);border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-inline-start:6px;white-space:nowrap}#slBox .slr input[type=checkbox]{width:24px;height:24px;flex:none;margin:0;padding:0;accent-color:var(--gold)}#slBox .sln{flex:1;min-width:0;line-height:1.6;font-size:15px;word-break:break-word}#slBox .slr.dn .sln{text-decoration:line-through;color:var(--mute)}#slBox .slr input.slp{width:84px;flex:none;padding:8px 6px;font-size:15px}#slBox .slx{margin:0;width:auto;padding:6px 10px;flex:none}#slBox .slt{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 4px;font-size:15px}#slBox .slt b{font-size:20px;direction:ltr}</style>
     <div class="stk-tabs adm" id="buyTabs"><button type="button" class="on" data-bt="sl">🛒 قائمة الشراء</button><button type="button" data-bt="inv">🧾 الفواتير</button></div>
     <div class="period" id="slBox">
       <h3>🛒 قائمة الشراء</h3>
       <div class="hint" id="slSync" style="margin:-4px 0 8px"></div>
-      <div style="display:flex;gap:8px"><input id="slName" placeholder="ماذا نحتاج نشتري؟" autocomplete="off" style="flex:1;min-width:0"><input id="slQty" placeholder="الكمية" autocomplete="off" style="width:84px;flex:none;text-align:center"></div>
-      <button class="save" id="slAdd" style="margin-top:10px;font-size:16px;padding:12px">＋ أضف للقائمة</button>
+      <label for="slCat">الصنف</label>
+      <select id="slCat" aria-label="صنف الشراء"></select>
+      <div id="slFil" hidden style="display:flex;gap:8px;margin-top:8px">
+        <select id="slFT" aria-label="نوع الفلمنت" style="flex:1"></select>
+        <select id="slFC" aria-label="لون الفلمنت" style="flex:1.4"></select>
+      </div>
+      <input id="slFTT" hidden placeholder="اكتب نوع الفلمنت" style="margin-top:8px" autocomplete="off">
+      <input id="slFCT" hidden placeholder="اكتب اسم اللون" style="margin-top:8px" autocomplete="off">
+      <label for="slDesc" style="margin-top:10px;display:block">الوصف</label>
+      <input id="slDesc" list="slDL" placeholder="وصف الصنف (يُكتب تلقائيًا عند اختيار الصنف)" autocomplete="off"><datalist id="slDL"></datalist>
+      <div style="margin-top:10px"><label for="slQty">الكمية</label><input id="slQty" type="number" inputmode="numeric" min="1" step="1" value="1"></div>
+      <button class="save" id="slAdd" style="margin-top:12px;font-size:16px;padding:12px">＋ أضف للقائمة</button>
       <p class="hint" id="slMsg" style="margin:8px 0 0"></p>
       <div id="slList"></div>
     </div>
@@ -724,7 +734,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '133';
+const APP_VERSION = '134';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2307,13 +2317,18 @@ const stkHexR = r => STK_HEX[stkRC(r)] || stkHex(r.c);
 const stkHex = c => STK_HEX[c] || STK_HEX_X[c] || STK_HEX[stkCanon(c, true)] || '';
 const STK_START = '2026-11-26';   // أول موعد جرد: بعد أسبوعين من تاريخ الطلب (12 نوفمبر 2026)
 const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const BUY_CATS = [['part', 'قطع غيار للطابعة'], ['fil', 'فلمنت'], ['medal', 'ميداليات'], ['bag', 'أكياس شفافة'], ['bulb', 'لمبات'], ['mag', 'مغناطيس'], ['hand', 'خيط يد 20 سم'], ['car', 'تعليقة سيارة 40 سم'], ['pack', 'أكياس تغليف'], ['other', 'أخرى']];
+const BUY_ICON = { part: '🔧', fil: '🧵', medal: '🏅', bag: '🛍', bulb: '💡', mag: '🧲', hand: '🪢', car: '🚗', pack: '📦', other: '🧾' };
+const ACC_SEED = BUY_CATS.filter(c => c[0] !== 'fil' && c[0] !== 'other');   // v134: أقسام مستلزمات الجرد = أصناف فواتير المشتريات (ما عدا الفلمنت وأخرى)
 function stkDefault() {
   const rows = STK_COLORS.map(c => ({ t: 'PLA', c: c, q: 1, buy: c === 'بنفسجي', need: c === 'بنفسجي' }));   // نفس حال الموقع اليوم: البنفسجي غير متوفر
   return { v: 1, types: [{ name: 'PLA', site: true }, { name: 'PETG', site: false }], rows: rows, next: STK_START, mailedFor: '', u: 0 };
 }
 let STK = null, STK_TYPE = '', STK_Q = [], STK_T = null, STK_BUSY = false, STK_OK = false;
 function stkNorm(d) {
-  d = d && typeof d === 'object' ? d : stkDefault(); d.types = (Array.isArray(d.types) && d.types.length ? d.types : stkDefault().types).map(t => ({ name: String(t.name || '').slice(0, 20), site: !!t.site })).filter(t => t.name);
+  d = d && typeof d === 'object' ? d : stkDefault(); d.types = (Array.isArray(d.types) && d.types.length ? d.types : stkDefault().types).map(t => ({ name: String(t.name || '').slice(0, 20), site: !!t.site, acc: !!t.acc, cat: String(t.cat || '').slice(0, 10) })).filter(t => t.name);
+  if (!d.accSeed) { d.accSeed = 1; ACC_SEED.forEach(c => { if (!d.types.some(t => t.name === c[1])) d.types.push({ name: c[1], site: false, acc: true, cat: c[0] }); }); }   // أقسام المستلزمات تُضاف مرة وحدة (حذفها بعدها يبقى)
+  d.types.forEach(t => { const a = ACC_SEED.find(c => c[1] === t.name); if (a) { t.acc = true; t.cat = a[0]; t.site = false; } });
   d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy, need: r.need == null ? !!r.buy : !!r.need, code: String(r.code || '').slice(0, 30) })).filter(r => r.t && r.c);
   const seen = new Map(); d.rows = d.rows.reduce((a, r) => { const k = STK_BYN[CN(r.c)]; if (k) r.c = k; const id = r.t + '|' + r.c, o = seen.get(id); if (o) { o.q = Math.min(999, o.q + r.q); o.buy = o.buy && r.buy; o.need = o.need || r.need; o.code = o.code || r.code; } else { seen.set(id, r); a.push(r); } return a; }, []);   // اسود → أسود (ودمج المكرر)
   d.next = /^\d{4}-\d{2}-\d{2}$/.test(d.next) ? d.next : STK_START; d.mailedFor = d.mailedFor || '';
@@ -2321,6 +2336,8 @@ function stkNorm(d) {
   return d;
 }
 const stkRow = (d, t, c) => d.rows.find(r => r.t === t && r.c === c);
+const stkTy = (d, name) => d.types.find(t => t.name === name) || null;
+const stkIsAcc = name => { const t = STK && stkTy(STK, name); return !!(t && t.acc); };   // قسم مستلزمات (بالقطع) وليس فلمنت (بكرات)
 function stkLoadLocal() { try { STK = stkNorm(JSON.parse(localStorage.getItem('rax3d_stock') || 'null')); } catch (e) { STK = stkNorm(null); } }
 let STK_SV = null;
 function stkSaveLocal() { clearTimeout(STK_SV); STK_SV = setTimeout(() => { try { localStorage.setItem('rax3d_stock', JSON.stringify(STK)); } catch (e) {} }, 400); }   // مفتاح مستقل وبعد توقف الضغط: ما نحمّل ونكتب قاعدة الفواتير كاملة مع كل ضغطة
@@ -2337,7 +2354,7 @@ async function stkSync(force) {
   stkRender(); stkDueCheck();
 }
 function stkEdit(m, quick) {   // m(d) تُطبَّق فورًا على النسخة المحلية، وتُكتب للمستودع بعد 0.7 ثانية (تجمع الضغطات المتتالية في كتابة واحدة)
-  m(STK); stkSaveLocal(); if (quick) stkRowUI(quick[0], quick[1]); else stkRender(); STK_Q.push(m); clearTimeout(STK_T); STK_T = setTimeout(stkFlush, 700); $('stkMsg').textContent = '';
+  if (!STK) stkLoadLocal(); m(STK); stkSaveLocal(); if (quick) stkRowUI(quick[0], quick[1]); else stkRender(); STK_Q.push(m); clearTimeout(STK_T); STK_T = setTimeout(stkFlush, 700); $('stkMsg').textContent = '';
 }
 async function stkFlush() {
   const q = STK_Q.splice(0); if (!q.length) return; const sy = getSync();
@@ -2350,33 +2367,42 @@ async function stkFlush() {
 }
 function stkRowUI(t, c) {   // تحديث الصف المتغيّر فقط (أسرع بكثير من إعادة رسم الجدول كله)
   const r = stkRow(STK, t, c), el = [...document.querySelectorAll('#stkBody .stk-row')].find(x => x.dataset.c === c && x.dataset.t === t); if (!r || !el || STK_ONLY || STK_TYPE !== t) return stkRender();
-  el.querySelector('.stk-q b').textContent = r.q; const b = el.querySelector('.stk-b[data-buy]'); b.className = 'stk-b ' + (r.buy ? 'buy' : 'ok'); b.textContent = r.buy ? '🔴 نفد' : '🟢 متوفر'; const nb2 = el.querySelector('.stk-b[data-need]'); if (nb2) { nb2.className = 'stk-b ' + (r.need ? 'need' : 'off'); nb2.textContent = r.need ? '🛒 اشترِ' : 'لا'; }
+  el.querySelector('.stk-q b').textContent = r.q; const b = el.querySelector('.stk-b[data-buy]'); if (b) { b.className = 'stk-b ' + (r.buy ? 'buy' : 'ok'); b.textContent = r.buy ? '🔴 نفد' : '🟢 متوفر'; } const nb2 = el.querySelector('.stk-b[data-need]'); if (nb2) { nb2.className = 'stk-b ' + (r.need ? 'need' : 'off'); nb2.textContent = r.need ? '🛒 اشترِ' : 'لا'; }
   const n = STK.rows.filter(x => x.need).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
 }
 let STK_ONLY = false;
 function stkRender() {
   if (!STK) stkLoadLocal(); const d = STK;
   if (!d.types.some(t => t.name === STK_TYPE)) STK_TYPE = d.types[0].name;
-  { const need = d.rows.filter(r => r.need || r.q === 0), adm = DATA && DATA.role === 'admin';
-    $('stkSum').innerHTML = !adm ? '' : `<div class="row" style="border:1px solid var(--gold);margin-bottom:8px"><b>🛒 المطلوب شراؤه: ${need.length} بكرة (لون)</b><div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="${STK_ONLY ? 'ghost' : 'save'}" data-all="1">عرض كل الألوان</button><button type="button" class="${STK_ONLY ? 'save' : 'ghost'}" data-only="1">عرض المطلوب شراؤه</button></div></div>`; }
-  $('stkTabs').innerHTML = d.types.map(t => `<button type="button" data-ty="${esc(t.name)}" class="${t.name === STK_TYPE ? 'on' : ''}">${esc(t.name)}${t.site ? ' 🔗' : ''}</button>`).join('');
-  const ty = d.types.find(t => t.name === STK_TYPE), rows = STK_ONLY ? d.rows.filter(r => r.need || r.q === 0) : d.rows.filter(r => r.t === STK_TYPE);
-  $('stkNote').innerHTML = ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «🔴 نفد» يظهر للعميل بخط أحمر «غير متوفر»، وإذا رجع «🟢 متوفر» يرجع متوفرًا. خانة «للشراء؟» تذكير شراء لك فقط ولا تؤثر على الموقع. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
+  $('stkTabs').innerHTML = d.types.map(t => `<button type="button" data-ty="${esc(t.name)}" class="${t.name === STK_TYPE ? 'on' : ''}">${t.acc ? (BUY_ICON[t.cat] || '🧾') + ' ' : ''}${esc(t.name)}${t.site ? ' 🔗' : ''}</button>`).join('');
+  const ty = d.types.find(t => t.name === STK_TYPE), acc = !!ty.acc, rows = d.rows.filter(r => r.t === STK_TYPE);
+  $('stkNote').innerHTML = acc ? '🧰 <b>قسم مستلزمات</b> (بالقطع، للجرد فقط ولا يؤثر على الموقع). أي صنف عليه «🛒 اشترِ» أو نزل عدده إلى 0 يظهر تلقائيًا في «قائمة الشراء» بتبويب المشتريات.' : ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «🔴 نفد» يظهر للعميل بخط أحمر «غير متوفر»، وإذا رجع «🟢 متوفر» يرجع متوفرًا. خانة «للشراء؟» تذكير شراء لك فقط ولا تؤثر على الموقع. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
     : 'هذا النوع غير مربوط بالموقع (للجرد فقط). <button type="button" class="linkbtn" data-site="1">ربطه بالموقع</button>';
-  $('stkNote').innerHTML += ' · <button type="button" class="linkbtn" data-deltype="1" style="color:var(--bad)">🗑 حذف هذا النوع</button>';
-  $('stkBody').innerHTML = '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>متوفر بالموقع؟</span><span>للشراء؟</span><span></span></div>' + (rows.length ? rows.map(r => `<div class="stk-row" data-c="${esc(r.c)}" data-t="${esc(r.t)}"><span class="stk-c"><i style="${stkHexR(r) ? 'background:' + stkHexR(r) : ''}"></i><span>${esc(r.c)}${STK_ONLY ? ' <small>· ' + esc(r.t) + '</small>' : ''}<small class="stk-code" data-code="1">${r.code ? esc(r.code) : '＋ رقم اللون'}</small></span></span>
+  $('stkNote').innerHTML += ' · <button type="button" class="linkbtn" data-deltype="1" style="color:var(--bad)">🗑 حذف هذا ' + (acc ? 'القسم' : 'النوع') + '</button>';
+  $('stkBody').innerHTML = (acc ? '<div class="stk-row hd acc"><span>الصنف</span><span>العدد (قطع)</span><span>للشراء؟</span><span></span></div>' : '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>متوفر بالموقع؟</span><span>للشراء؟</span><span></span></div>') + (rows.length ? rows.map(r => acc
+    ? `<div class="stk-row acc" data-c="${esc(r.c)}" data-t="${esc(r.t)}"><span class="stk-c"><span>${esc(r.c)}</span></span>
+      <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
+      <button type="button" class="stk-b ${r.need ? 'need' : 'off'}" data-need="1">${r.need ? '🛒 اشترِ' : 'لا'}</button>
+      <button type="button" class="stk-x" data-del="1" aria-label="حذف الصنف">×</button></div>`
+    : `<div class="stk-row" data-c="${esc(r.c)}" data-t="${esc(r.t)}"><span class="stk-c"><i style="${stkHexR(r) ? 'background:' + stkHexR(r) : ''}"></i><span>${esc(r.c)}<small class="stk-code" data-code="1">${r.code ? esc(r.code) : '＋ رقم اللون'}</small></span></span>
       <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
       <button type="button" class="stk-b ${r.buy ? 'buy' : 'ok'}" data-buy="1">${r.buy ? '🔴 نفد' : '🟢 متوفر'}</button>
       <button type="button" class="stk-b ${r.need ? 'need' : 'off'}" data-need="1">${r.need ? '🛒 اشترِ' : 'لا'}</button>
-      <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">لا ألوان في هذا النوع، أضف من الأسفل.</p>');
+      <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">' + (acc ? 'لا أصناف في هذا القسم، أضف من الأسفل.' : 'لا ألوان في هذا النوع، أضف من الأسفل.') + '</p>');
   const have = new Set(rows.map(stkRC)), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(stkRC));
   const gone = SHOP_COLORS.filter(c => c[1] && !linked.has(c[0])).map(c => c[0]);
-  $('stkQuick').innerHTML = (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => { const nm = stkRegName(c[0], d); return `<button type="button" class="cchip" data-qc="${esc(nm)}" title="${c[0]}"><i style="background:${c[1]}"></i>${esc(nm)}</button>`; }).join('') + '</div>' : '');
+  $('stkQuick').innerHTML = acc ? (rows.some(r => r.c === STK_TYPE) ? '' : '<p class="hint" style="margin:0 0 4px">إضافة سريعة:</p><div class="cchips"><button type="button" class="cchip" data-qc="' + esc(STK_TYPE) + '">＋ ' + esc(STK_TYPE) + '</button></div>') : (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => { const nm = stkRegName(c[0], d); return `<button type="button" class="cchip" data-qc="${esc(nm)}" title="${c[0]}"><i style="background:${c[1]}"></i>${esc(nm)}</button>`; }).join('') + '</div>' : '');
   const tsel = $('stkTySel'); if (document.activeElement !== tsel) tsel.innerHTML = d.types.map(t => `<option${t.name === STK_TYPE ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
   $('stkSync').textContent = getSync() ? (STK_OK ? '🔄 مرتبط ومتزامن مع الجهاز الثاني والموقع' : '⚠️ تعذّر الاتصال، المعروض آخر نسخة محفوظة') : '📴 الربط المشترك غير مفعّل: الجرد على هذا الجوال فقط ولا يؤثر على الموقع';
-  ['stkTabs','stkNote','stkQuick'].forEach(i => { $(i).style.display = STK_ONLY ? 'none' : ''; });
+  stkFormUI();
   const n = d.rows.filter(r => r.need).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
+  setTimeout(() => { try { slReconcile(); } catch (e) {} }, 0);
 }
+function stkFormUI() {   // نموذج الإضافة: «اسم اللون + رقم» للفلمنت، «اسم الصنف» للمستلزمات
+  const acc = stkIsAcc($('stkTySel').value || STK_TYPE);
+  $('stkColTxt').placeholder = acc ? 'اسم الصنف' : 'اسم اللون'; if (acc) $('stkColTxt').removeAttribute('list'); else $('stkColTxt').setAttribute('list', 'stkColList'); $('stkCodeTxt').hidden = acc;
+}
+$('stkTySel').addEventListener('change', stkFormUI);
 function stkDueCheck() {
   const d = STK; if (!d) return; const due = todayStr() >= d.next;
   $('stkDue').hidden = !due; $('stockDot').hidden = !due;
@@ -2389,10 +2415,9 @@ function stkDueCheck() {
   }
 }
 $('stkTabs').addEventListener('click', e => { const b = e.target.closest('[data-ty]'); if (b) { STK_TYPE = b.dataset.ty; STK_ONLY = false; stkRender(); } });
-$('stkSum').addEventListener('click', e => { if (e.target.closest('[data-all]')) { STK_ONLY = false; stkRender(); } else if (e.target.closest('[data-only]')) { STK_ONLY = true; stkRender(); } });
 $('stkNote').addEventListener('click', e => {
   const dt = e.target.closest('[data-deltype]');
-  if (dt) { const t = STK_TYPE; if (STK.types.length < 2) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'لازم يبقى نوع واحد على الأقل'; return; } if (!confirm('حذف نوع الفلمنت «' + t + '» بكل ألوانه؟')) return; stkEdit(d => { d.types = d.types.filter(x => x.name !== t); d.rows = d.rows.filter(r => r.t !== t); }); return; }
+  if (dt) { const t = STK_TYPE; if (STK.types.length < 2) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'لازم يبقى نوع واحد على الأقل'; return; } if (!confirm('حذف ' + (stkIsAcc(t) ? 'قسم المستلزمات' : 'نوع الفلمنت') + ' «' + t + '» بكل ما فيه؟')) return; stkEdit(d => { d.types = d.types.filter(x => x.name !== t); d.rows = d.rows.filter(r => r.t !== t); }); return; }
   const b = e.target.closest('[data-site]'); if (!b) return; const t = STK_TYPE, v = b.dataset.site === '1'; stkEdit(d => { const x = d.types.find(y => y.name === t); if (x) x.site = v; }); });
 $('stkBody').addEventListener('click', e => {
   const cd = e.target.closest('[data-code]'); if (cd) { const rw = cd.closest('.stk-row'), t0 = (rw && rw.dataset.t) || STK_TYPE, c0 = rw && rw.dataset.c, r0 = c0 && stkRow(STK, t0, c0); if (r0) { const v = prompt('رقم اللون كما في الاستكر (مثل: 10100)', r0.code || ''); if (v !== null) stkEdit(d => { const r = stkRow(d, t0, c0); if (r) r.code = v.trim().slice(0, 30); }); } return; }
@@ -2404,13 +2429,17 @@ $('stkBody').addEventListener('click', e => {
 });
 $('stkQuick').addEventListener('click', e => { const b = e.target.closest('[data-qc]'); if (!b) return; const t = STK_TYPE, c = b.dataset.qc; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false, need: false }); }); });
 $('stkAddColor').onclick = () => {
-  const t = $('stkTySel').value || STK_TYPE; let c = $('stkColTxt').value.trim().slice(0, 30); c = stkCanon(c) || c; const code = ($('stkCodeTxt').value || '').trim().slice(0, 30); if (!c) { $('stkColTxt').focus(); return; }
-  if (stkRow(STK, t, c)) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'هذا اللون موجود في ' + t; return; }
+  const t = $('stkTySel').value || STK_TYPE; const isA = stkIsAcc(t); let c = $('stkColTxt').value.trim().slice(0, 30); if (!isA) c = stkCanon(c) || c; const code = ($('stkCodeTxt').value || '').trim().slice(0, 30); if (!c) { $('stkColTxt').focus(); return; }
+  if (stkRow(STK, t, c)) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = (isA ? 'هذا الصنف موجود في ' : 'هذا اللون موجود في ') + t; return; }
   $('stkColTxt').value = ''; $('stkCodeTxt').value = ''; STK_TYPE = t; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false, need: false, code: code }); });
 };
 $('stkAddType').onclick = () => {
   const n = $('stkTypeTxt').value.trim().slice(0, 20); if (!n) return; if (STK.types.some(t => t.name.toLowerCase() === n.toLowerCase())) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'النوع موجود'; return; }
   $('stkTypeTxt').value = ''; STK_TYPE = n; stkEdit(d => { if (!d.types.some(t => t.name === n)) d.types.push({ name: n, site: false }); });   // النوع الجديد فاضي: تضيف ألوانه بنفسك
+};
+$('stkAddAcc').onclick = () => {
+  const n = $('stkAccTxt').value.trim().slice(0, 20); if (!n) return; if (STK.types.some(t => t.name.toLowerCase() === n.toLowerCase())) { $('stkMsg').style.color = 'var(--bad)'; $('stkMsg').textContent = 'القسم موجود'; return; }
+  $('stkAccTxt').value = ''; STK_TYPE = n; stkEdit(d => { if (!d.types.some(t => t.name === n)) d.types.push({ name: n, site: false, acc: true, cat: 'other' }); });
 };
 $('stkDone').onclick = () => { const nx = addDays(todayStr(), 14); stkEdit(d => { d.next = nx; }); $('stkDue').hidden = true; $('stockDot').hidden = true; toast('✔ تم الجرد — التذكير القادم ' + nx); };
 document.querySelector('nav button[data-tab="stock"]').addEventListener('click', () => stkSync(true));
@@ -2503,7 +2532,6 @@ document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () =>
 /* ---------- v129: فواتير مشتريات داخلية (قطع غيار، فلمنت، أكياس...) — تظهر كعمود ينافس الربح في الإحصائيات ---------- */
 // purchases.json في المستودع الخاص: { v, rows:[{id, date, cat, desc, price}], u }
 const BUY_KEY = 'rax3d_buys';
-const BUY_CATS = [['part', 'قطع غيار للطابعة'], ['fil', 'فلمنت'], ['medal', 'ميداليات'], ['bag', 'أكياس شفافة'], ['bulb', 'لمبات'], ['mag', 'مغناطيس'], ['hand', 'خيط يد 20 سم'], ['car', 'تعليقة سيارة 40 سم'], ['pack', 'أكياس تغليف'], ['other', 'أخرى']];
 let BUYS = null, BUY_BUSY = false, BUY_OK = false;
 function buyNorm(d) {
   const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100) })).filter(r => r.id && r.price > 0);
@@ -2533,47 +2561,51 @@ async function buyApply(op, msg) {   // op(d) تُطبَّق محليًا فور
     BUYS = buyNorm(nd); BUY_OK = true; buySaveLocal(); m.style.color = 'var(--good)'; m.textContent = 'تم الحفظ ✔'; buyRender(); try { renderStats(); } catch (e) {}
   } catch (e) { BUY_OK = false; m.style.color = 'var(--bad)'; m.textContent = 'تعذّر الحفظ في المستودع (محفوظ على الجوال): ' + ((e && e.message) || e); }
 }
-function buyColors() {   // الألوان المتفق عليها = ألوان الجرد
+function buyColors() {   // الألوان المتفق عليها = ألوان الجرد (الفلمنت فقط)
   try { if (!STK) stkLoadLocal(); } catch (e) {}
-  const set = []; (STK && STK.rows || []).forEach(r => { if (r.c && !set.includes(r.c)) set.push(r.c); }); return set;
+  const set = []; (STK && STK.rows || []).forEach(r => { if (r.c && !stkIsAcc(r.t) && !set.includes(r.c)) set.push(r.c); }); return set;
 }
-function buyDescFill() {
-  const cat = $('buyCat').value, lab = (BUY_CATS.find(c => c[0] === cat) || [])[1] || '';
-  $('buyFil').hidden = $('buyFCT').hidden = $('buyFTT').hidden = true; $('buyFil').style.display = 'none';
+const CATF = {};   // آخر صنف لكل نموذج (buy / sl)
+function catDescFill(p) {   // نفس منطق «الصنف ← الوصف» لنموذج الفواتير ونموذج قائمة الشراء
+  const cat = $(p + 'Cat').value, lab = (BUY_CATS.find(c => c[0] === cat) || [])[1] || '';
+  $(p + 'Fil').hidden = $(p + 'FCT').hidden = $(p + 'FTT').hidden = true; $(p + 'Fil').style.display = 'none';
   if (cat === 'fil') {
-    $('buyFil').hidden = false; $('buyFil').style.display = 'flex';
-    const oth = $('buyFC').value === '__o', ot = $('buyFT').value === '__o'; $('buyFCT').hidden = !oth; $('buyFTT').hidden = !ot;
-    const col = oth ? $('buyFCT').value.trim() : $('buyFC').value;
-    $('buyDesc').value = 'فلمنت ' + (ot ? $('buyFTT').value.trim() : ($('buyFT').value || '')) + (col ? ' — ' + col : '');
-  } else if (cat === 'other') { if (BUY_LAST === 'fil' || BUY_CATS.some(c => c[1] === $('buyDesc').value)) $('buyDesc').value = ''; }
-  else $('buyDesc').value = lab;
-  BUY_LAST = cat;
+    $(p + 'Fil').hidden = false; $(p + 'Fil').style.display = 'flex';
+    const oth = $(p + 'FC').value === '__o', ot = $(p + 'FT').value === '__o'; $(p + 'FCT').hidden = !oth; $(p + 'FTT').hidden = !ot;
+    const col = oth ? $(p + 'FCT').value.trim() : $(p + 'FC').value;
+    $(p + 'Desc').value = 'فلمنت ' + (ot ? $(p + 'FTT').value.trim() : ($(p + 'FT').value || '')) + (col ? ' — ' + col : '');
+  } else if (cat === 'other') { if (CATF[p] === 'fil' || BUY_CATS.some(c => c[1] === $(p + 'Desc').value)) $(p + 'Desc').value = ''; }
+  else $(p + 'Desc').value = lab;
+  CATF[p] = cat;
 }
-let BUY_LAST = '';
+function catFillFil(p) {   // أنواع وألوان الفلمنت من الجرد
+  let ts = []; try { if (!STK) stkLoadLocal(); ts = (STK.types || []).filter(x => !x.acc).map(x => x.name); } catch (e) {}
+  if (!ts.length) ts = ['PLA', 'PETG'];
+  const ft = $(p + 'FT').value, fc = $(p + 'FC').value;
+  $(p + 'FT').innerHTML = ts.map(x => `<option>${esc(x)}</option>`).join('') + '<option value="__o">أخرى</option>';
+  $(p + 'FC').innerHTML = buyColors().map(x => `<option>${esc(x)}</option>`).join('') + '<option value="__o">أخرى</option>';
+  if (ts.includes(ft) || ft === '__o') $(p + 'FT').value = ft; if (fc) $(p + 'FC').value = fc;
+}
+function catWire(p, onChange) {
+  $(p + 'Cat').innerHTML = BUY_CATS.map(c => `<option value="${c[0]}">${esc(c[1])}</option>`).join('');
+  catFillFil(p);
+  $(p + 'Cat').addEventListener('change', () => { catFillFil(p); catDescFill(p); onChange && onChange(); if ($(p + 'Cat').value === 'other') $(p + 'Desc').focus(); });
+  [p + 'FT', p + 'FC'].forEach(id => $(id).addEventListener('change', () => catDescFill(p))); $(p + 'FCT').addEventListener('input', () => catDescFill(p)); $(p + 'FTT').addEventListener('input', () => catDescFill(p));
+  catDescFill(p); onChange && onChange();
+}
+const buyDescFill = () => catDescFill('buy');
 function buyRender() {
   try { renderBuyBox(); } catch (e) {}
   if (!$('buyList')) return; const rows = buyRows(), t = todayStr(), ym = t.slice(0, 7);
   const mo = buysIn(r => r.date.startsWith(ym)), all = buysIn(() => true), sy = getSync();
   $('buySync').textContent = sy ? (BUY_OK ? '🔗 مربوطة بالمستودع المشترك' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
-  const cl = { part: '🔧', fil: '🧵', medal: '🏅', bag: '🛍', bulb: '💡', mag: '🧲', hand: '🪢', car: '🚗', pack: '📦', other: '🧾' };
+  const cl = BUY_ICON;
   $('buyList').innerHTML = `<div class="period"><h3>إجمالي المشتريات</h3><div class="kv"><div>هذا الشهر<b>${fmt(mo)}</b></div><div>الكل<b>${fmt(all)}</b></div><div>عدد الفواتير<b>${rows.length}</b></div></div></div>` +
     (rows.length ? '<div class="period"><h3>آخر المشتريات</h3>' + rows.slice(0, 60).map(r => `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="flex:1;line-height:1.6">${cl[r.cat] || '🧾'} ${esc(r.desc || '—')}<br><small style="color:var(--mute)">${esc(r.date)}</small></span><b style="direction:ltr">${fmt(r.price)}</b><button type="button" class="ghost" data-bd="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="حذف">✕</button></div>`).join('') + '</div>' : '<p class="hint">لا توجد مشتريات بعد.</p>');
 }
 function buyInit() {
-  $('buyCat').innerHTML = BUY_CATS.map(c => `<option value="${c[0]}">${esc(c[1])}</option>`).join('');
   $('buyDate').value = todayStr();
-  const fillF = () => {
-    let ts = []; try { if (!STK) stkLoadLocal(); ts = (STK.types || []).map(x => x.name); } catch (e) {}
-    if (!ts.length) ts = ['PLA', 'PETG'];
-    const ft = $('buyFT').value, fc = $('buyFC').value;
-    $('buyFT').innerHTML = ts.map(x => `<option>${esc(x)}</option>`).join('') + '<option value="__o">أخرى</option>';
-    $('buyFC').innerHTML = buyColors().map(x => `<option>${esc(x)}</option>`).join('') + '<option value="__o">أخرى</option>';
-    if (ts.includes(ft) || ft === '__o') $('buyFT').value = ft; if (fc) $('buyFC').value = fc;
-  };
-  fillF();
-  $('buyCat').addEventListener('change', () => { fillF(); buyDescFill(); if ($('buyCat').value === 'other') $('buyDesc').focus(); });
-  ['buyFT', 'buyFC'].forEach(id => $(id).addEventListener('change', buyDescFill)); $('buyFCT').addEventListener('input', buyDescFill); $('buyFTT').addEventListener('input', buyDescFill);
-  buyDescFill();
+  catWire('buy');
   $('buyAdd').onclick = () => {
     const desc = $('buyDesc').value.trim(), price = Math.round((+$('buyPrice').value || 0) * 100) / 100, date = $('buyDate').value || todayStr(), m = $('buyMsg');
     m.style.color = 'var(--bad)';
@@ -2591,23 +2623,28 @@ function buyInit() {
   });
   buyRender();
 }
-/* ---------- v132: قائمة الشراء (مدخل البيانات يجهّزها، المالك يشتري ويسعّر وتُشطب مثل قائمة البقالة) ---------- */
-// shoplist.json في المستودع الخاص: { v, items:[{id, name, qty, ts, done, price}], u }
+/* ---------- v134: قائمة الشراء (مدخل البيانات يجهّزها، المالك يشتري ويسعّر وتُشطب مثل قائمة البقالة) + ربط تلقائي بالجرد ---------- */
+// shoplist.json في المستودع الخاص: { v, items:[{id, name, qty, ts, done, price, cat, src, auto}], u }
+// src = «نوع|لون» أو «قسم|صنف» من الجرد؛ auto = أضافه الجرد تلقائيًا (ويزول لو انتهت الحاجة قبل شطبه)
 const SL_KEY = 'rax3d_shoplist';
 let SL = null, SL_BUSY = false, SL_OK = false;
 const slAdm = () => !document.body.classList.contains('partner');
+const slQtyN = it => Math.max(1, Math.round(parseFloat(String(it.qty || '').replace(/[^\d.]/g, '')) || 1));
+const slSrc = src => { const i = String(src).indexOf('|'); return { t: src.slice(0, i), c: src.slice(i + 1) }; };
+const slId = src => 'k' + [...String(src)].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7).toString(36);
 function slNorm(d) {
-  const items = (d && Array.isArray(d.items) ? d.items : []).map(r => ({ id: String(r.id || '').slice(0, 24), name: String(r.name || '').slice(0, 80), qty: String(r.qty || '').slice(0, 20), ts: +r.ts || 0, done: r.done ? 1 : 0, price: Math.max(0, Math.round((+r.price || 0) * 100) / 100) })).filter(r => r.id && r.name);
+  const items = (d && Array.isArray(d.items) ? d.items : []).map(r => ({ id: String(r.id || '').slice(0, 24), name: String(r.name || '').slice(0, 80), qty: String(r.qty || '').slice(0, 20), ts: +r.ts || 0, done: r.done ? 1 : 0, price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), cat: String(r.cat || 'other').slice(0, 10), src: String(r.src || '').slice(0, 60), auto: r.auto ? 1 : 0 })).filter(r => r.id && r.name);
   items.sort((a, b) => (a.done - b.done) || (a.ts - b.ts));
-  return { v: 1, items: items, u: (d && d.u) || 0 };
+  return { v: 2, items: items, u: (d && d.u) || 0 };
 }
 function slLoad() { if (SL) return SL; try { SL = slNorm(JSON.parse(localStorage.getItem(SL_KEY) || 'null')); } catch (e) { SL = slNorm(null); } return SL; }
 function slSaveLocal() { try { localStorage.setItem(SL_KEY, JSON.stringify(SL)); } catch (e) {} }
 function slRender() {
   const box = $('slList'); if (!box) return; const adm = slAdm(), its = slLoad().items, sy = getSync();
-  $('slSync').textContent = sy ? (SL_OK ? '🔗 مربوطة بالمستودع المشترك' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
+  $('slSync').textContent = sy ? (SL_OK ? '🔗 مربوطة بالمستودع المشترك وبالجرد' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
   const done = its.filter(x => x.done), tot = done.reduce((a, x) => a + x.price, 0), noPrice = done.filter(x => !(x.price > 0)).length;
-  box.innerHTML = its.length ? its.map(x => `<div class="slr${x.done ? ' dn' : ''}">${adm ? `<input type="checkbox" data-slc="${esc(x.id)}" ${x.done ? 'checked' : ''} aria-label="تم شراؤه">` : ''}<span class="sln">${esc(x.name)}${x.qty ? ` <small style="color:var(--mute)">× ${esc(x.qty)}</small>` : ''}</span>${adm ? `<input class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="السعر" data-slp="${esc(x.id)}" value="${x.price > 0 ? x.price : ''}" aria-label="سعر ${esc(x.name)}">` : ''}${adm || !x.done ? `<button type="button" class="ghost slx" data-slx="${esc(x.id)}" aria-label="حذف">✕</button>` : ''}</div>`).join('')
+  box.innerHTML = its.length ? its.map(x => `<div class="slr${x.done ? ' dn' : ''}">${adm ? `<input type="checkbox" data-slc="${esc(x.id)}" ${x.done ? 'checked' : ''} aria-label="تم شراؤه">` : ''}<span class="sln">${BUY_ICON[x.cat] || '🧾'} ${esc(x.name)}${x.auto ? '<span class="tg">من الجرد</span>' : ''}</span>${adm || !x.done ? `<button type="button" class="ghost slx" data-slx="${esc(x.id)}" aria-label="حذف">✕</button>` : ''}`
+      + `<div class="slsub">${adm ? `<label for="q${esc(x.id)}">الكمية</label><input id="q${esc(x.id)}" class="slq" type="number" inputmode="numeric" min="1" step="1" data-slq="${esc(x.id)}" value="${slQtyN(x)}"><label for="p${esc(x.id)}">السعر</label><input id="p${esc(x.id)}" class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" data-slp="${esc(x.id)}" value="${x.price > 0 ? x.price : ''}" aria-label="سعر ${esc(x.name)}">` : `<small style="color:var(--mute)">الكمية: ${slQtyN(x)}</small>`}</div></div>`).join('')
     + (adm ? `<div class="slt"><span>إجمالي المشتريات (${done.length} من ${its.length})</span><b>${fmt(tot)}</b></div>`
       + (noPrice ? `<p class="hint" style="margin:0 0 6px;color:var(--bad)">${noPrice} مشطوب بلا سعر: اكتب سعره ليدخل في الإجمالي.</p>` : '')
       + (done.some(x => x.price > 0) ? '<button class="ghost" id="slRec" style="margin-top:8px">📥 سجّلها كفاتورة مشتريات ونظّف المشطوب</button>' : '') : '')
@@ -2622,16 +2659,39 @@ async function slSync() {
     SL_OK = true; slSaveLocal();
   } catch (e) { SL_OK = false; }
   finally { SL_BUSY = false; }
-  const a = document.activeElement; if (!(a && a.closest && a.closest('#slList'))) slRender(); else $('slSync').textContent = '🔗 مربوطة بالمستودع المشترك';
+  const a = document.activeElement; if (!(a && a.closest && a.closest('#slList'))) slRender(); else $('slSync').textContent = '🔗 مربوطة بالمستودع المشترك وبالجرد';
+  setTimeout(() => { try { slReconcile(); } catch (e) {} }, 0);
 }
-async function slApply(op, msg) {
+async function slApply(op, msg, quiet) {
   slLoad(); op(SL); SL = slNorm(SL); slSaveLocal(); slRender();
-  const sy = getSync(), m = $('slMsg'); if (!sy) { m.style.color = ''; m.textContent = 'محفوظة على هذا الجوال فقط: الربط المشترك غير مفعّل'; return false; }
+  const sy = getSync(), m = $('slMsg'); if (!sy) { if (!quiet) { m.style.color = ''; m.textContent = 'محفوظة على هذا الجوال فقط: الربط المشترك غير مفعّل'; } return false; }
   try {
     const nd = await updateJson(sy, 'shoplist.json', null, d => { d = slNorm(d || SL); op(d); d = slNorm(d); d.u = Date.now(); return d; }, msg);
-    SL = slNorm(nd); SL_OK = true; slSaveLocal(); m.style.color = 'var(--good)'; m.textContent = 'تم الحفظ ✔'; slRender(); return true;
+    SL = slNorm(nd); SL_OK = true; slSaveLocal(); if (!quiet) { m.style.color = 'var(--good)'; m.textContent = 'تم الحفظ ✔'; } slRender(); return true;
   } catch (e) { SL_OK = false; m.style.color = 'var(--bad)'; m.textContent = 'تعذّر الحفظ في المستودع (محفوظ على الجوال): ' + ((e && e.message) || e); return false; }
 }
+/* الجرد ← القائمة: كل صف «🛒 اشترِ» (فلمنت أو مستلزمات) يظهر هنا تلقائيًا، ويزول إن أُلغيت الحاجة قبل شطبه */
+function slStockNeeds() {
+  if (!STK) stkLoadLocal();
+  return STK.rows.filter(r => r.need).map(r => { const ty = stkTy(STK, r.t) || {}, acc = !!ty.acc; return { src: r.t + '|' + r.c, cat: acc ? (ty.cat || 'other') : 'fil', name: acc ? r.c : 'فلمنت ' + r.t + ' — ' + r.c, qty: '1' }; });
+}
+function slReconcile() {
+  if (!STK) stkLoadLocal(); const sy = getSync(); if (sy && !STK_OK) return;   // لا نعتمد على نسخة جرد قديمة
+  slLoad(); const need = slStockNeeds(), want = new Set(need.map(n => n.src)), have = new Set(SL.items.map(x => x.src).filter(Boolean));
+  const add = need.filter(n => !have.has(n.src)), del = SL.items.filter(x => x.auto && !x.done && x.src && !want.has(x.src));
+  if (!add.length && !del.length) return;
+  slApply(d => {
+    d.items = d.items.filter(x => !(x.auto && !x.done && x.src && !want.has(x.src)));
+    add.forEach((n, i) => { if (!d.items.some(x => x.src === n.src)) d.items.push({ id: slId(n.src), name: n.name, qty: n.qty, ts: Date.now() + i, done: 0, price: 0, cat: n.cat, src: n.src, auto: 1 }); });
+  }, 'قائمة الشراء: مزامنة مع الجرد', true);
+}
+function slStockApply(list, bought) {   // list: [{src, n}] ← الجرد: يُلغى «للشراء؟»، وعند الشراء تُضاف الكمية
+  if (!list.length) return; if (!STK) stkLoadLocal();
+  stkEdit(d => { list.forEach(x => { const s = slSrc(x.src), r = stkRow(d, s.t, s.c); if (!r) return; if (bought) { r.q = Math.min(999, r.q + x.n); r.buy = false; } r.need = false; }); });
+}
+const slDLFill = () => {   // اقتراحات الوصف من أصناف القسم في الجرد
+  try { if (!STK) stkLoadLocal(); const lab = (BUY_CATS.find(c => c[0] === $('slCat').value) || [])[1]; $('slDL').innerHTML = (lab && stkTy(STK, lab) ? STK.rows.filter(r => r.t === lab).map(r => `<option value="${esc(r.c)}">`).join('') : ''); } catch (e) {}
+};
 function buyTab(t) {   // v133: تبويبان داخل «المشتريات»: قائمة الشراء / الفواتير
   if (!slAdm()) t = 'sl';
   $('slBox').hidden = t !== 'sl'; $('buyInv').hidden = t !== 'inv';
@@ -2643,37 +2703,49 @@ let slWas = false;
 const slAllDone = () => { const i = slLoad().items; return i.length > 0 && i.every(x => x.done); };
 const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); };
 (function slInit() {
+  catWire('sl', slDLFill);
   const add = () => {
-    const name = $('slName').value.trim(), qty = $('slQty').value.trim(), m = $('slMsg'); m.style.color = 'var(--bad)';
-    if (!name) { m.textContent = 'اكتب اسم الصنف'; return; } m.textContent = '';
-    const it = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, qty: qty, ts: Date.now(), done: 0, price: 0 };
-    $('slName').value = ''; $('slQty').value = ''; $('slName').focus();
-    slApply(d => { if (!d.items.some(x => x.id === it.id)) d.items.push(it); }, 'قائمة الشراء: ' + name.slice(0, 40));
+    const m = $('slMsg'); m.style.color = 'var(--bad)'; if (!STK) { try { stkLoadLocal(); } catch (e) {} }
+    const desc = $('slDesc').value.trim(), cat = $('slCat').value, qty = Math.max(1, Math.round(+$('slQty').value || 1));
+    if (!desc) { m.textContent = 'اكتب وصف الصنف أو اختر الصنف'; return; }
+    let src = '';
+    if (cat === 'fil') { const t = $('slFT').value === '__o' ? $('slFTT').value.trim() : $('slFT').value, c = $('slFC').value === '__o' ? $('slFCT').value.trim() : $('slFC').value; if (t && c && STK && stkRow(STK, t, c)) src = t + '|' + c; }
+    else if (cat !== 'other') { const lab = (BUY_CATS.find(c => c[0] === cat) || [])[1]; if (lab && STK && stkRow(STK, lab, desc)) src = lab + '|' + desc; }
+    if (src && slLoad().items.some(x => x.src === src)) { m.textContent = 'هذا الصنف موجود في القائمة'; return; }
+    m.textContent = '';
+    const it = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: desc, qty: String(qty), ts: Date.now(), done: 0, price: 0, cat: cat, src: src, auto: 0 };
+    $('slQty').value = 1; if (cat === 'other') { $('slDesc').value = ''; $('slDesc').focus(); }
+    slApply(d => { if (!d.items.some(x => x.id === it.id || (src && x.src === src))) d.items.push(it); }, 'قائمة الشراء: ' + desc.slice(0, 40));
     if (!slAdm()) pushNotify('sl');
   };
-  $('slAdd').onclick = add; $('slName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  $('slAdd').onclick = add; $('slDesc').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
   $('slList').addEventListener('change', e => {
-    const was = slAllDone(), c = e.target.closest('[data-slc]'), p = e.target.closest('[data-slp]');
+    slWas = slAllDone(); const c = e.target.closest('[data-slc]'), p = e.target.closest('[data-slp]'), q = e.target.closest('[data-slq]');
     if (c) { const id = c.dataset.slc, v = c.checked ? 1 : 0; slApply(d => { const x = d.items.find(y => y.id === id); if (x) x.done = v; }, 'قائمة الشراء: تحديث').then(slBoughtCheck); }
     else if (p) { const id = p.dataset.slp, v = Math.max(0, Math.round((+p.value || 0) * 100) / 100); slApply(d => { const x = d.items.find(y => y.id === id); if (x) { x.price = v; if (v > 0) x.done = 1; } }, 'قائمة الشراء: سعر').then(slBoughtCheck); }
+    else if (q) { const id = q.dataset.slq, v = Math.max(1, Math.round(+q.value || 1)); slApply(d => { const x = d.items.find(y => y.id === id); if (x) x.qty = String(v); }, 'قائمة الشراء: كمية', true); }
   });
   $('slList').addEventListener('click', e => {
     const x = e.target.closest('[data-slx]');
-    if (x) { const id = x.dataset.slx, r = slLoad().items.find(y => y.id === id); if (!r) return; if (slAdm() && r.done && r.price > 0 && !confirm('حذف «' + r.name + '» المشطوب بسعره؟')) return; slApply(d => { d.items = d.items.filter(y => y.id !== id); }, 'قائمة الشراء: حذف'); return; }
+    if (x) {
+      const id = x.dataset.slx, r = slLoad().items.find(y => y.id === id); if (!r) return;
+      if (slAdm() && r.done && r.price > 0 && !confirm('حذف «' + r.name + '» المشطوب بسعره؟')) return;
+      if (r.auto && !r.done && !confirm('«' + r.name + '» مطلوب من الجرد. حذفه يلغي «🛒 اشترِ» في الجرد. متابعة؟')) return;
+      slApply(d => { d.items = d.items.filter(y => y.id !== id); }, 'قائمة الشراء: حذف'); if (r.auto && !r.done) slStockApply([{ src: r.src, n: 0 }], false); return;
+    }
     if (e.target.closest('#slRec')) {
       const dn = slLoad().items.filter(y => y.done && y.price > 0); if (!dn.length) return;
-      const tot = dn.reduce((a, y) => a + y.price, 0), ids = dn.map(y => y.id), t = todayStr();
-      const rest = slLoad().items.some(y => !y.done);
-      if (!confirm('تسجيل ' + dn.length + ' صنف بإجمالي ' + fmt(tot) + ' ريال كفواتير مشتريات داخلية وحذفها من القائمة؟')) return;
-      const rows = dn.map((y, i) => ({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5), date: t, cat: 'other', desc: (y.name + (y.qty ? ' × ' + y.qty : '')).slice(0, 120), price: y.price }));
-      buyApply(d => { rows.forEach(r => { if (!d.rows.some(x => x.id === r.id)) d.rows.unshift(r); }); }, 'مشتريات من قائمة الشراء (' + rows.length + ')').then(() => slApply(d => { d.items = d.items.filter(y => !ids.includes(y.id)); }, 'قائمة الشراء: تسجيل المشتريات'));
+      const tot = dn.reduce((a, y) => a + y.price, 0), ids = dn.map(y => y.id), t = todayStr(), lnk = dn.filter(y => y.src).map(y => ({ src: y.src, n: slQtyN(y) })), rest = slLoad().items.some(y => !y.done);
+      if (!confirm('تسجيل ' + dn.length + ' صنف بإجمالي ' + fmt(tot) + ' ريال كفواتير مشتريات داخلية وحذفها من القائمة؟' + (lnk.length ? '\nوتُضاف كمياتها إلى الجرد ويُلغى «للشراء؟» (' + lnk.length + ' صنف من الجرد).' : ''))) return;
+      const rows = dn.map((y, i) => ({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5), date: t, cat: y.cat || 'other', desc: (y.name + (slQtyN(y) > 1 ? ' × ' + slQtyN(y) : '')).slice(0, 120), price: y.price }));
+      buyApply(d => { rows.forEach(r => { if (!d.rows.some(x => x.id === r.id)) d.rows.unshift(r); }); }, 'مشتريات من قائمة الشراء (' + rows.length + ')').then(() => slApply(d => { d.items = d.items.filter(y => !ids.includes(y.id)); }, 'قائمة الشراء: تسجيل المشتريات')).then(() => slStockApply(lnk, true));
       if (rest) pushNotify('bought');
       toast('✔ سُجّلت ' + rows.length + ' مشتريات: ' + fmt(tot) + ' ريال');
     }
   });
-  setInterval(() => { try { if ($('buys').classList.contains('on') && !document.hidden) slSync(); } catch (e) {} }, 45000);
+  setInterval(() => { try { if ($('buys').classList.contains('on') && !document.hidden) { slSync(); stkSync(); } } catch (e) {} }, 45000);
 })();
-document.querySelector('nav button[data-tab="buys"]').addEventListener('click', () => { let t = 'sl'; try { t = sessionStorage.getItem('rax3d_buytab') || 'sl'; } catch (e) {} buyTab(t); slRender(); slSync(); if (slAdm()) { buyInit.done || (buyInit.done = 1); buyRender(); buySync(); } });
+document.querySelector('nav button[data-tab="buys"]').addEventListener('click', () => { let t = 'sl'; try { t = sessionStorage.getItem('rax3d_buytab') || 'sl'; } catch (e) {} buyTab(t); slRender(); slSync(); stkSync(); if (slAdm()) { buyInit.done || (buyInit.done = 1); buyRender(); buySync(); } });
 document.querySelector('nav button[data-tab="stats"]').addEventListener('click', () => { try { renderStats(); } catch (e) {} });
 try { buyInit(); } catch (e) {}
 
@@ -2856,10 +2928,10 @@ function dashHtml() {
   const top = itemProfits(live.filter(r => r.date >= dayOff(t, 29) && r.date <= t)).filter(x => x.p > 0).slice(0, 5), mx = top.length ? top[0].p : 1;
   // التنبيهات
   if (!STK) { try { stkLoadLocal(); } catch (e) {} }
-  const low = (STK && STK.rows || []).filter(r => r.need || r.q === 0), out0 = low.filter(r => !r.need && r.q === 0);
+  const low = (STK && STK.rows || []).filter(r => r.need);
   const late = live.filter(r => { const age = (new Date(t + 'T00:00:00') - new Date(String(r.date) + 'T00:00:00')) / 864e5, st = r.stage != null ? Number(r.stage) : (age > 10 ? 4 : 0); return st < 4 && age > 5 && age <= 60; });
   const al = [];
-  if (low.length) al.push('🧵 <b>ألوان تحتاج شراء:</b> ' + esc(low.slice(0, 8).map(r => r.t + ' ' + r.c + (r.q === 0 ? ' (نفد)' : '')).join('، ')) + (low.length > 8 ? ' و' + (low.length - 8) + ' أخرى' : ''));
+  if (low.length) al.push('🛒 <b>مطلوب شراؤه (من الجرد):</b> ' + esc(low.slice(0, 8).map(r => r.t + ' ' + r.c + (r.q === 0 ? ' (نفد)' : '')).join('، ')) + (low.length > 8 ? ' و' + (low.length - 8) + ' أخرى' : ''));
   if (late.length) al.push('⏳ <b>طلبات مضى عليها أكثر من 5 أيام ولم تُسلَّم:</b> ' + late.slice(0, 8).map(r => 'ORD-' + esc(String(r.num))).join('، ') + (late.length > 8 ? ' و' + (late.length - 8) + ' أخرى' : '') + ' <span style="color:var(--mute)">(غيّر المرحلة من سجل الفواتير)</span>');
   const econ = econHtml(live.filter(r => r.date >= dayOff(t, 29) && r.date <= t));
   const oc = ORD_OK ? ordCounts() : null, ordCard = oc ? `<div class="period"><h3>📦 حالة طلبات الموقع</h3><div class="kv">${STAGES.map((n, i) => `<div>${esc(n)}<b>${oc[i]}</b></div>`).join('')}<div>الإجمالي<b>${ORD.length}</b></div></div></div>` : '';
