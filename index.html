@@ -72,7 +72,7 @@ nav .nl{display:none;flex-direction:column;gap:2px;padding-top:4px}nav.open .nl{
 nav .nl button{text-align:start;padding:12px 16px}
 nav .nl button{flex:none;border:0;background:none;border-radius:14px;font-size:14px;color:var(--mute);cursor:pointer;position:relative;white-space:nowrap}
 nav button i{position:absolute;top:5px;inset-inline-end:8px;width:9px;height:9px;border-radius:50%;background:#e5484d}
-.stk-tabs.wrap{flex-wrap:wrap;overflow:visible}.stk-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.stk-tabs button{flex:none;border:1px solid var(--line);background:var(--field);color:var(--mute);border-radius:999px;padding:8px 14px;cursor:pointer}.stk-tabs button.on{background:var(--gold-d);color:#000;font-weight:700;border-color:var(--gold)}
+.stk-tabs.wrap{flex-wrap:wrap;overflow:visible}.stk-tabs select{width:100%;font-weight:700}.stk-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.stk-tabs button{flex:none;border:1px solid var(--line);background:var(--field);color:var(--mute);border-radius:999px;padding:8px 14px;cursor:pointer}.stk-tabs button.on{background:var(--gold-d);color:#000;font-weight:700;border-color:var(--gold)}
 .stk-row{display:grid;grid-template-columns:1.15fr 1fr .95fr .95fr 28px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.stk-row.acc{grid-template-columns:1.6fr 1.1fr .95fr 28px}.stk-row.hd{color:var(--mute);font-size:12.5px;border-bottom:2px solid var(--line)}
 .stk-code{display:block;font-size:11px;color:var(--mute);cursor:pointer;direction:ltr;text-align:right}.stk-code:not(:empty){margin-top:1px}
 .stk-c{display:flex;align-items:center;gap:8px}.stk-c i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.55);flex:none}
@@ -735,7 +735,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '135';
+const APP_VERSION = '136';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2377,7 +2377,7 @@ function stkRender() {
   if (!d.types.some(t => t.name === STK_TYPE)) STK_TYPE = d.types[0].name;
   { const g = (stkTy(d, STK_TYPE) || {}).acc ? 'acc' : 'fil', nF = d.types.filter(t => !t.acc).length, nA = d.types.length - nF;
     $('stkGroups').innerHTML = `<button type="button" data-grp="fil" class="${g === 'fil' ? 'on' : ''}">🧵 الفلمنت (${nF})</button><button type="button" data-grp="acc" class="${g === 'acc' ? 'on' : ''}">🧰 المستلزمات (${nA})</button>`; STK_G = g; }
-  $('stkTabs').innerHTML = d.types.filter(t => !!t.acc === (STK_G === 'acc')).map(t => `<button type="button" data-ty="${esc(t.name)}" class="${t.name === STK_TYPE ? 'on' : ''}">${t.acc ? (BUY_ICON[t.cat] || '🧾') + ' ' : ''}${esc(t.name)}${t.site ? ' 🔗' : ''}</button>`).join('');
+  $('stkTabs').innerHTML = `<select id="stkPick" aria-label="${STK_G === 'acc' ? 'القسم' : 'نوع الفلمنت'}">` + d.types.filter(t => !!t.acc === (STK_G === 'acc')).map(t => `<option value="${esc(t.name)}"${t.name === STK_TYPE ? ' selected' : ''}>${t.acc ? (BUY_ICON[t.cat] || '🧾') + ' ' : ''}${esc(t.name)}${t.site ? ' 🔗' : ''}</option>`).join('') + '</select>';
   const ty = d.types.find(t => t.name === STK_TYPE), acc = !!ty.acc, rows = d.rows.filter(r => r.t === STK_TYPE);
   $('stkNote').innerHTML = acc ? '🧰 <b>قسم مستلزمات</b> (بالقطع، للجرد فقط ولا يؤثر على الموقع). أي صنف عليه «🛒 اشترِ» أو نزل عدده إلى 0 يظهر تلقائيًا في «قائمة الشراء» بتبويب المشتريات.' : ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «🔴 نفد» يظهر للعميل بخط أحمر «غير متوفر»، وإذا رجع «🟢 متوفر» يرجع متوفرًا. خانة «للشراء؟» تذكير شراء لك فقط ولا تؤثر على الموقع. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
     : 'هذا النوع غير مربوط بالموقع (للجرد فقط). <button type="button" class="linkbtn" data-site="1">ربطه بالموقع</button>';
@@ -2418,6 +2418,7 @@ function stkDueCheck() {
   }
 }
 $('stkGroups').addEventListener('click', e => { const b = e.target.closest('[data-grp]'); if (!b || b.dataset.grp === STK_G) return; STK_LAST[STK_G] = STK_TYPE; const want = b.dataset.grp === 'acc', t = (STK.types.find(x => x.name === STK_LAST[b.dataset.grp] && !!x.acc === want) || STK.types.find(x => !!x.acc === want)); if (t) { STK_TYPE = t.name; stkRender(); } });
+$('stkTabs').addEventListener('change', e => { const x = e.target.closest('#stkPick'); if (x) { STK_TYPE = x.value; STK_ONLY = false; stkRender(); } });
 $('stkTabs').addEventListener('click', e => { const b = e.target.closest('[data-ty]'); if (b) { STK_TYPE = b.dataset.ty; STK_ONLY = false; stkRender(); } });
 $('stkNote').addEventListener('click', e => {
   const dt = e.target.closest('[data-deltype]');
