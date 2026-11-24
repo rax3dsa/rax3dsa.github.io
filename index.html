@@ -12,6 +12,24 @@
 <meta name="theme-color" content="#1e1c18">
 <script src="qr.min.js"></script>
 <script>/* ارفض التشغيل داخل إطار موقع آخر (clickjacking): GitHub Pages ما يسمح بترويسة تمنع التأطير */if(window.top!==window.self){try{window.top.location=window.location.href}catch(_){document.documentElement.style.display="none"}}</script>
+<script>/* v138: الأرقام تُكتب بالعربية أو الإنجليزية وتُسجَّل بالإنجليزية فقط (كل الحقول). حقول type=number تتحول إلى نص بلوحة أرقام، لأن المتصفح يرفض الأرقام العربية فيها */
+(function () {
+  var AR = '٠١٢٣٤٥٦٧٨٩', FA = '۰۱۲۳۴۵۶۷۸۹', SKIP = { checkbox: 1, radio: 1, file: 1, range: 1, color: 1, date: 1, 'datetime-local': 1, time: 1, month: 1, week: 1, button: 1, submit: 1 };
+  function conv(v, dec) { var o = '', i, c, k; for (i = 0; i < v.length; i++) { c = v.charAt(i); k = AR.indexOf(c); if (k < 0) k = FA.indexOf(c); o += k >= 0 ? String(k) : (c === '٫' || (dec && (c === '،' || c === ','))) ? '.' : c === '٬' ? '' : c; } return o; }
+  function fix(e) {
+    var el = e.target; if (!el || e.isComposing || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') || SKIP[el.type]) return;
+    var v = el.value; if (!v) return; var num = el.hasAttribute('data-num'), n = conv(v, num); if (num) n = n.replace(/[^0-9.\-]/g, '');
+    if (n !== v) { var st = el.selectionStart; el.value = n; try { st = Math.max(0, st - (v.length - n.length)); el.setSelectionRange(st, st); } catch (_) {} }
+  }
+  addEventListener('input', fix, true); addEventListener('change', fix, true);
+  function numify(n) {
+    if (n.nodeType !== 1) return; var l = n.matches && n.matches('input[type=number]') ? [n] : []; if (n.querySelectorAll) l = l.concat([].slice.call(n.querySelectorAll('input[type=number]')));
+    l.forEach(function (i) { i.setAttribute('data-num', '1'); if (!i.getAttribute('inputmode')) i.setAttribute('inputmode', 'decimal'); i.type = 'text'; });
+  }
+  new MutationObserver(function (ms) { ms.forEach(function (m) { m.addedNodes.forEach(numify); }); }).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('DOMContentLoaded', function () { numify(document.body); });
+})();
+</script>
 <script>
 (function(){try{var m=localStorage.getItem('rax_theme')||'dark',d=document.documentElement;
 var l=m==='light'||(m==='auto'&&matchMedia('(prefers-color-scheme: light)').matches);
@@ -73,7 +91,7 @@ nav .nl button{text-align:start;padding:12px 16px}
 nav .nl button{flex:none;border:0;background:none;border-radius:14px;font-size:14px;color:var(--mute);cursor:pointer;position:relative;white-space:nowrap}
 nav button i{position:absolute;top:5px;inset-inline-end:8px;width:9px;height:9px;border-radius:50%;background:#e5484d}
 .stk-tabs.wrap{flex-wrap:wrap;overflow:visible}.stk-tabs select{width:100%;font-weight:700}.stk-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.stk-tabs button{flex:none;border:1px solid var(--line);background:var(--field);color:var(--mute);border-radius:999px;padding:8px 14px;cursor:pointer}.stk-tabs button.on{background:var(--gold-d);color:#000;font-weight:700;border-color:var(--gold)}
-.stk-row{display:grid;grid-template-columns:1.15fr 1fr .95fr .95fr 28px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.stk-row.acc{grid-template-columns:1.6fr 1.1fr .95fr 28px}.stk-row.hd{color:var(--mute);font-size:12.5px;border-bottom:2px solid var(--line)}
+.stk-row{display:grid;grid-template-columns:1.1fr 1fr .9fr .9fr .72fr 26px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.stk-row.acc{grid-template-columns:1.5fr 1.1fr .95fr .75fr 26px}.stk-nq{width:100%;min-width:0;padding:7px 2px;font-size:14px;text-align:center}.stk-nq.off{opacity:.45}.stk-row.hd{color:var(--mute);font-size:12.5px;border-bottom:2px solid var(--line)}
 .stk-code{display:block;font-size:11px;color:var(--mute);cursor:pointer;direction:ltr;text-align:right}.stk-code:not(:empty){margin-top:1px}
 .stk-c{display:flex;align-items:center;gap:8px}.stk-c i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.55);flex:none}
 .stk-q{display:flex;align-items:center;gap:4px}.stk-q button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--text);cursor:pointer;font-size:18px;padding:0}.stk-q b{min-width:26px;text-align:center}
@@ -87,7 +105,7 @@ section{display:none} section.on{display:block}
 label{display:block;font-size:13px;color:var(--mute);margin-bottom:4px}
 input,select{width:100%;background:var(--field);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;font-size:16px;outline:none}
 input:focus,select:focus{border-color:var(--gold)}
-input[type=number]{direction:ltr;text-align:center}
+input[type=number],input[data-num]{direction:ltr;text-align:center}
 .grid{display:grid;gap:10px}
 .g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:1.3fr 1fr 1fr 1fr;gap:8px}.g3{grid-template-columns:1fr 1fr 1fr}
 
@@ -735,7 +753,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '136';
+const APP_VERSION = '138';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2330,8 +2348,8 @@ function stkNorm(d) {
   d = d && typeof d === 'object' ? d : stkDefault(); d.types = (Array.isArray(d.types) && d.types.length ? d.types : stkDefault().types).map(t => ({ name: String(t.name || '').slice(0, 20), site: !!t.site, acc: !!t.acc, cat: String(t.cat || '').slice(0, 10) })).filter(t => t.name);
   if (!d.accSeed) { d.accSeed = 1; ACC_SEED.forEach(c => { if (!d.types.some(t => t.name === c[1])) d.types.push({ name: c[1], site: false, acc: true, cat: c[0] }); }); }   // أقسام المستلزمات تُضاف مرة وحدة (حذفها بعدها يبقى)
   d.types.forEach(t => { const a = ACC_SEED.find(c => c[1] === t.name); if (a) { t.acc = true; t.cat = a[0]; t.site = false; } });
-  d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy, need: r.need == null ? !!r.buy : !!r.need, code: String(r.code || '').slice(0, 30) })).filter(r => r.t && r.c);
-  const seen = new Map(); d.rows = d.rows.reduce((a, r) => { const k = STK_BYN[CN(r.c)]; if (k) r.c = k; const id = r.t + '|' + r.c, o = seen.get(id); if (o) { o.q = Math.min(999, o.q + r.q); o.buy = o.buy && r.buy; o.need = o.need || r.need; o.code = o.code || r.code; } else { seen.set(id, r); a.push(r); } return a; }, []);   // اسود → أسود (ودمج المكرر)
+  d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy, need: r.need == null ? !!r.buy : !!r.need, nq: Math.max(1, Math.min(999, Math.floor(+r.nq || 1))), code: String(r.code || '').slice(0, 30) })).filter(r => r.t && r.c);
+  const seen = new Map(); d.rows = d.rows.reduce((a, r) => { const k = STK_BYN[CN(r.c)]; if (k) r.c = k; const id = r.t + '|' + r.c, o = seen.get(id); if (o) { o.q = Math.min(999, o.q + r.q); o.buy = o.buy && r.buy; o.need = o.need || r.need; o.nq = Math.max(o.nq, r.nq); o.code = o.code || r.code; } else { seen.set(id, r); a.push(r); } return a; }, []);   // اسود → أسود (ودمج المكرر)
   d.next = /^\d{4}-\d{2}-\d{2}$/.test(d.next) ? d.next : STK_START; d.mailedFor = d.mailedFor || '';
   if (!(d.v >= 2)) { d.v = 2; d.types.slice(1).forEach(t => { const rs = d.rows.filter(r => r.t === t.name); if (rs.length === STK_COLORS.length && rs.every(r => r.q === 0 && !r.buy)) d.rows = d.rows.filter(r => r.t !== t.name); }); }   // تنظيف مرة وحدة: النوع الجديد كان يتعبّى بكل الألوان تلقائيًا بالغلط
   return d;
@@ -2356,6 +2374,7 @@ async function stkSync(force) {
 }
 function stkEdit(m, quick) {   // m(d) تُطبَّق فورًا على النسخة المحلية، وتُكتب للمستودع بعد 0.7 ثانية (تجمع الضغطات المتتالية في كتابة واحدة)
   if (!STK) stkLoadLocal(); m(STK); stkSaveLocal(); if (quick) stkRowUI(quick[0], quick[1]); else stkRender(); STK_Q.push(m); clearTimeout(STK_T); STK_T = setTimeout(stkFlush, 700); $('stkMsg').textContent = '';
+  setTimeout(() => { try { slReconcile(); } catch (e) {} }, 0);   // الجرد ← قائمة الشراء فورًا (الضغطات السريعة لا تعيد رسم الجدول)
 }
 async function stkFlush() {
   const q = STK_Q.splice(0); if (!q.length) return; const sy = getSync();
@@ -2368,7 +2387,7 @@ async function stkFlush() {
 }
 function stkRowUI(t, c) {   // تحديث الصف المتغيّر فقط (أسرع بكثير من إعادة رسم الجدول كله)
   const r = stkRow(STK, t, c), el = [...document.querySelectorAll('#stkBody .stk-row')].find(x => x.dataset.c === c && x.dataset.t === t); if (!r || !el || STK_ONLY || STK_TYPE !== t) return stkRender();
-  el.querySelector('.stk-q b').textContent = r.q; const b = el.querySelector('.stk-b[data-buy]'); if (b) { b.className = 'stk-b ' + (r.buy ? 'buy' : 'ok'); b.textContent = r.buy ? '🔴 نفد' : '🟢 متوفر'; } const nb2 = el.querySelector('.stk-b[data-need]'); if (nb2) { nb2.className = 'stk-b ' + (r.need ? 'need' : 'off'); nb2.textContent = r.need ? '🛒 اشترِ' : 'لا'; }
+  el.querySelector('.stk-q b').textContent = r.q; const b = el.querySelector('.stk-b[data-buy]'); if (b) { b.className = 'stk-b ' + (r.buy ? 'buy' : 'ok'); b.textContent = r.buy ? '🔴 نفد' : '🟢 متوفر'; } const nb2 = el.querySelector('.stk-b[data-need]'); if (nb2) { nb2.className = 'stk-b ' + (r.need ? 'need' : 'off'); nb2.textContent = r.need ? '🛒 اشترِ' : 'لا'; } const nqi = el.querySelector('.stk-nq'); if (nqi) { nqi.classList.toggle('off', !r.need); if (document.activeElement !== nqi) nqi.value = r.nq; }
   const n = STK.rows.filter(x => x.need).length; $('stkDone').textContent = '✔ تم الجرد (التذكير القادم بعد أسبوعين)' + (n ? ' · ' + n + ' بحاجة شراء' : '');
 }
 let STK_ONLY = false, STK_G = 'fil', STK_LAST = {};
@@ -2382,15 +2401,17 @@ function stkRender() {
   $('stkNote').innerHTML = acc ? '🧰 <b>قسم مستلزمات</b> (بالقطع، للجرد فقط ولا يؤثر على الموقع). أي صنف عليه «🛒 اشترِ» أو نزل عدده إلى 0 يظهر تلقائيًا في «قائمة الشراء» بتبويب المشتريات.' : ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «🔴 نفد» يظهر للعميل بخط أحمر «غير متوفر»، وإذا رجع «🟢 متوفر» يرجع متوفرًا. خانة «للشراء؟» تذكير شراء لك فقط ولا تؤثر على الموقع. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
     : 'هذا النوع غير مربوط بالموقع (للجرد فقط). <button type="button" class="linkbtn" data-site="1">ربطه بالموقع</button>';
   $('stkNote').innerHTML += ' · <button type="button" class="linkbtn" data-deltype="1" style="color:var(--bad)">🗑 حذف هذا ' + (acc ? 'القسم' : 'النوع') + '</button>';
-  $('stkBody').innerHTML = (acc ? '<div class="stk-row hd acc"><span>الصنف</span><span>العدد (قطع)</span><span>للشراء؟</span><span></span></div>' : '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>متوفر بالموقع؟</span><span>للشراء؟</span><span></span></div>') + (rows.length ? rows.map(r => acc
+  $('stkBody').innerHTML = (acc ? '<div class="stk-row hd acc"><span>الصنف</span><span>العدد (قطع)</span><span>للشراء؟</span><span>الكمية</span><span></span></div>' : '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>متوفر بالموقع؟</span><span>للشراء؟</span><span>الكمية</span><span></span></div>') + (rows.length ? rows.map(r => acc
     ? `<div class="stk-row acc" data-c="${esc(r.c)}" data-t="${esc(r.t)}"><span class="stk-c"><span>${esc(r.c)}</span></span>
       <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
       <button type="button" class="stk-b ${r.need ? 'need' : 'off'}" data-need="1">${r.need ? '🛒 اشترِ' : 'لا'}</button>
+      <input class="stk-nq${r.need ? '' : ' off'}" type="number" inputmode="numeric" min="1" max="999" step="1" data-nq="1" value="${r.nq}" aria-label="الكمية المطلوب شراؤها">
       <button type="button" class="stk-x" data-del="1" aria-label="حذف الصنف">×</button></div>`
     : `<div class="stk-row" data-c="${esc(r.c)}" data-t="${esc(r.t)}"><span class="stk-c"><i style="${stkHexR(r) ? 'background:' + stkHexR(r) : ''}"></i><span>${esc(r.c)}<small class="stk-code" data-code="1">${r.code ? esc(r.code) : '＋ رقم اللون'}</small></span></span>
       <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
       <button type="button" class="stk-b ${r.buy ? 'buy' : 'ok'}" data-buy="1">${r.buy ? '🔴 نفد' : '🟢 متوفر'}</button>
       <button type="button" class="stk-b ${r.need ? 'need' : 'off'}" data-need="1">${r.need ? '🛒 اشترِ' : 'لا'}</button>
+      <input class="stk-nq${r.need ? '' : ' off'}" type="number" inputmode="numeric" min="1" max="999" step="1" data-nq="1" value="${r.nq}" aria-label="الكمية المطلوب شراؤها">
       <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">' + (acc ? 'لا أصناف في هذا القسم، أضف من الأسفل.' : 'لا ألوان في هذا النوع، أضف من الأسفل.') + '</p>');
   const have = new Set(rows.map(stkRC)), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(stkRC));
   const gone = SHOP_COLORS.filter(c => c[1] && !linked.has(c[0])).map(c => c[0]);
@@ -2431,6 +2452,10 @@ $('stkBody').addEventListener('click', e => {
   else if (b.dataset.need) { const nn = !cur.need; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.need = nn; }, [t, c]); }
   else if (b.dataset.buy) { const nb = !cur.buy; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.buy = nb; }, [t, c]); }
   else if (b.dataset.del) { if (!confirm('حذف ' + c + ' من ' + t + '؟')) return; stkEdit(d => { d.rows = d.rows.filter(r => !(r.t === t && r.c === c)); }); }
+});
+$('stkBody').addEventListener('change', e => {
+  const i = e.target.closest('[data-nq]'); if (!i) return; const row = i.closest('.stk-row'), t = row.dataset.t, c = row.dataset.c, v = Math.max(1, Math.min(999, Math.floor(+i.value || 1))); i.value = v;
+  stkEdit(d => { const r = stkRow(d, t, c); if (r) r.nq = v; }, [t, c]);
 });
 $('stkQuick').addEventListener('click', e => { const b = e.target.closest('[data-qc]'); if (!b) return; const t = STK_TYPE, c = b.dataset.qc; stkEdit(d => { if (!stkRow(d, t, c)) d.rows.push({ t: t, c: c, q: 1, buy: false, need: false }); }); });
 $('stkAddColor').onclick = () => {
@@ -2678,21 +2703,22 @@ async function slApply(op, msg, quiet) {
 /* الجرد ← القائمة: كل صف «🛒 اشترِ» (فلمنت أو مستلزمات) يظهر هنا تلقائيًا، ويزول إن أُلغيت الحاجة قبل شطبه */
 function slStockNeeds() {
   if (!STK) stkLoadLocal();
-  return STK.rows.filter(r => r.need).map(r => { const ty = stkTy(STK, r.t) || {}, acc = !!ty.acc; return { src: r.t + '|' + r.c, cat: acc ? (ty.cat || 'other') : 'fil', name: acc ? r.c : 'فلمنت ' + r.t + ' — ' + r.c, qty: '1' }; });
+  return STK.rows.filter(r => r.need).map(r => { const ty = stkTy(STK, r.t) || {}, acc = !!ty.acc; return { src: r.t + '|' + r.c, cat: acc ? (ty.cat || 'other') : 'fil', name: acc ? r.c : 'فلمنت ' + r.t + ' — ' + r.c, qty: String(r.nq || 1) }; });
 }
 function slReconcile() {
   if (!STK) stkLoadLocal(); const sy = getSync(); if (sy && !STK_OK) return;   // لا نعتمد على نسخة جرد قديمة
   slLoad(); const need = slStockNeeds(), want = new Set(need.map(n => n.src)), have = new Set(SL.items.map(x => x.src).filter(Boolean));
-  const add = need.filter(n => !have.has(n.src)), del = SL.items.filter(x => x.auto && !x.done && x.src && !want.has(x.src));
-  if (!add.length && !del.length) return;
+  const nqOf = Object.fromEntries(need.map(n => [n.src, n.qty])), add = need.filter(n => !have.has(n.src)), del = SL.items.filter(x => x.auto && !x.done && x.src && !want.has(x.src)), upd = SL.items.filter(x => x.auto && !x.done && x.src && want.has(x.src) && x.qty !== nqOf[x.src]);
+  if (!add.length && !del.length && !upd.length) return;
   slApply(d => {
     d.items = d.items.filter(x => !(x.auto && !x.done && x.src && !want.has(x.src)));
+    d.items.forEach(x => { if (x.auto && !x.done && x.src && nqOf[x.src] && x.qty !== nqOf[x.src]) x.qty = nqOf[x.src]; });
     add.forEach((n, i) => { if (!d.items.some(x => x.src === n.src)) d.items.push({ id: slId(n.src), name: n.name, qty: n.qty, ts: Date.now() + i, done: 0, price: 0, cat: n.cat, src: n.src, auto: 1 }); });
   }, 'قائمة الشراء: مزامنة مع الجرد', true);
 }
 function slStockApply(list, bought) {   // list: [{src, n}] ← الجرد: يُلغى «للشراء؟»، وعند الشراء تُضاف الكمية
   if (!list.length) return; if (!STK) stkLoadLocal();
-  stkEdit(d => { list.forEach(x => { const s = slSrc(x.src), r = stkRow(d, s.t, s.c); if (!r) return; if (bought) { r.q = Math.min(999, r.q + x.n); r.buy = false; } r.need = false; }); });
+  stkEdit(d => { list.forEach(x => { const s = slSrc(x.src), r = stkRow(d, s.t, s.c); if (!r) return; if (bought) { r.q = Math.min(999, r.q + x.n); r.buy = false; } r.need = false; r.nq = 1; }); });
 }
 const slDLFill = () => {   // اقتراحات الوصف من أصناف القسم في الجرد
   try { if (!STK) stkLoadLocal(); const lab = (BUY_CATS.find(c => c[0] === $('slCat').value) || [])[1]; $('slDL').innerHTML = (lab && stkTy(STK, lab) ? STK.rows.filter(r => r.t === lab).map(r => `<option value="${esc(r.c)}">`).join('') : ''); } catch (e) {}
@@ -2728,7 +2754,7 @@ const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); }
     slWas = slAllDone(); const c = e.target.closest('[data-slc]'), p = e.target.closest('[data-slp]'), q = e.target.closest('[data-slq]');
     if (c) { const id = c.dataset.slc, v = c.checked ? 1 : 0; slApply(d => { const x = d.items.find(y => y.id === id); if (x) x.done = v; }, 'قائمة الشراء: تحديث').then(slBoughtCheck); }
     else if (p) { const id = p.dataset.slp, v = Math.max(0, Math.round((+p.value || 0) * 100) / 100); slApply(d => { const x = d.items.find(y => y.id === id); if (x) { x.price = v; if (v > 0) x.done = 1; } }, 'قائمة الشراء: سعر').then(slBoughtCheck); }
-    else if (q) { const id = q.dataset.slq, v = Math.max(1, Math.round(+q.value || 1)); slApply(d => { const x = d.items.find(y => y.id === id); if (x) x.qty = String(v); }, 'قائمة الشراء: كمية', true); }
+    else if (q) { const id = q.dataset.slq, v = Math.max(1, Math.round(+q.value || 1)); slApply(d => { const x = d.items.find(y => y.id === id); if (x) x.qty = String(v); }, 'قائمة الشراء: كمية', true); const it = slLoad().items.find(y => y.id === id); if (it && it.src) { const s2 = slSrc(it.src); if (!STK) stkLoadLocal(); stkEdit(d => { const r = stkRow(d, s2.t, s2.c); if (r) r.nq = v; }); } }
   });
   $('slList').addEventListener('click', e => {
     const x = e.target.closest('[data-slx]');
