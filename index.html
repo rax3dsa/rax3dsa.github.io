@@ -753,7 +753,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '139';
+const APP_VERSION = '140';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1921,6 +1921,10 @@ async function pushEnable() {   // إشعار الجوال الفوري (Web Pus
   toast(r && r.ok ? '✔ فُعّلت إشعارات الطلبات: أرسلنا لك إشعار تجربة' : '✔ سُجّل جوالك، لكن إشعار التجربة تعذّر: ' + ((r && (r.reason || r.status)) || 'الـ worker غير منشور بعد'));
 }
 document.getElementById('ordNotif').onclick = () => { pushEnable().catch(e => toast('تعذّر تفعيل الإشعارات: ' + ((e && e.message) || e))); };
+let STK_ALERT_T = 0;
+function stkAlert() {   // مدخل البيانات فقط: صنف صار «مطلوب شراؤه» ← إشعار للمالك (مرة كل 90 ثانية كحد أقصى حتى لا يتكرر مع كل ضغطة)
+  if (slAdm() || Date.now() - STK_ALERT_T < 90000) return; STK_ALERT_T = Date.now(); pushNotify('stk');
+}
 async function pushNotify(kind) {   // إشعار بين الجوالين (نصوص ثابتة من الـ worker): inv/sl من مدخل البيانات للمالك، bought من المالك لمدخل البيانات. صامت لو الإشعارات غير مفعّلة على هذا الجوال
   try {
     if (!('serviceWorker' in navigator && 'PushManager' in window) || Notification.permission !== 'granted') return;
@@ -2448,8 +2452,8 @@ $('stkNote').addEventListener('click', e => {
 $('stkBody').addEventListener('click', e => {
   const cd = e.target.closest('[data-code]'); if (cd) { const rw = cd.closest('.stk-row'), t0 = (rw && rw.dataset.t) || STK_TYPE, c0 = rw && rw.dataset.c, r0 = c0 && stkRow(STK, t0, c0); if (r0) { const v = prompt('رقم اللون كما في الاستكر (مثل: 10100)', r0.code || ''); if (v !== null) stkEdit(d => { const r = stkRow(d, t0, c0); if (r) r.code = v.trim().slice(0, 30); }); } return; }
   const b = e.target.closest('button'); if (!b) return; const row = b.closest('.stk-row'); if (!row || !row.dataset.c) return; const t = row.dataset.t || STK_TYPE, c = row.dataset.c, cur = stkRow(STK, t, c); if (!cur) return;
-  if (b.dataset.q) { const nq = Math.max(0, Math.min(999, cur.q + (+b.dataset.q))), was = cur.q; stkEdit(d => { const r = stkRow(d, t, c); if (!r) return; r.q = nq; if (nq === 0) { r.buy = true; r.need = true; } else if (was === 0) { r.buy = false; r.need = false; } }, [t, c]); }   // وصل للصفر ← غير متوفر بالموقع + للشراء، وأول ما يوصل مخزون يرجعان
-  else if (b.dataset.need) { const nn = !cur.need; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.need = nn; }, [t, c]); }
+  if (b.dataset.q) { const nq = Math.max(0, Math.min(999, cur.q + (+b.dataset.q))), was = cur.q; if (nq === 0 && was > 0) stkAlert(); stkEdit(d => { const r = stkRow(d, t, c); if (!r) return; r.q = nq; if (nq === 0) { r.buy = true; r.need = true; } else if (was === 0) { r.buy = false; r.need = false; } }, [t, c]); }   // وصل للصفر ← غير متوفر بالموقع + للشراء، وأول ما يوصل مخزون يرجعان
+  else if (b.dataset.need) { const nn = !cur.need; if (nn) stkAlert(); stkEdit(d => { const r = stkRow(d, t, c); if (r) r.need = nn; }, [t, c]); }
   else if (b.dataset.buy) { const nb = !cur.buy; stkEdit(d => { const r = stkRow(d, t, c); if (r) r.buy = nb; }, [t, c]); }
   else if (b.dataset.del) { if (!confirm('حذف ' + c + ' من ' + t + '؟')) return; stkEdit(d => { d.rows = d.rows.filter(r => !(r.t === t && r.c === c)); }); }
 });
