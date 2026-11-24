@@ -304,7 +304,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
     <button data-tab="stats" class="adm">الإحصائيات</button>
     <button data-tab="settings" class="adm">الإعدادات</button>
     <button data-tab="stock" id="stockTab">الجرد<i id="stockDot" hidden></i></button>
-    <button data-tab="buys" class="adm">المشتريات</button>
+    <button data-tab="buys">المشتريات</button>
     <button data-tab="dist" class="adm">التوزيعات</button>
     <button data-tab="custom" class="adm">طلب خاص</button>
     </div>
@@ -369,6 +369,16 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 
   <style>#buys input[type=date]{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;min-height:46px;text-align:right}#buys input[type=date]::-webkit-date-and-time-value{text-align:right}#buys select,#buys input{max-width:100%;box-sizing:border-box}</style>
   <section id="buys">
+    <style>#slBox .slr{display:flex;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}#slBox .slr input[type=checkbox]{width:24px;height:24px;flex:none;margin:0;padding:0;accent-color:var(--gold)}#slBox .sln{flex:1;min-width:0;line-height:1.6;font-size:15px;word-break:break-word}#slBox .slr.dn .sln{text-decoration:line-through;color:var(--mute)}#slBox .slr input.slp{width:84px;flex:none;padding:8px 6px;font-size:15px}#slBox .slx{margin:0;width:auto;padding:6px 10px;flex:none}#slBox .slt{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 4px;font-size:15px}#slBox .slt b{font-size:20px;direction:ltr}</style>
+    <div class="period" id="slBox">
+      <h3>🛒 قائمة الشراء</h3>
+      <div class="hint" id="slSync" style="margin:-4px 0 8px"></div>
+      <div style="display:flex;gap:8px"><input id="slName" placeholder="ماذا نحتاج نشتري؟" autocomplete="off" style="flex:1;min-width:0"><input id="slQty" placeholder="الكمية" autocomplete="off" style="width:84px;flex:none;text-align:center"></div>
+      <button class="save" id="slAdd" style="margin-top:10px;font-size:16px;padding:12px">＋ أضف للقائمة</button>
+      <p class="hint" id="slMsg" style="margin:8px 0 0"></p>
+      <div id="slList"></div>
+    </div>
+    <div class="adm">
     <h2 style="margin:6px 0 2px;font-size:20px">🧾 فواتير مشتريات داخلية</h2>
     <div class="hint" id="buySync" style="margin-bottom:8px"></div>
     <div class="period">
@@ -390,6 +400,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
       <p class="hint" id="buyMsg" style="margin:8px 0 0"></p>
     </div>
     <div id="buyList"></div>
+    </div>
   </section>
   <section id="dist">
     <h2 style="margin:6px 0 2px;font-size:20px">🎁 حاسبة التوزيعات</h2>
@@ -712,7 +723,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '131';
+const APP_VERSION = '132';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1100,6 +1111,7 @@ function flushPending() {   // جوال مدخل البيانات يرسل فو�
       arr = Array.isArray(arr) ? arr : []; const have = new Set(arr.map(pk));
       batch.forEach(r => { if (!have.has(pk(r))) arr.push(r); }); return arr;
     }, 'فاتورة من مدخل البيانات');
+    if (batch.some(r => !r.edit)) pushNotify('inv');
     db = loadDb(); const sent = new Set(batch.map(pk));
     db.pending = db.pending.filter(r => !sent.has(pk(r))); saveDb(db); return batch.length;
   })().finally(() => { flushing = null; });
@@ -1879,6 +1891,13 @@ async function pushEnable() {   // إشعار الجوال الفوري (Web Pus
   toast(r && r.ok ? '✔ فُعّلت إشعارات الطلبات: أرسلنا لك إشعار تجربة' : '✔ سُجّل جوالك، لكن إشعار التجربة تعذّر: ' + ((r && (r.reason || r.status)) || 'الـ worker غير منشور بعد'));
 }
 document.getElementById('ordNotif').onclick = () => { pushEnable().catch(e => toast('تعذّر تفعيل الإشعارات: ' + ((e && e.message) || e))); };
+async function pushNotify(kind) {   // إشعار بين الجوالين (نصوص ثابتة من الـ worker): inv/sl من مدخل البيانات للمالك، bought من المالك لمدخل البيانات. صامت لو الإشعارات غير مفعّلة على هذا الجوال
+  try {
+    if (!('serviceWorker' in navigator && 'PushManager' in window) || Notification.permission !== 'granted') return;
+    const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription(); if (!sub) return;
+    await fetch(PUSH_API + '/push/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: kind, endpoint: sub.endpoint }) });
+  } catch (e) {}
+}
 let ORD_SEEN_KEY = 'rax3d_ord_seen';
 async function ordPoll() {   // تنبيه فوري داخل التطبيق لما يجي طلب جديد من الموقع (لكل من المالك وأحمد؛ ويصل الاثنين إيميل من الـ worker)
   if (!getSync() || !DATA) return; const ok = await ordLoad(); if (!ok) return;
@@ -2571,7 +2590,82 @@ function buyInit() {
   });
   buyRender();
 }
-document.querySelector('nav button[data-tab="buys"]').addEventListener('click', () => { buyInit.done || (buyInit.done = 1); buyRender(); buySync(); });
+/* ---------- v132: قائمة الشراء (مدخل البيانات يجهّزها، المالك يشتري ويسعّر وتُشطب مثل قائمة البقالة) ---------- */
+// shoplist.json في المستودع الخاص: { v, items:[{id, name, qty, ts, done, price}], u }
+const SL_KEY = 'rax3d_shoplist';
+let SL = null, SL_BUSY = false, SL_OK = false;
+const slAdm = () => !document.body.classList.contains('partner');
+function slNorm(d) {
+  const items = (d && Array.isArray(d.items) ? d.items : []).map(r => ({ id: String(r.id || '').slice(0, 24), name: String(r.name || '').slice(0, 80), qty: String(r.qty || '').slice(0, 20), ts: +r.ts || 0, done: r.done ? 1 : 0, price: Math.max(0, Math.round((+r.price || 0) * 100) / 100) })).filter(r => r.id && r.name);
+  items.sort((a, b) => (a.done - b.done) || (a.ts - b.ts));
+  return { v: 1, items: items, u: (d && d.u) || 0 };
+}
+function slLoad() { if (SL) return SL; try { SL = slNorm(JSON.parse(localStorage.getItem(SL_KEY) || 'null')); } catch (e) { SL = slNorm(null); } return SL; }
+function slSaveLocal() { try { localStorage.setItem(SL_KEY, JSON.stringify(SL)); } catch (e) {} }
+function slRender() {
+  const box = $('slList'); if (!box) return; const adm = slAdm(), its = slLoad().items, sy = getSync();
+  $('slSync').textContent = sy ? (SL_OK ? '🔗 مربوطة بالمستودع المشترك' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
+  const done = its.filter(x => x.done), tot = done.reduce((a, x) => a + x.price, 0), noPrice = done.filter(x => !(x.price > 0)).length;
+  box.innerHTML = its.length ? its.map(x => `<div class="slr${x.done ? ' dn' : ''}">${adm ? `<input type="checkbox" data-slc="${esc(x.id)}" ${x.done ? 'checked' : ''} aria-label="تم شراؤه">` : ''}<span class="sln">${esc(x.name)}${x.qty ? ` <small style="color:var(--mute)">× ${esc(x.qty)}</small>` : ''}</span>${adm ? `<input class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="السعر" data-slp="${esc(x.id)}" value="${x.price > 0 ? x.price : ''}" aria-label="سعر ${esc(x.name)}">` : ''}${adm || !x.done ? `<button type="button" class="ghost slx" data-slx="${esc(x.id)}" aria-label="حذف">✕</button>` : ''}</div>`).join('')
+    + (adm ? `<div class="slt"><span>إجمالي المشتريات (${done.length} من ${its.length})</span><b>${fmt(tot)}</b></div>`
+      + (noPrice ? `<p class="hint" style="margin:0 0 6px;color:var(--bad)">${noPrice} مشطوب بلا سعر: اكتب سعره ليدخل في الإجمالي.</p>` : '')
+      + (done.some(x => x.price > 0) ? '<button class="ghost" id="slRec" style="margin-top:8px">📥 سجّلها كفاتورة مشتريات ونظّف المشطوب</button>' : '') : '')
+    : '<p class="hint">القائمة فاضية.</p>';
+}
+async function slSync() {
+  if (SL_BUSY) return; const sy = getSync(); slLoad(); SL_BUSY = true;
+  try {
+    if (!sy) { SL_OK = false; return; }
+    const r = await readJson(sy, 'shoplist.json', null);
+    if (r.data) SL = slNorm(r.data); else if (SL.items.length) await updateJson(sy, 'shoplist.json', null, d => d ? undefined : SL, 'إنشاء قائمة الشراء');
+    SL_OK = true; slSaveLocal();
+  } catch (e) { SL_OK = false; }
+  finally { SL_BUSY = false; }
+  const a = document.activeElement; if (!(a && a.closest && a.closest('#slList'))) slRender(); else $('slSync').textContent = '🔗 مربوطة بالمستودع المشترك';
+}
+async function slApply(op, msg) {
+  slLoad(); op(SL); SL = slNorm(SL); slSaveLocal(); slRender();
+  const sy = getSync(), m = $('slMsg'); if (!sy) { m.style.color = ''; m.textContent = 'محفوظة على هذا الجوال فقط: الربط المشترك غير مفعّل'; return false; }
+  try {
+    const nd = await updateJson(sy, 'shoplist.json', null, d => { d = slNorm(d || SL); op(d); d = slNorm(d); d.u = Date.now(); return d; }, msg);
+    SL = slNorm(nd); SL_OK = true; slSaveLocal(); m.style.color = 'var(--good)'; m.textContent = 'تم الحفظ ✔'; slRender(); return true;
+  } catch (e) { SL_OK = false; m.style.color = 'var(--bad)'; m.textContent = 'تعذّر الحفظ في المستودع (محفوظ على الجوال): ' + ((e && e.message) || e); return false; }
+}
+let slWas = false;
+const slAllDone = () => { const i = slLoad().items; return i.length > 0 && i.every(x => x.done); };
+const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); };
+(function slInit() {
+  const add = () => {
+    const name = $('slName').value.trim(), qty = $('slQty').value.trim(), m = $('slMsg'); m.style.color = 'var(--bad)';
+    if (!name) { m.textContent = 'اكتب اسم الصنف'; return; } m.textContent = '';
+    const it = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, qty: qty, ts: Date.now(), done: 0, price: 0 };
+    $('slName').value = ''; $('slQty').value = ''; $('slName').focus();
+    slApply(d => { if (!d.items.some(x => x.id === it.id)) d.items.push(it); }, 'قائمة الشراء: ' + name.slice(0, 40));
+    if (!slAdm()) pushNotify('sl');
+  };
+  $('slAdd').onclick = add; $('slName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  $('slList').addEventListener('change', e => {
+    const was = slAllDone(), c = e.target.closest('[data-slc]'), p = e.target.closest('[data-slp]');
+    if (c) { const id = c.dataset.slc, v = c.checked ? 1 : 0; slApply(d => { const x = d.items.find(y => y.id === id); if (x) x.done = v; }, 'قائمة الشراء: تحديث').then(slBoughtCheck); }
+    else if (p) { const id = p.dataset.slp, v = Math.max(0, Math.round((+p.value || 0) * 100) / 100); slApply(d => { const x = d.items.find(y => y.id === id); if (x) { x.price = v; if (v > 0) x.done = 1; } }, 'قائمة الشراء: سعر').then(slBoughtCheck); }
+  });
+  $('slList').addEventListener('click', e => {
+    const x = e.target.closest('[data-slx]');
+    if (x) { const id = x.dataset.slx, r = slLoad().items.find(y => y.id === id); if (!r) return; if (slAdm() && r.done && r.price > 0 && !confirm('حذف «' + r.name + '» المشطوب بسعره؟')) return; slApply(d => { d.items = d.items.filter(y => y.id !== id); }, 'قائمة الشراء: حذف'); return; }
+    if (e.target.closest('#slRec')) {
+      const dn = slLoad().items.filter(y => y.done && y.price > 0); if (!dn.length) return;
+      const tot = dn.reduce((a, y) => a + y.price, 0), ids = dn.map(y => y.id), t = todayStr();
+      const rest = slLoad().items.some(y => !y.done);
+      if (!confirm('تسجيل ' + dn.length + ' صنف بإجمالي ' + fmt(tot) + ' ريال كفواتير مشتريات داخلية وحذفها من القائمة؟')) return;
+      const rows = dn.map((y, i) => ({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5), date: t, cat: 'other', desc: (y.name + (y.qty ? ' × ' + y.qty : '')).slice(0, 120), price: y.price }));
+      buyApply(d => { rows.forEach(r => { if (!d.rows.some(x => x.id === r.id)) d.rows.unshift(r); }); }, 'مشتريات من قائمة الشراء (' + rows.length + ')').then(() => slApply(d => { d.items = d.items.filter(y => !ids.includes(y.id)); }, 'قائمة الشراء: تسجيل المشتريات'));
+      if (rest) pushNotify('bought');
+      toast('✔ سُجّلت ' + rows.length + ' مشتريات: ' + fmt(tot) + ' ريال');
+    }
+  });
+  setInterval(() => { try { if ($('buys').classList.contains('on') && !document.hidden) slSync(); } catch (e) {} }, 45000);
+})();
+document.querySelector('nav button[data-tab="buys"]').addEventListener('click', () => { slRender(); slSync(); if (slAdm()) { buyInit.done || (buyInit.done = 1); buyRender(); buySync(); } });
 document.querySelector('nav button[data-tab="stats"]').addEventListener('click', () => { try { renderStats(); } catch (e) {} });
 try { buyInit(); } catch (e) {}
 
