@@ -753,7 +753,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '138';
+const APP_VERSION = '139';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2708,11 +2708,11 @@ function slStockNeeds() {
 function slReconcile() {
   if (!STK) stkLoadLocal(); const sy = getSync(); if (sy && !STK_OK) return;   // لا نعتمد على نسخة جرد قديمة
   slLoad(); const need = slStockNeeds(), want = new Set(need.map(n => n.src)), have = new Set(SL.items.map(x => x.src).filter(Boolean));
-  const nqOf = Object.fromEntries(need.map(n => [n.src, n.qty])), add = need.filter(n => !have.has(n.src)), del = SL.items.filter(x => x.auto && !x.done && x.src && !want.has(x.src)), upd = SL.items.filter(x => x.auto && !x.done && x.src && want.has(x.src) && x.qty !== nqOf[x.src]);
+  const nqOf = Object.fromEntries(STK.rows.map(r => [r.t + '|' + r.c, String(r.nq || 1)])), add = need.filter(n => !have.has(n.src)), del = SL.items.filter(x => x.auto && !x.done && x.src && !want.has(x.src)), upd = SL.items.filter(x => x.src && !x.done && nqOf[x.src] && x.qty !== nqOf[x.src]);   // الكمية تتبع الجرد لكل صنف مرتبط (تلقائي أو أضفته أنت)
   if (!add.length && !del.length && !upd.length) return;
   slApply(d => {
     d.items = d.items.filter(x => !(x.auto && !x.done && x.src && !want.has(x.src)));
-    d.items.forEach(x => { if (x.auto && !x.done && x.src && nqOf[x.src] && x.qty !== nqOf[x.src]) x.qty = nqOf[x.src]; });
+    d.items.forEach(x => { if (x.src && !x.done && nqOf[x.src] && x.qty !== nqOf[x.src]) x.qty = nqOf[x.src]; });
     add.forEach((n, i) => { if (!d.items.some(x => x.src === n.src)) d.items.push({ id: slId(n.src), name: n.name, qty: n.qty, ts: Date.now() + i, done: 0, price: 0, cat: n.cat, src: n.src, auto: 1 }); });
   }, 'قائمة الشراء: مزامنة مع الجرد', true);
 }
@@ -2747,6 +2747,7 @@ const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); }
     const it = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: desc, qty: String(qty), ts: Date.now(), done: 0, price: 0, cat: cat, src: src, auto: 0 };
     $('slQty').value = 1; if (cat === 'other') { $('slDesc').value = ''; $('slDesc').focus(); }
     slApply(d => { if (!d.items.some(x => x.id === it.id || (src && x.src === src))) d.items.push(it); }, 'قائمة الشراء: ' + desc.slice(0, 40));
+    if (src) { const s2 = slSrc(src); stkEdit(d => { const r = stkRow(d, s2.t, s2.c); if (r) r.nq = qty; }); }
     if (!slAdm()) pushNotify('sl');
   };
   $('slAdd').onclick = add; $('slDesc').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
