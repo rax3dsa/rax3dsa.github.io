@@ -620,7 +620,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 
 <div class="sheet" id="ordSheet"><div class="box">
   <h2>📥 طلب من الموقع</h2>
-  <p style="color:var(--mute);font-size:14px;margin:6px 0">في انستقرام أو تيك توك اضغط مطولاً على رسالة العميل ← نسخ، والصقها هنا كاملة. البرنامج يقرأ القطع والألوان والكميات والمقاسات والملاحظات والاسم والجوال، ويحفظ كود الطلب مع الفاتورة (ما ينطبع فيها).</p>
+  <p style="color:var(--mute);font-size:14px;margin:6px 0">في واتساب (أو انستقرام وتيك توك) اضغط مطولاً على رسالة العميل ← نسخ، والصقها هنا كاملة. البرنامج يقرأ القطع والألوان والكميات والمقاسات والملاحظات والاسم والجوال، ويحفظ كود الطلب مع الفاتورة (ما ينطبع فيها).</p>
   <label for="ordIn">رسالة الطلب</label>
   <textarea id="ordIn" rows="6" style="width:100%" placeholder="مرحبًا RAX3D 👋 …"></textarea>
   <p class="err" id="ordErr"></p>
@@ -753,7 +753,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '140';
+const APP_VERSION = '141';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1167,7 +1167,8 @@ async function doReset(sync, d) {
   return ts;
 }
 const DEF_MAIL = 'rax3d.sa@hotmail.com';
-const SIGN = 'فريق RAX3D للطباعة ثلاثية الأبعاد — إنستقرام وتيك توك @rax3d.sa';
+const WA_NUM = '966555681402', WA_DISP = '+966 55 568 1402', WA_LOCAL = '055 568 1402';   // رقم واتساب RAX3D (قرار المالك 11-26)
+const SIGN = 'فريق RAX3D للطباعة ثلاثية الأبعاد — واتساب ' + WA_DISP + ' | إنستقرام وتيك توك @rax3d.sa';
 const maskMail = m => String(m).replace(/^(.{2})[^@]*(@.*)$/, '$1•••$2');
 function mailTo() {   // إيميل الإشعارات: عند الدعم الفني من إعداداته، وعند مدخل البيانات من الإعدادات المشتركة
   const db = loadDb();
@@ -1964,6 +1965,13 @@ function drawIg(c, x, y, z) {   // شعار انستقرام: مربع بتدر�
   c.strokeStyle = '#fff'; c.lineWidth = z * .075; c.beginPath(); c.roundRect(x + z * .19, y + z * .19, z * .62, z * .62, z * .18); c.stroke();
   c.beginPath(); c.arc(x + z / 2, y + z / 2, z * .15, 0, 7); c.stroke(); c.fillStyle = '#fff'; c.beginPath(); c.arc(x + z * .68, y + z * .32, z * .045, 0, 7); c.fill();
 }
+function drawWa(c, x, y, z) {   // شعار واتساب: مربع أخضر + فقاعة محادثة بيضاء + سماعة
+  c.fillStyle = '#25D366'; c.beginPath(); c.roundRect(x, y, z, z, z * .22); c.fill();
+  c.strokeStyle = '#fff'; c.fillStyle = '#fff'; c.lineWidth = z * .075; c.lineCap = 'round'; c.lineJoin = 'round';
+  c.beginPath(); c.arc(x + z * .5, y + z * .47, z * .3, 0, 7); c.stroke();
+  c.beginPath(); c.moveTo(x + z * .27, y + z * .66); c.lineTo(x + z * .2, y + z * .82); c.lineTo(x + z * .38, y + z * .74); c.fill();
+  c.lineWidth = z * .12; c.beginPath(); c.moveTo(x + z * .4, y + z * .39); c.lineTo(x + z * .6, y + z * .59); c.stroke();
+}
 function drawTt(c, x, y, z) {   // شعار تيك توك: مربع أسود + نوتة بظل سماوي وأحمر
   c.fillStyle = '#000'; c.beginPath(); c.roundRect(x, y, z, z, z * .22); c.fill();
   const note = (dx, col) => { c.fillStyle = col; c.strokeStyle = col; c.lineWidth = z * .085; c.lineCap = 'round';
@@ -1971,7 +1979,7 @@ function drawTt(c, x, y, z) {   // شعار تيك توك: مربع أسود + �
     c.beginPath(); c.moveTo(x + z * .53 + dx, y + z * .66); c.lineTo(x + z * .53 + dx, y + z * .24); c.bezierCurveTo(x + z * .55 + dx, y + z * .34, x + z * .66 + dx, y + z * .4, x + z * .78 + dx, y + z * .4); c.stroke(); };
   note(-z * .03, '#25F4EE'); note(z * .03, '#FE2C55'); note(0, '#fff');
 }
-async function drawLabel(r) {   // ملصق عبوة 600×400: QR لمتابعة الطلب + رقم الطلب + شعار الموقع وانستقرام وتيك توك مع الحسابات
+async function drawLabel(r) {   // ملصق عبوة 600×400: QR لمتابعة الطلب + رقم الطلب + شعار الموقع وواتساب وانستقرام وتيك توك مع الحسابات
   const cv = document.createElement('canvas'); cv.width = 600; cv.height = 400; const c = cv.getContext('2d'), logo = await getLogo();
   const F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
   c.fillStyle = '#FBF5E6'; c.fillRect(0, 0, 600, 400); c.strokeStyle = '#B8902A'; c.lineWidth = 6; c.strokeRect(8, 8, 584, 384);
@@ -1981,9 +1989,9 @@ async function drawLabel(r) {   // ملصق عبوة 600×400: QR لمتابعة
   c.fillStyle = '#1a1a1a'; c.font = '700 38px ' + F; c.direction = 'ltr'; c.fillText('ORD-' + r.num, 455, 135); c.direction = 'rtl';
   c.fillStyle = '#444'; c.font = '600 25px ' + F; c.fillText('امسح لمتابعة طلبك', 455, 183);
   // الشعارات والحسابات (كل سطر: شعار ثم النص)
-  const rows = [['rax3d.com', y => { if (logo) { const h = 34, w = logo.width / logo.height * h; c.drawImage(logo, 352, y - h / 2, Math.min(w, 70), h); } else { c.fillStyle = '#B8902A'; c.beginPath(); c.arc(369, y, 17, 0, 7); c.fill(); } }], ['@rax3d.sa', y => drawIg(c, 352, y - 17, 34)], ['@rax3d.sa', y => drawTt(c, 352, y - 17, 34)]];
+  const rows = [['rax3d.com', y => { if (logo) { const h = 34, w = logo.width / logo.height * h; c.drawImage(logo, 352, y - h / 2, Math.min(w, 70), h); } else { c.fillStyle = '#B8902A'; c.beginPath(); c.arc(369, y, 17, 0, 7); c.fill(); } }], [WA_LOCAL, y => drawWa(c, 352, y - 17, 34)], ['@rax3d.sa', y => drawIg(c, 352, y - 17, 34)], ['@rax3d.sa', y => drawTt(c, 352, y - 17, 34)]];
   c.direction = 'ltr'; c.textAlign = 'left'; c.fillStyle = '#222'; c.font = '600 24px ' + F;
-  rows.forEach(([t, ic], k) => { const y = 238 + k * 52; ic(y); c.fillStyle = '#222'; c.font = '600 24px ' + F; c.fillText(t, 428, y); });
+  rows.forEach(([t, ic], k) => { const y = 224 + k * 46; ic(y); c.fillStyle = '#222'; let fs = 24; c.font = '600 ' + fs + 'px ' + F; while (fs > 16 && c.measureText(t).width > 160) { fs--; c.font = '600 ' + fs + 'px ' + F; } c.fillText(t, 428, y); });
   return cv;
 }
 function shareBlob(blob, name) {   // مشاركة/تنزيل بدون إرسال نسخة للإيميل (deliverFile يرسل نسخة)
@@ -2076,7 +2084,7 @@ function drawInvoice(r, logo) {
     txt('Bank Transfer Details', bx + 20, y + 24, { w: 700, s: 22, c: '#fff', a: 'left', ltr: true });
     const rowsB = [['البنك', BS.bankName || 'مصرف الراجحي', 0], ['اسم المستفيد', BS.bankHolder || '', 0], ['رقم الآيبان (IBAN)', ib, 1]];
     rowsB.forEach(([l, v, isIban], k) => { const yy = y + 46 + 36 + k * 46; txt(l, R - 20, yy, { s: 22, c: '#666' }); txt(v, R - 260, yy, { w: 700, s: isIban ? 33 : 26, ltr: !!isIban, max: R - 260 - bx - 30 }); });
-    txt('بعد التحويل أرسل صورة الإيصال مع رقم الطلب \u2066ORD-' + r.num + '\u2069 عبر الخاص لتأكيد الطلب.', R - 20, y + bh - 22, { s: 20, c: '#777' });
+    txt('بعد التحويل أرسل صورة الإيصال مع رقم الطلب \u2066ORD-' + r.num + '\u2069 عبر واتساب لتأكيد الطلب.', R - 20, y + bh - 22, { s: 20, c: '#777' });
     y += bh;
   }
   // سياسة الاستبدال والاسترجاع (تنطبع على كل فاتورة)
@@ -2113,8 +2121,9 @@ function drawInvoice(r, logo) {
   const qrOk = drawQr(c, TRACK_URL(r.num), M, fy + 36, 130), fx = qrOk ? W / 2 + 70 : W / 2;   // QR لمتابعة الطلب يسار الفوتر
   if (qrOk) txt('امسح لمتابعة طلبك', M + 75, fy + 22, { a: 'center', s: 19, w: 600, c: '#444' });
   txt('شكراً لتعاملكم مع RAX3D', fx, fy + 50, { a: 'center', s: 30, w: 700, c: GOLD });
-  txt('Instagram: @rax3d.sa   |   TikTok: @rax3d.sa   |   Email: rax3d.sa@hotmail.com', fx, fy + 100, { a: 'center', ltr: true, s: 24, c: '#444' });
-  txt('رقم وثيقة العمل الحر: \u2066FL-255870895\u2069', fx, fy + 145, { a: 'center', s: 23, c: '#444' });
+  txt('WhatsApp: ' + WA_DISP + '   |   Email: rax3d.sa@hotmail.com', fx, fy + 93, { a: 'center', ltr: true, s: 24, w: 700, c: '#222' });
+  txt('Instagram: @rax3d.sa   |   TikTok: @rax3d.sa', fx, fy + 125, { a: 'center', ltr: true, s: 22, c: '#444' });
+  txt('رقم وثيقة العمل الحر: \u2066FL-255870895\u2069', fx, fy + 160, { a: 'center', s: 23, c: '#444' });
   c.fillStyle = '#111'; c.fillRect(M, fy + 185, W - 2 * M, 14);
   return cv;
 }
