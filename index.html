@@ -1722,7 +1722,7 @@ function spendByPhone(log) { const m = new Map(); (log || []).forEach(r => { if 
 let SPM = new Map();   // إجمالي المشتريات لكل جوال، يُحدَّث في ordRender
 const tierTag = r => { const ph = normPhone(r.phone); if (ph.length < 9 || !SPM.has(ph)) return ''; const t = TIERS[tierIdx(SPM.get(ph))]; return ` <span class="tag p" title="مستوى الولاء">${t[1]} ${t[0]}</span>`; };
 // ===== ربحية الطابعات والألوان (فكرة المالك 7، 11-16) =====
-const PRINTERS = ['P2S'];   // قرار المالك (11-16): عنده طابعة واحدة فقط P2S (لا A1 mini) دائمًا؛ كل الفواتير تُنسب لها، وقائمة «الطابعة» تظهر فقط لو أُضيفت طابعة ثانية هنا
+const PRINTERS = ['P2S'];   // قرار المالك (11-16): عنده طابعة واحدة فقط P2S دائمًا؛ كل الفواتير تُنسب لها، وقائمة «الطابعة» تظهر فقط لو أُضيفت طابعة ثانية هنا
 const colorKey = c => { const k = String(c || '').trim(); return STK_BYN[CN(k)] || k || 'بدون لون'; };
 function itemEcon(r) {   // ربح كل سطر = قيمته − كلفته − حصته من الخصم؛ وقت الطباعة والوزن من بيانات السطر (للوحدة × العدد)
   const its = r.items || [], sub = its.reduce((a, i) => a + (Number(i.line) || 0), 0) || 1, disc = Number(r.disc) || 0;
