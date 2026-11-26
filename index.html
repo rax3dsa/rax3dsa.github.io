@@ -606,6 +606,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div class="sheet" id="done"><div class="box">
   <h2 id="doneTitle"></h2>
   <div class="tot" id="doneTotal"></div>
+  <button class="save" id="doneWa" hidden>💬 أرسل للعميل على واتساب</button>
   <button class="save" id="doneSave">📄 الفاتورة PDF</button>
   <button class="ghost" id="doneNew">فاتورة جديدة</button>
 </div></div>
@@ -753,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '142';
+const APP_VERSION = '145';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1121,7 +1122,7 @@ async function publishTracking() {
   (db0.log || []).forEach(r => {
     if (!isLive(r)) return; const ph = normPhone(r.phone); if (ph.length < 9) return;
     const t = Date.parse(r.date) || now, age = (now - t) / 864e5; if (age > 180) return;
-    const st = r.stage != null ? Math.max(0, Math.min(4, Number(r.stage) || 0)) : (age > 10 ? 4 : 0);
+    const sh = (typeof ORD_ST !== 'undefined' && ORD_ST[String(r.num)]) || null, st = sh ? Math.max(0, Math.min(4, Number(sh.st) || 0)) : r.stage != null ? Math.max(0, Math.min(4, Number(r.stage) || 0)) : (age > 10 ? 4 : 0);
     (o[ph] = o[ph] || []).push({ n: Number(r.num) || r.num, d: String(r.date), st: st, it: (r.items || []).slice(0, 6).map(i => String(i.desc || '').slice(0, 60) + (i.q > 1 ? ' ×' + i.q : '')) });
   });
   for (const k in o) o[k] = o[k].sort((a, b) => b.n - a.n).slice(0, 15);
@@ -1827,7 +1828,7 @@ function ordCard(r, bal) {
     ${pay ? `<div class="hint" style="margin:6px 0 0">${pay}</div>` : ''}
     ${live ? `<div class="ostp${st === 4 ? ' done' : ''}"><span class="bar5">${[0, 1, 2, 3, 4].map(i => `<i${i <= st ? ' class="on"' : ''}></i>`).join('')}</span><span>${esc(STAGES[st])}</span></div>` : ''}
     <div class="acts">${wa ? `<button type="button" class="pdf" data-owa="${N}">💬 أرسل الفاتورة + رابط المتابعة</button>` : ''}${live && !pend ? `<button class="pdf dl adm" data-ed="${K}">✏️ تعديل</button><button class="pdf dl pt" data-ed="${K}">✏️ تعديل السعر</button>` : ''}${pend ? '' : `<button class="pdf" data-qr="${K}">🏷️ ملصق QR</button>`}<button class="pdf" data-dl="1" data-num="${pend ? N : K}"${pend ? ' data-pend="1"' : ''}>📄 PDF</button></div>
-    ${live ? `<div class="adm mk"><label class="ostg">📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${K}" data-num="${N}">${STAGES.map((n, i) => `<option value="${i}"${st === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label>${prn}${marks}${gift}</div>` : ''}
+    ${live ? `<div class="mk"><label class="ostg">📦 مرحلة الطلب (للعميل في المتجر) <select data-stg data-key="${K}" data-num="${N}">${STAGES.map((n, i) => `<option value="${i}"${st === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div><div class="adm mk">${prn}${marks}${gift}</div>` : ''}
   </div>`;
 }
 function ordRender() {
@@ -1869,6 +1870,7 @@ document.getElementById('ordFilter').addEventListener('click', e => { const b = 
 document.getElementById('q').oninput = () => { ORD_LIM = 40; ordRender(); };
 document.getElementById('oq').oninput = () => { const o = document.getElementById('oq'); o.value = o.value.replace(/[^0-9]/g, ''); ORD_LIM = 40; ordRender(); };
 // أزرار بطاقة الطلب: إرسال للعميل بواتساب برابط المتابعة (للطلبات التي لها جوال صالح)، تعديل، ملصق QR، PDF، وعلامات الدعم الفني
+const waInvoiceMsg = (client, num, desc, total) => 'أهلاً ' + (client || '') + '، تم اعتماد طلبك ORD-' + num + ' من RAX3D.\n' + (desc ? 'الطلب: ' + desc + '\n' : '') + 'الإجمالي: ' + fmt(Number(total) || 0) + ' ريال.\nتابع مرحلة طلبك من هنا:\n' + TRACK_URL(num) + '\n(اكتب رقم جوالك فقط ليفتح طلبك)';   // نص واتساب للعميل (11-26: يُستعمل من «الطلبات» ومن شاشة حفظ الفاتورة)
 const ordWaPhone = p => { const d = normPhone(p); return /^05\d{8}$/.test(d) ? '966' + d.slice(1) : ''; };
 document.getElementById('ordList').addEventListener('click', e => {
   if (e.target.closest('[data-omore]')) { ORD_LIM += 40; ordRender(); return; }
@@ -1888,7 +1890,7 @@ document.getElementById('ordList').addEventListener('click', e => {
   const b = e.target.closest('[data-owa]'); if (!b) return;
   const num = b.dataset.owa, r = ordAll().find(x => String(x.num) === String(num)); if (!r) return;
   const url = TRACK_URL(num), ph = ordWaPhone(r.phone); if (!ph) { toast('رقم جوال العميل غير صالح لواتساب'); return; }
-  const txt = 'أهلاً ' + (r.client || '') + '، تم اعتماد طلبك ORD-' + num + ' من RAX3D.\n' + (r.desc ? 'الطلب: ' + r.desc + '\n' : '') + 'الإجمالي: ' + fmt(Number(r.total) || 0) + ' ريال.\nتابع مرحلة طلبك من هنا:\n' + url + '\n(اكتب رقم جوالك فقط ليفتح طلبك)';
+  const txt = waInvoiceMsg(r.client, num, r.desc, r.total);
   window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(txt), '_blank'); toast('فتحنا محادثة العميل والرسالة جاهزة: اضغط إرسال. لإرفاق الفاتورة استخدم زر PDF');
 });
 document.getElementById('ordList').addEventListener('change', e => {
@@ -1899,11 +1901,30 @@ document.getElementById('ordList').addEventListener('change', e => {
   }
   const s = e.target.closest('[data-stg]'); if (!s) return;
   const key = s.dataset.key, num = +s.dataset.num, st = +s.value, r = DATA.log.find(x => rk(x) === key);
-  const ok = () => { ORD_LOC[String(num)] = { st: st, t: Date.now() }; ordRender(); toast('تم تحديث ORD-' + num + ': ' + STAGES[st]); };
-  if (!r) { ordSetStage(num, st).then(ok).catch(er => { toast('تعذّر الحفظ: ' + ((er && er.message) || er)); ordLoad().then(ordRender); }); return; }   // طلب متجر لم يُستلم كفاتورة: تُكتب في الملف المشترك مباشرة
+  const ok = () => { ORD_LOC[String(num)] = { st: st, t: Date.now() }; ordRender(); toast('تم تحديث ORD-' + num + ': ' + STAGES[st]); stageWaSheet(num, st); };
+  if (!r || (DATA && DATA.role === 'partner')) { ordSetStage(num, st).then(ok).catch(er => { toast('تعذّر الحفظ: ' + ((er && er.message) || er)); ordLoad().then(ordRender); }); return; }   // طلب متجر لم يُستلم كفاتورة: تُكتب في الملف المشترك مباشرة
   google.script.run.withSuccessHandler(() => { r.stage = st; ok(); })   // setStage يكتب الفاتورة، ولو من المتجر يكتب الملف المشترك أيضًا
     .withFailureHandler(er => { toast('تعذّر الحفظ: ' + ((er && er.message) || er)); ordRender(); }).setStage({ key: key, stage: st });
 });
+// 11-26: عند تغيير مرحلة الطلب تظهر شاشة «أبلغ العميل» برسالة واتساب جاهزة (الإرسال بضغطة لأن واتساب لا يسمح بإرسال تلقائي)
+const STAGE_WA = [
+  n => 'تم اعتماد طلبك ORD-' + n + ' ✅ وبدأنا نجهّزه.',
+  n => 'طلبك ORD-' + n + ' الحين قيد الطباعة 🖨️',
+  n => 'طباعة طلبك ORD-' + n + ' خلصت 👌 وعلى وشك التجميع والفحص قبل التسليم.',
+  n => 'طلبك ORD-' + n + ' جاهز للتسليم 🎉 نتواصل معك لتحديد الاستلام.',
+  n => 'تم تسليم طلبك ORD-' + n + ' 💛 شكراً لتعاملك مع RAX3D، ويسعدنا رأيك فيه.'
+];
+function stageWaSheet(num, st) {
+  const r = ordAll().find(x => String(x.num) === String(num)); if (!r) return;
+  const ph = ordWaPhone(r.phone); if (!ph || !STAGE_WA[st]) return;
+  const txt = 'أهلاً ' + (r.client || '') + '، ' + STAGE_WA[st](num) + '\nتابع طلبك من هنا:\n' + TRACK_URL(num);
+  let el = document.getElementById('stgSheet');
+  if (!el) { el = document.createElement('div'); el.className = 'sheet'; el.id = 'stgSheet'; document.body.appendChild(el); el.addEventListener('click', e => { if (e.target === el) el.classList.remove('on'); }); }
+  el.innerHTML = '<div class="box"><h2>أبلغ العميل بالمرحلة؟</h2><p style="margin:0 0 8px"><b>' + esc(r.client || '') + '</b> · ORD-' + esc(String(num)) + ' → ' + esc(STAGES[st]) + '</p><p style="white-space:pre-wrap;font-size:14px;color:var(--mute);border:1px solid var(--line,#333);border-radius:12px;padding:10px">' + esc(txt) + '</p><button type="button" class="save" id="stgGo">💬 أرسل للعميل على واتساب</button><button type="button" class="ghost" id="stgX">لاحقاً</button></div>';
+  el.querySelector('#stgGo').onclick = () => { window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(txt), '_blank'); el.classList.remove('on'); };
+  el.querySelector('#stgX').onclick = () => el.classList.remove('on');
+  el.classList.add('on');
+}
 document.getElementById('ordRefresh').onclick = () => { ordLoad().then(ordRender); };
 const PUSH_API = 'https://rax3d-pay.rax3d.workers.dev';
 const pushB64 = k => Uint8Array.from(atob(k.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - k.length % 4) % 4)), c => c.charCodeAt(0));
@@ -2888,12 +2909,14 @@ $('saveBtn').onclick = () => {
   if (!valid.length) { $('err').textContent = 'اكتب وزن قطعة واحدة على الأقل'; return; }
   if (valid.some(it => !String(it.desc).trim())) { $('err').textContent = 'اكتب وصفاً لكل قطعة'; return; }
   const btn = $('saveBtn'); btn.disabled = true; btn.textContent = 'جاري الحفظ…';
+  const cName = $('client').value, cPhone = $('phone').value, cDesc = valid.map(it => String(it.desc).trim()).join(' + ');
   google.script.run
     .withSuccessHandler(res => {
       btn.disabled = false; btn.textContent = 'حفظ الفاتورة وإنشاء PDF';
       $('doneTitle').textContent = 'تم حفظ الفاتورة رقم ' + res.num;
       $('doneTotal').textContent = fmt(res.total) + ' ريال';
       lastNum = res.num;
+      const wph = ordWaPhone(cPhone); lastWa = wph ? { ph: wph, txt: waInvoiceMsg(cName, res.num, cDesc, res.total) } : null; $('doneWa').hidden = !lastWa;   // 11-26: إرسال الفاتورة للعميل على واتساب بضغطة
       $('done').classList.add('on');
       if (res.milestone) { seenGoal(res.milestone.reached); setTimeout(() => celebrate(res.milestone), 400); }
       mailInvoice('admin:' + res.num, 'new'); mailOrderFiles(res.num);
@@ -2906,7 +2929,8 @@ $('saveBtn').onclick = () => {
     })
     .saveFromApp({ client: $('client').value, phone: $('phone').value, pay: $('payM').value, items: valid, code: ORDER && ORDER.o && ORDER.o.ref || '', num: ORDER && ORDER.o && ORDER.o.num || 0 }, PIN);
 };
-let lastNum = null;
+let lastNum = null, lastWa = null;
+$('doneWa').onclick = () => { if (!lastWa) return; window.open('https://wa.me/' + lastWa.ph + '?text=' + encodeURIComponent(lastWa.txt), '_blank'); toast('فتحنا محادثة العميل والرسالة جاهزة: اضغط إرسال. لإرفاق ملف الفاتورة اضغط «الفاتورة PDF» واختر واتساب'); };
 $('doneSave').onclick = () => { $('done').classList.remove('on'); if (lastNum !== null) savePdf(lastNum); };
 $('doneNew').onclick = () => $('done').classList.remove('on');
 
