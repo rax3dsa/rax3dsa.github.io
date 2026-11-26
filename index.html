@@ -753,7 +753,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '141';
+const APP_VERSION = '142';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2577,7 +2577,7 @@ document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () =>
 const BUY_KEY = 'rax3d_buys';
 let BUYS = null, BUY_BUSY = false, BUY_OK = false;
 function buyNorm(d) {
-  const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100) })).filter(r => r.id && r.price > 0);
+  const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), no: String(r.no || '').slice(0, 14), lines: Array.isArray(r.lines) ? r.lines.slice(0, 60).map(l => ({ n: String(l.n || '').slice(0, 80), q: Math.max(1, Math.round(+l.q || 1)), p: Math.max(0, Math.round((+l.p || 0) * 100) / 100), c: String(l.c || 'other').slice(0, 10) })) : undefined })).filter(r => r.id && r.price > 0);
   return { v: 1, rows: rows.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0), u: (d && d.u) || 0 };
 }
 function buyLoad() { if (BUYS) return BUYS; try { BUYS = buyNorm(JSON.parse(localStorage.getItem(BUY_KEY) || 'null')); } catch (e) { BUYS = buyNorm(null); } return BUYS; }
@@ -2603,6 +2603,57 @@ async function buyApply(op, msg) {   // op(d) تُطبَّق محليًا فور
     const nd = await updateJson(sy, 'purchases.json', null, d => { d = buyNorm(d || BUYS); op(d); d = buyNorm(d); d.u = Date.now(); return d; }, msg);
     BUYS = buyNorm(nd); BUY_OK = true; buySaveLocal(); m.style.color = 'var(--good)'; m.textContent = 'تم الحفظ ✔'; buyRender(); try { renderStats(); } catch (e) {}
   } catch (e) { BUY_OK = false; m.style.color = 'var(--bad)'; m.textContent = 'تعذّر الحفظ في المستودع (محفوظ على الجوال): ' + ((e && e.message) || e); }
+}
+const buyNextNo = () => 'PUR-' + (buyRows().reduce((m, r) => Math.max(m, parseInt(String(r.no || '').replace(/\D/g, ''), 10) || 0), 0) + 1);
+/* فاتورة مشتريات داخلية (PDF): نسخة للمالك ومدخل البيانات، ليست للعملاء. صفحة A4 لكل 22 بندًا */
+function buyPdf(row) {
+  const fontReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('700 30px "IBM Plex Sans Arabic"'), document.fonts.load('400 24px "IBM Plex Sans Arabic"')]).catch(() => {}) : Promise.resolve();
+  return Promise.all([getLogo(), fontReady]).then(([logo]) => {
+    const W = 1240, H = 1754, M = 80, R = W - M, rh = 54, PER = 22, F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
+    const GOLD = '#B8902A', GOLDL = '#E0B64A', CREAM = '#FBF5E6', LINE = '#D9D2C0', INK = '#1a1a1a', money = v => fmt(v) + ' ر.س';
+    const lines = row.lines && row.lines.length ? row.lines : [{ n: row.desc, q: 1, p: row.price, c: row.cat }], pages = Math.max(1, Math.ceil(lines.length / PER)), jp = [];
+    const label = c => (BUY_CATS.find(x => x[0] === c) || [, 'أخرى'])[1];
+    for (let pg = 0; pg < pages; pg++) {
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+      c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
+      const txt = (t, x, y, o = {}) => { c.font = (o.w || 400) + ' ' + (o.s || 24) + 'px ' + F; c.fillStyle = o.c || INK; c.textAlign = o.a || 'right'; c.direction = o.ltr ? 'ltr' : 'rtl'; c.textBaseline = 'middle'; let q = String(t); if (o.max) while (q.length > 1 && c.measureText(q).width > o.max) q = q.slice(0, -2) + '…'; c.fillText(q, x, y); };
+      const box = (x, y, w, h, fill) => { if (fill) { c.fillStyle = fill; c.fillRect(x, y, w, h); } c.strokeStyle = LINE; c.lineWidth = 1.5; c.strokeRect(x, y, w, h); };
+      if (logo) { const lh = 130, lw = lh * logo.width / logo.height; c.drawImage(logo, (W - lw) / 2, 60, lw, lh); } else txt('RAX3D', W / 2, 120, { s: 80, w: 700, c: GOLD, a: 'center', ltr: true });
+      c.fillStyle = GOLD; c.fillRect(M, 215, W - 2 * M, 5);
+      txt('فاتورة مشتريات داخلية', W / 2, 268, { s: 42, w: 700, c: GOLD, a: 'center' });
+      c.fillStyle = '#FFF6DC'; c.fillRect(M, 305, W - 2 * M, 50); c.strokeStyle = GOLD; c.lineWidth = 2; c.strokeRect(M, 305, W - 2 * M, 50);
+      txt('نسخة داخلية للمالك ومدخل البيانات فقط — ليست للعملاء', W / 2, 330, { a: 'center', s: 24, w: 700, c: GOLD });
+      let y = 385; const lab = 190;
+      box(R - lab, y, lab, rh, '#F1ECE0'); txt('رقم الفاتورة', R - 14, y + rh / 2, { w: 700 });
+      box(W / 2, y, R - lab - W / 2, rh); txt(row.no || '—', R - lab - 14, y + rh / 2, { w: 700, s: 26, c: GOLD, ltr: true });
+      box(W / 2 - lab, y, lab, rh, '#F1ECE0'); txt('التاريخ', W / 2 - 14, y + rh / 2, { w: 700 });
+      box(M, y, W / 2 - lab - M, rh); txt(row.date, M + (W / 2 - lab - M) / 2, y + rh / 2, { a: 'center', ltr: true, s: 26 });
+      y += rh + 40;
+      const cols = [80, 470, 230, 130, 170], heads = ['#', 'الصنف', 'الفئة', 'الكمية', 'المبلغ'], xs = []; let x = R; cols.forEach(w => { xs.push([x - w, w]); x -= w; });
+      c.fillStyle = '#111'; c.fillRect(M, y, W - 2 * M, rh); heads.forEach((h, k) => txt(h, xs[k][0] + xs[k][1] / 2, y + rh / 2, { a: 'center', c: GOLDL, w: 700 })); y += rh;
+      lines.slice(pg * PER, pg * PER + PER).forEach((l, k) => {
+        const fill = k % 2 ? CREAM : '#fff'; xs.forEach(([cx, cw]) => box(cx, y, cw, rh, fill));
+        txt(pg * PER + k + 1, xs[0][0] + xs[0][1] / 2, y + rh / 2, { a: 'center', c: '#888', ltr: true });
+        txt(l.n, xs[1][0] + xs[1][1] - 12, y + rh / 2, { max: xs[1][1] - 24 }); txt(label(l.c), xs[2][0] + xs[2][1] - 12, y + rh / 2, { max: xs[2][1] - 24, s: 22, c: '#555' });
+        txt(l.q, xs[3][0] + xs[3][1] / 2, y + rh / 2, { a: 'center', ltr: true }); txt(money(l.p), xs[4][0] + xs[4][1] / 2, y + rh / 2, { a: 'center' }); y += rh;
+      });
+      if (pg === pages - 1) {
+        y += 36; const tw = 520, tl = 240;
+        box(M + tw - tl, y, tl, rh, '#F1ECE0'); txt('عدد الأصناف', M + tw - tl / 2, y + rh / 2, { a: 'center', w: 700 }); box(M, y, tw - tl, rh); txt(lines.length, M + (tw - tl) / 2, y + rh / 2, { a: 'center', ltr: true }); y += rh;
+        box(M + tw - tl, y, tl, rh + 6, '#111'); txt('إجمالي المشتريات', M + tw - tl / 2, y + (rh + 6) / 2, { a: 'center', w: 700, c: GOLDL }); box(M, y, tw - tl, rh + 6, '#111'); txt(money(row.price), M + (tw - tl) / 2, y + (rh + 6) / 2, { a: 'center', w: 700, s: 30, c: GOLDL });
+      }
+      c.fillStyle = GOLD; c.fillRect(M, H - 110, W - 2 * M, 5);
+      txt('RAX3D — سجل المشتريات الداخلي', W / 2, H - 75, { a: 'center', s: 24, w: 700, c: GOLD });
+      txt('صفحة ' + (pg + 1) + ' من ' + pages, W / 2, H - 40, { a: 'center', s: 20, c: '#777' });
+      const url = cv.toDataURL('image/jpeg', 0.9), bin = atob(url.split(',')[1]), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      jp.push({ bytes, w: cv.width, h: cv.height, url });
+    }
+    return { blob: imagesToPdf(jp, 595.28, 841.89), preview: jp[0].url };
+  });
+}
+function buyShowPdf(row) {
+  openFileSheet('فاتورة مشتريات ' + (row.no || ''), 'نسخة داخلية: ' + fmt(row.price) + ' ريال'); fileCaption = '';
+  buyPdf(row).then(o => fileReady(o.blob, 'RAX3D-Purchase-' + (row.no || 'PUR') + '-' + row.date + '.pdf', o.preview)).catch(e => { $('fileMsg').textContent = 'تعذّر تجهيز الـ PDF: ' + ((e && e.message) || e); $('fileGo').textContent = 'غير متاح'; });
 }
 function buyColors() {   // الألوان المتفق عليها = ألوان الجرد (الفلمنت فقط)
   try { if (!STK) stkLoadLocal(); } catch (e) {}
@@ -2644,7 +2695,7 @@ function buyRender() {
   $('buySync').textContent = sy ? (BUY_OK ? '🔗 مربوطة بالمستودع المشترك' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
   const cl = BUY_ICON;
   $('buyList').innerHTML = `<div class="period"><h3>إجمالي المشتريات</h3><div class="kv"><div>هذا الشهر<b>${fmt(mo)}</b></div><div>الكل<b>${fmt(all)}</b></div><div>عدد الفواتير<b>${rows.length}</b></div></div></div>` +
-    (rows.length ? '<div class="period"><h3>آخر المشتريات</h3>' + rows.slice(0, 60).map(r => `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="flex:1;line-height:1.6">${cl[r.cat] || '🧾'} ${esc(r.desc || '—')}<br><small style="color:var(--mute)">${esc(r.date)}</small></span><b style="direction:ltr">${fmt(r.price)}</b><button type="button" class="ghost" data-bd="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="حذف">✕</button></div>`).join('') + '</div>' : '<p class="hint">لا توجد مشتريات بعد.</p>');
+    (rows.length ? '<div class="period"><h3>آخر المشتريات</h3>' + rows.slice(0, 60).map(r => `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="flex:1;line-height:1.6">${cl[r.cat] || '🧾'} ${esc(r.desc || '—')}<br><small style="color:var(--mute)">${esc(r.date)}${r.no ? ' · ' + esc(r.no) : ''}</small></span><b style="direction:ltr">${fmt(r.price)}</b>${r.lines && r.lines.length ? `<button type="button" class="ghost" data-bp="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="PDF">📄</button>` : ''}<button type="button" class="ghost" data-bd="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="حذف">✕</button></div>`).join('') + '</div>' : '<p class="hint">لا توجد مشتريات بعد.</p>');
 }
 function buyInit() {
   $('buyDate').value = todayStr();
@@ -2660,6 +2711,7 @@ function buyInit() {
     toast('✔ أُضيفت فاتورة مشتريات: ' + fmt(price) + ' ريال');
   };
   $('buyList').addEventListener('click', e => {
+    const bp = e.target.closest('[data-bp]'); if (bp) { const r = buyRows().find(x => x.id === bp.dataset.bp); if (r) buyShowPdf(r); return; }
     const b = e.target.closest('[data-bd]'); if (!b) return; const id = b.dataset.bd, r = buyRows().find(x => x.id === id); if (!r) return;
     if (!confirm('حذف «' + r.desc + '» (' + fmt(r.price) + ' ريال)؟')) return;
     buyApply(d => { d.rows = d.rows.filter(x => x.id !== id); }, 'حذف فاتورة مشتريات داخلية');
@@ -2690,7 +2742,7 @@ function slRender() {
       + `<div class="slsub">${adm ? `<label for="q${esc(x.id)}">الكمية</label><input id="q${esc(x.id)}" class="slq" type="number" inputmode="numeric" min="1" step="1" data-slq="${esc(x.id)}" value="${slQtyN(x)}"><label for="p${esc(x.id)}">السعر</label><input id="p${esc(x.id)}" class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" data-slp="${esc(x.id)}" value="${x.price > 0 ? x.price : ''}" aria-label="سعر ${esc(x.name)}">` : `<small style="color:var(--mute)">الكمية: ${slQtyN(x)}</small>`}</div></div>`).join('')
     + (adm ? `<div class="slt"><span>إجمالي المشتريات (${done.length} من ${its.length})</span><b>${fmt(tot)}</b></div>`
       + (noPrice ? `<p class="hint" style="margin:0 0 6px;color:var(--bad)">${noPrice} مشطوب بلا سعر: اكتب سعره ليدخل في الإجمالي.</p>` : '')
-      + (done.some(x => x.price > 0) ? '<button class="ghost" id="slRec" style="margin-top:8px">📥 سجّلها كفاتورة مشتريات ونظّف المشطوب</button>' : '') : '')
+      + `<button class="${done.some(x => x.price > 0) ? '' : 'ghost'}" id="slRec" style="margin-top:8px">📥 سجّلها فاتورة مشتريات واحدة + PDF</button>` : '')
     : '<p class="hint">القائمة فاضية.</p>';
 }
 async function slSync() {
@@ -2779,13 +2831,15 @@ const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); }
       slApply(d => { d.items = d.items.filter(y => y.id !== id); }, 'قائمة الشراء: حذف'); if (r.auto && !r.done) slStockApply([{ src: r.src, n: 0 }], false); return;
     }
     if (e.target.closest('#slRec')) {
-      const dn = slLoad().items.filter(y => y.done && y.price > 0); if (!dn.length) return;
+      const dn = slLoad().items.filter(y => y.done && y.price > 0); if (!dn.length) { const m = $('slMsg'); m.style.color = 'var(--bad)'; m.textContent = 'اشطب الأصناف التي اشتريتها (✔) واكتب سعر كل صنف أولًا'; return; }
       const tot = dn.reduce((a, y) => a + y.price, 0), ids = dn.map(y => y.id), t = todayStr(), lnk = dn.filter(y => y.src).map(y => ({ src: y.src, n: slQtyN(y) })), rest = slLoad().items.some(y => !y.done);
-      if (!confirm('تسجيل ' + dn.length + ' صنف بإجمالي ' + fmt(tot) + ' ريال كفواتير مشتريات داخلية وحذفها من القائمة؟' + (lnk.length ? '\nوتُضاف كمياتها إلى الجرد ويُلغى «للشراء؟» (' + lnk.length + ' صنف من الجرد).' : ''))) return;
-      const rows = dn.map((y, i) => ({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5), date: t, cat: y.cat || 'other', desc: (y.name + (slQtyN(y) > 1 ? ' × ' + slQtyN(y) : '')).slice(0, 120), price: y.price }));
-      buyApply(d => { rows.forEach(r => { if (!d.rows.some(x => x.id === r.id)) d.rows.unshift(r); }); }, 'مشتريات من قائمة الشراء (' + rows.length + ')').then(() => slApply(d => { d.items = d.items.filter(y => !ids.includes(y.id)); }, 'قائمة الشراء: تسجيل المشتريات')).then(() => slStockApply(lnk, true));
+      if (!confirm('تسجيل ' + dn.length + ' صنف كفاتورة مشتريات واحدة بإجمالي ' + fmt(tot) + ' ريال، وحذفها من القائمة، وتجهيز PDF داخلي؟' + (lnk.length ? '\nوتُضاف كمياتها إلى الجرد ويُلغى «للشراء؟» (' + lnk.length + ' صنف من الجرد).' : ''))) return;
+      const no = buyNextNo(), nm = dn.map(y => y.name + (slQtyN(y) > 1 ? ' × ' + slQtyN(y) : '')).join('، ');
+      const row = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: t, cat: 'other', no: no, desc: ('فاتورة مشتريات ' + no + ' (' + dn.length + ' أصناف): ' + nm).slice(0, 120), price: r2(tot), lines: dn.map(y => ({ n: y.name, q: slQtyN(y), p: y.price, c: y.cat || 'other' })) };
+      buyApply(d => { if (!d.rows.some(x => x.id === row.id)) d.rows.unshift(row); }, 'فاتورة مشتريات ' + no + ' من قائمة الشراء (' + dn.length + ' أصناف)').then(() => slApply(d => { d.items = d.items.filter(y => !ids.includes(y.id)); }, 'قائمة الشراء: تسجيل المشتريات')).then(() => slStockApply(lnk, true));
+      buyShowPdf(row);
       if (rest) pushNotify('bought');
-      toast('✔ سُجّلت ' + rows.length + ' مشتريات: ' + fmt(tot) + ' ريال');
+      toast('✔ سُجّلت فاتورة ' + no + ': ' + fmt(tot) + ' ريال');
     }
   });
   setInterval(() => { try { if ($('buys').classList.contains('on') && !document.hidden) { slSync(); stkSync(); } } catch (e) {} }, 45000);
@@ -3118,6 +3172,7 @@ function fileSubject(name) {
   return /\.pdf$/i.test(name) ? '📄 ' + n : /\.xlsx$/i.test(name) ? (/إحصائيات/.test(n) ? '📈 ' : '📊 ') + n : /\.json$/i.test(name) ? '📦 ' + n : '📎 ' + n;
 }
 function mailName(name) {   // اسم إنجليزي للمرفق عشان خدمة الإيميل ما تحذفه
+  if (/^RAX3D-Purchase-/.test(name)) return name;
   const num = (name.match(/فاتورة\s+(\d+)/) || [])[1], date = (name.match(/\d{4}-\d{2}-\d{2}/) || [todayStr()])[0], ext = (name.match(/\.[a-z]+$/i) || [''])[0].toLowerCase();
   if (num) return 'RAX3D-Invoice-' + num + (/محذوفة/.test(name) ? '-DELETED' : '') + '.pdf';
   if (/سجل/.test(name)) return 'RAX3D-Invoices-Log-' + date + ext;
