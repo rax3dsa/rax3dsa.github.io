@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '145';
+const APP_VERSION = '146';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -1870,7 +1870,12 @@ document.getElementById('ordFilter').addEventListener('click', e => { const b = 
 document.getElementById('q').oninput = () => { ORD_LIM = 40; ordRender(); };
 document.getElementById('oq').oninput = () => { const o = document.getElementById('oq'); o.value = o.value.replace(/[^0-9]/g, ''); ORD_LIM = 40; ordRender(); };
 // أزرار بطاقة الطلب: إرسال للعميل بواتساب برابط المتابعة (للطلبات التي لها جوال صالح)، تعديل، ملصق QR، PDF، وعلامات الدعم الفني
-const waInvoiceMsg = (client, num, desc, total) => 'أهلاً ' + (client || '') + '، تم اعتماد طلبك ORD-' + num + ' من RAX3D.\n' + (desc ? 'الطلب: ' + desc + '\n' : '') + 'الإجمالي: ' + fmt(Number(total) || 0) + ' ريال.\nتابع مرحلة طلبك من هنا:\n' + TRACK_URL(num) + '\n(اكتب رقم جوالك فقط ليفتح طلبك)';   // نص واتساب للعميل (11-26: يُستعمل من «الطلبات» ومن شاشة حفظ الفاتورة)
+const waPts = (phone, num, total) => {   // سطر نقاط الولاء في رسالة واتساب: نقاط هذا الطلب (ريال = نقطة) + الرصيد الحالي إن كان محسوبًا بدقة (حساب الدعم الفني وفاتورة محفوظة عنده)
+  const ph = normPhone(phone), earned = Math.floor(Number(total) || 0); if (ph.length < 9 || earned <= 0) return '';
+  let bal = null; try { const db = loadDb(); if (db.role === 'admin' && (db.log || []).some(x => String(x.num) === String(num) && isLive(x))) bal = ptsBalanceFor(ph, db); } catch (e) {}
+  return '⭐ نقاط الولاء: +' + earned + ' نقطة من هذا الطلب' + (bal != null ? ' (رصيدك الحين ' + bal + ' نقطة)' : '') + '\n';
+};
+const waInvoiceMsg = (client, num, desc, total, phone) => 'أهلاً ' + (client || '') + '، تم اعتماد طلبك ORD-' + num + ' من RAX3D.\n' + (desc ? 'الطلب: ' + desc + '\n' : '') + 'الإجمالي: ' + fmt(Number(total) || 0) + ' ريال.\n' + waPts(phone, num, total) + 'تابع مرحلة طلبك من هنا:\n' + TRACK_URL(num) + '\n(اكتب رقم جوالك فقط ليفتح طلبك)';   // نص واتساب للعميل (11-26)
 const ordWaPhone = p => { const d = normPhone(p); return /^05\d{8}$/.test(d) ? '966' + d.slice(1) : ''; };
 document.getElementById('ordList').addEventListener('click', e => {
   if (e.target.closest('[data-omore]')) { ORD_LIM += 40; ordRender(); return; }
@@ -1890,7 +1895,7 @@ document.getElementById('ordList').addEventListener('click', e => {
   const b = e.target.closest('[data-owa]'); if (!b) return;
   const num = b.dataset.owa, r = ordAll().find(x => String(x.num) === String(num)); if (!r) return;
   const url = TRACK_URL(num), ph = ordWaPhone(r.phone); if (!ph) { toast('رقم جوال العميل غير صالح لواتساب'); return; }
-  const txt = waInvoiceMsg(r.client, num, r.desc, r.total);
+  const txt = waInvoiceMsg(r.client, num, r.desc, r.total, r.phone);
   window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(txt), '_blank'); toast('فتحنا محادثة العميل والرسالة جاهزة: اضغط إرسال. لإرفاق الفاتورة استخدم زر PDF');
 });
 document.getElementById('ordList').addEventListener('change', e => {
@@ -2916,7 +2921,7 @@ $('saveBtn').onclick = () => {
       $('doneTitle').textContent = 'تم حفظ الفاتورة رقم ' + res.num;
       $('doneTotal').textContent = fmt(res.total) + ' ريال';
       lastNum = res.num;
-      const wph = ordWaPhone(cPhone); lastWa = wph ? { ph: wph, txt: waInvoiceMsg(cName, res.num, cDesc, res.total) } : null; $('doneWa').hidden = !lastWa;   // 11-26: إرسال الفاتورة للعميل على واتساب بضغطة
+      const wph = ordWaPhone(cPhone); lastWa = wph ? { ph: wph, txt: waInvoiceMsg(cName, res.num, cDesc, res.total, cPhone) } : null; $('doneWa').hidden = !lastWa;   // 11-26: إرسال الفاتورة للعميل على واتساب بضغطة
       $('done').classList.add('on');
       if (res.milestone) { seenGoal(res.milestone.reached); setTimeout(() => celebrate(res.milestone), 400); }
       mailInvoice('admin:' + res.num, 'new'); mailOrderFiles(res.num);
