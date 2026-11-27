@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '149';
+const APP_VERSION = '150';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2603,7 +2603,7 @@ document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () =>
 const BUY_KEY = 'rax3d_buys';
 let BUYS = null, BUY_BUSY = false, BUY_OK = false;
 function buyNorm(d) {
-  const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), no: String(r.no || '').slice(0, 14), ship: Math.max(0, Math.round((+r.ship || 0) * 100) / 100) || undefined, tax: Math.max(0, Math.round((+r.tax || 0) * 100) / 100) || undefined, lines: Array.isArray(r.lines) ? r.lines.slice(0, 60).map(l => ({ n: String(l.n || '').slice(0, 80), q: Math.max(1, Math.round(+l.q || 1)), p: Math.max(0, Math.round((+l.p || 0) * 100) / 100), c: String(l.c || 'other').slice(0, 10) })) : undefined })).filter(r => r.id && r.price > 0);
+  const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), no: String(r.no || '').slice(0, 14), ship: Math.max(0, Math.round((+r.ship || 0) * 100) / 100) || undefined, tax: Math.max(0, Math.round((+r.tax || 0) * 100) / 100) || undefined, disc: Math.max(0, Math.round((+r.disc || 0) * 100) / 100) || undefined, lines: Array.isArray(r.lines) ? r.lines.slice(0, 60).map(l => ({ n: String(l.n || '').slice(0, 80), q: Math.max(1, Math.round(+l.q || 1)), p: Math.max(0, Math.round((+l.p || 0) * 100) / 100), c: String(l.c || 'other').slice(0, 10) })) : undefined })).filter(r => r.id && r.price > 0);
   return { v: 1, rows: rows.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0), u: (d && d.u) || 0 };
 }
 function buyLoad() { if (BUYS) return BUYS; try { BUYS = buyNorm(JSON.parse(localStorage.getItem(BUY_KEY) || 'null')); } catch (e) { BUYS = buyNorm(null); } return BUYS; }
@@ -2666,6 +2666,7 @@ function buyPdf(row) {
       if (pg === pages - 1) {
         y += 36; const tw = 520, tl = 240;
         box(M + tw - tl, y, tl, rh, '#F1ECE0'); txt('عدد الأصناف', M + tw - tl / 2, y + rh / 2, { a: 'center', w: 700 }); box(M, y, tw - tl, rh); txt(lines.length, M + (tw - tl) / 2, y + rh / 2, { a: 'center', ltr: true }); y += rh;
+        if (row.disc > 0) { box(M + tw - tl, y, tl, rh, '#F1ECE0'); txt('الخصم', M + tw - tl / 2, y + rh / 2, { a: 'center', w: 700 }); box(M, y, tw - tl, rh); txt('−' + money(row.disc), M + (tw - tl) / 2, y + rh / 2, { a: 'center' }); y += rh; }
         if (row.ship > 0) { box(M + tw - tl, y, tl, rh, '#F1ECE0'); txt('الشحن', M + tw - tl / 2, y + rh / 2, { a: 'center', w: 700 }); box(M, y, tw - tl, rh); txt(money(row.ship), M + (tw - tl) / 2, y + rh / 2, { a: 'center' }); y += rh; }
         if (row.tax > 0) { box(M + tw - tl, y, tl, rh, '#F1ECE0'); txt('الضريبة', M + tw - tl / 2, y + rh / 2, { a: 'center', w: 700 }); box(M, y, tw - tl, rh); txt(money(row.tax), M + (tw - tl) / 2, y + rh / 2, { a: 'center' }); y += rh; }
         box(M + tw - tl, y, tl, rh + 6, '#111'); txt('إجمالي المشتريات', M + tw - tl / 2, y + (rh + 6) / 2, { a: 'center', w: 700, c: GOLDL }); box(M, y, tw - tl, rh + 6, '#111'); txt(money(row.price), M + (tw - tl) / 2, y + (rh + 6) / 2, { a: 'center', w: 700, s: 30, c: GOLDL });
@@ -2723,7 +2724,7 @@ function buyRender() {
   $('buySync').textContent = sy ? (BUY_OK ? '🔗 مربوطة بالمستودع المشترك' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
   const cl = BUY_ICON;
   $('buyList').innerHTML = `<div class="period"><h3>إجمالي المشتريات</h3><div class="kv"><div>هذا الشهر<b>${fmt(mo)}</b></div><div>الكل<b>${fmt(all)}</b></div><div>عدد الفواتير<b>${rows.length}</b></div></div></div>` +
-    (rows.length ? '<div class="period"><h3>آخر المشتريات</h3>' + rows.slice(0, 60).map(r => `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="flex:1;line-height:1.6">${cl[r.cat] || '🧾'} ${esc(r.desc || '—')}<br><small style="color:var(--mute)">${esc(r.date)}${r.no ? ' · ' + esc(r.no) : ''}${r.ship || r.tax ? ' · شحن ' + fmt(r.ship || 0) + ' + ضريبة ' + fmt(r.tax || 0) : ''}</small></span><b style="direction:ltr">${fmt(r.price)}</b><button type="button" class="ghost" data-be="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="تعديل الشحن والضريبة">🚚</button>${r.lines && r.lines.length ? `<button type="button" class="ghost" data-bp="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="PDF">📄</button>` : ''}<button type="button" class="ghost" data-bd="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="حذف">✕</button></div>`).join('') + '</div>' : '<p class="hint">لا توجد مشتريات بعد.</p>');
+    (rows.length ? '<div class="period"><h3>آخر المشتريات</h3>' + rows.slice(0, 60).map(r => `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="flex:1;line-height:1.6">${cl[r.cat] || '🧾'} ${esc(r.desc || '—')}<br><small style="color:var(--mute)">${esc(r.date)}${r.no ? ' · ' + esc(r.no) : ''}${r.ship || r.tax || r.disc ? ' · شحن ' + fmt(r.ship || 0) + ' + ضريبة ' + fmt(r.tax || 0) + (r.disc ? ' − خصم ' + fmt(r.disc) : '') : ''}</small></span><b style="direction:ltr">${fmt(r.price)}</b><button type="button" class="ghost" data-be="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="تعديل الشحن والضريبة">🚚</button>${r.lines && r.lines.length ? `<button type="button" class="ghost" data-bp="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="PDF">📄</button>` : ''}<button type="button" class="ghost" data-bd="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="حذف">✕</button></div>`).join('') + '</div>' : '<p class="hint">لا توجد مشتريات بعد.</p>');
 }
 function buyInit() {
   $('buyDate').value = todayStr();
@@ -2744,9 +2745,10 @@ function buyInit() {
       const num = v => Math.max(0, Math.round((parseFloat(String(v).replace(/[٠-٩]/g, c => c.charCodeAt(0) - 1632).replace(/[۰-۹]/g, c => c.charCodeAt(0) - 1776).replace(/[٫،,]/g, '.').replace(/[^\d.]/g, '')) || 0) * 100) / 100);
       const a = prompt('تكلفة الشحن (ريال) — ' + (r.no || r.desc), r.ship || ''); if (a === null) return;
       const b = prompt('ضريبة القيمة المضافة (ريال)', r.tax || ''); if (b === null) return;
-      const sh = num(a), tx = num(b), base = r.price - (r.ship || 0) - (r.tax || 0);
-      buyApply(d => { const x = d.rows.find(y => y.id === r.id); if (x) { x.ship = sh || undefined; x.tax = tx || undefined; x.price = Math.round((base + sh + tx) * 100) / 100; } }, 'مشتريات: شحن وضريبة ' + (r.no || ''));
-      toast('✔ ' + (r.no || 'الفاتورة') + ': الإجمالي ' + fmt(base + sh + tx) + ' ريال'); return;
+      const c = prompt('الخصم/الكوبون إن وُجد (ريال، اتركه فارغًا لو لا يوجد)', r.disc || ''); if (c === null) return;
+      const sh = num(a), tx = num(b), dc = num(c), base = r.price - (r.ship || 0) - (r.tax || 0) + (r.disc || 0);
+      buyApply(d => { const x = d.rows.find(y => y.id === r.id); if (x) { x.ship = sh || undefined; x.tax = tx || undefined; x.disc = dc || undefined; x.price = Math.round((base + sh + tx - dc) * 100) / 100; } }, 'مشتريات: شحن وضريبة ' + (r.no || ''));
+      toast('✔ ' + (r.no || 'الفاتورة') + ': الإجمالي ' + fmt(base + sh + tx - dc) + ' ريال'); return;
     }
     const bp = e.target.closest('[data-bp]'); if (bp) { const r = buyRows().find(x => x.id === bp.dataset.bp); if (r) buyShowPdf(r); return; }
     const b = e.target.closest('[data-bd]'); if (!b) return; const id = b.dataset.bd, r = buyRows().find(x => x.id === id); if (!r) return;
