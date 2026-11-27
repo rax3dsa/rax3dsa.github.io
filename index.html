@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '152';
+const APP_VERSION = '153';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2371,7 +2371,17 @@ function stkCanon(c, loose) {   // الاسم الرسمي في الموقع، �
 }
 const stkRegName = (ar, d) => { const r = d.rows.find(x => /[A-Za-z]/.test(x.c) && stkRC(x) === ar); return r ? r.c : (STK_ENN[ar] || ar); };   // اسم اللون كما هو مسجل عندك في أي نوع (Dark green, Blue Sky...) وإلا الاسم القياسي
 const stkRC = r => stkCanon(r.c, true) || stkCanon(r.code, true);   // لون الموقع للصف: من الاسم، وإلا من رمز الاستكر (BROWN 10100)
-const stkHexR = r => STK_HEX[stkRC(r)] || stkHex(r.c);
+/* نقطة اللون في الجرد (عرض فقط، لا تؤثر على ربط الموقع): ألوان مسمّاة، ثم تفتيح/تغميق حسب كلمات الاسم (Sky/Light/Ice ← أفتح، Dark/Navy/Deep ← أغمق)، حتى يتميّز أزرق عن أزرق */
+const STK_DOT = { 'sky blue': '#5bb5ea', 'blue sky': '#5bb5ea', 'ice blue': '#a9d6f2', 'baby blue': '#a9d6f2', 'navy': '#1f3a7a', 'beige': '#d6c3a1', 'cream': '#f1e6c8', 'tan': '#c9a77c', 'khaki': '#b9ac7a', 'ivory': '#f2eedd', 'teal': '#1f8a8a', 'turquoise': '#2bb3b1', 'maroon': '#7a1f2b', 'burgundy': '#7a1f3a', 'soft pink': '#f08cb4', 'lavender': '#b79be0', 'mint': '#7fd6a8', 'lime': '#9bd13a' };
+const stkMix = (h, t, a) => { const n = parseInt(h.slice(1), 16), f = c => Math.round(c + (t - c) * a); return '#' + [f(n >> 16), f((n >> 8) & 255), f(n & 255)].map(v => v.toString(16).padStart(2, '0')).join(''); };
+function stkHexR(r) {
+  const nm = String(r.c || '').toLowerCase().trim(), keys = Object.keys(STK_DOT).sort((a, b) => b.length - a.length), k = keys.find(x => nm.includes(x));
+  if (k) return STK_DOT[k];
+  const base = STK_HEX[stkRC(r)] || stkHex(r.c); if (!base) return '';
+  if (/\b(light|pale|sky|ice|baby|pastel|silk)\b/.test(nm)) return stkMix(base, 255, 0.4);
+  if (/\b(dark|deep|navy|midnight)\b/.test(nm)) return stkMix(base, 0, 0.35);
+  return base;
+}
 const stkHex = c => STK_HEX[c] || STK_HEX_X[c] || STK_HEX[stkCanon(c, true)] || '';
 const STK_START = '2026-11-26';   // أول موعد جرد: بعد أسبوعين من تاريخ الطلب (12 نوفمبر 2026)
 const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
