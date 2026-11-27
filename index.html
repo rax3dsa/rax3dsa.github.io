@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '155';
+const APP_VERSION = '157';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2393,12 +2393,40 @@ function stkDefault() {
   return { v: 1, types: [{ name: 'PLA', site: true }, { name: 'PETG', site: false }], rows: rows, next: STK_START, mailedFor: '', u: 0 };
 }
 let STK = null, STK_TYPE = '', STK_Q = [], STK_T = null, STK_BUSY = false, STK_OK = false;
+/* ألوان الموقع التلقائية (المالك 11-27): كل لون مسجّل بنوع مربوط بالموقع يظهر بالموقع تلقائيًا بنفسه (Blue Sky غير Blue، Dark green غير Green)،
+   وحين يُحذف من الجرد يبقى بالموقع بعلامة «غير متوفر». الألوان الأساسية الاثنا عشر باسمها الدقيق فقط (Blue = أزرق)، وغيرها لون مستقل.
+   السجل append-only في stock.json: d.sb (أساسية رُئيت) و d.sc ([{k, ar, en, h}] مستقلة)، وكل صف يحمل k (مفتاحه). الـ worker يقرأها. */
+const STK_BASE_EN = { white: 'أبيض', black: 'أسود', gray: 'رمادي', grey: 'رمادي', red: 'أحمر', orange: 'برتقالي', yellow: 'أصفر', green: 'أخضر', blue: 'أزرق', purple: 'بنفسجي', pink: 'وردي', gold: 'ذهبي', brown: 'بني' };
+const stkNm = c => String(c || '').replace(/\s+/g, ' ').trim();
+function stkSiteKey(c) {   // أساسي: اسمه العربي؛ مستقل: 'x:' + الاسم بحروف صغيرة
+  const n = CN(c); if (STK_BYN[n]) return STK_BYN[n]; if (n === 'رصاصي') return 'رمادي';
+  const e = STK_BASE_EN[stkNm(c).toLowerCase()]; if (e) return e; return 'x:' + stkNm(c).toLowerCase();
+}
+const STK_ARW = { base: { blue: 'أزرق', green: 'أخضر', red: 'أحمر', yellow: 'أصفر', orange: 'برتقالي', pink: 'وردي', purple: 'بنفسجي', brown: 'بني', gray: 'رمادي', grey: 'رمادي', gold: 'ذهبي', white: 'أبيض', black: 'أسود' }, mod: { sky: 'سماوي', ice: 'ثلجي', baby: 'بيبي', light: 'فاتح', pale: 'باهت', dark: 'غامق', deep: 'غامق', navy: 'كحلي', soft: 'ناعم', matte: 'مطفي', silk: 'حريري', mint: 'نعناعي', lime: 'ليموني', fire: 'ناري', engine: '' }, one: { beige: 'بيج', cream: 'كريمي', tan: 'رملي', khaki: 'خاكي', ivory: 'عاجي', teal: 'تيل', turquoise: 'فيروزي', maroon: 'عنابي', burgundy: 'خمري', lavender: 'لافندر', silver: 'فضي', transparent: 'شفاف', clear: 'شفاف', rose: 'وردي غامق' } };
+function stkArName(en) {   // «Blue Sky» ← «أزرق سماوي»؛ غير المعروف يبقى كما كُتب
+  const w = stkNm(en).toLowerCase().split(/[^a-z]+/).filter(Boolean); if (!w.length) return stkNm(en);
+  if (w.length === 1 && STK_ARW.one[w[0]]) return STK_ARW.one[w[0]];
+  const b = w.find(x => STK_ARW.base[x]), mods = w.filter(x => x !== b && STK_ARW.mod[x] != null).map(x => STK_ARW.mod[x]).filter(Boolean);
+  if (b && w.every(x => x === b || STK_ARW.mod[x] != null)) return [STK_ARW.base[b]].concat(mods).join(' ');
+  if (w.every(x => STK_ARW.one[x])) return w.map(x => STK_ARW.one[x]).join(' ');
+  return stkNm(en);
+}
+function stkSiteSync(d) {
+  d.sb = Array.isArray(d.sb) ? d.sb.filter(x => typeof x === 'string').slice(0, 20) : []; d.sc = (Array.isArray(d.sc) ? d.sc : []).filter(x => x && x.k && x.ar && /^#[0-9a-f]{6}$/i.test(x.h)).slice(0, 40).map(x => ({ k: String(x.k).slice(0, 40), ar: String(x.ar).slice(0, 30), en: String(x.en || x.ar).slice(0, 30), h: x.h }));
+  const linked = new Set(d.types.filter(t => t.site).map(t => t.name));
+  d.rows.forEach(r => {
+    r.k = stkSiteKey(r.c); if (!linked.has(r.t)) return;
+    if (!r.k.startsWith('x:')) { if (!d.sb.includes(r.k)) d.sb.push(r.k); return; }
+    if (d.sc.length < 40 && !d.sc.some(x => x.k === r.k)) d.sc.push({ k: r.k, ar: stkArName(r.c), en: stkNm(r.c), h: (typeof stkHexR === 'function' && stkHexR(r)) || '#8a8a8a' });
+  });
+}
 function stkNorm(d) {
   d = d && typeof d === 'object' ? d : stkDefault(); d.types = (Array.isArray(d.types) && d.types.length ? d.types : stkDefault().types).map(t => ({ name: String(t.name || '').slice(0, 20), site: !!t.site, acc: !!t.acc, cat: String(t.cat || '').slice(0, 10) })).filter(t => t.name);
   if (!d.accSeed) { d.accSeed = 1; ACC_SEED.forEach(c => { if (!d.types.some(t => t.name === c[1])) d.types.push({ name: c[1], site: false, acc: true, cat: c[0] }); }); }   // أقسام المستلزمات تُضاف مرة وحدة (حذفها بعدها يبقى)
   d.types.forEach(t => { const a = ACC_SEED.find(c => c[1] === t.name); if (a) { t.acc = true; t.cat = a[0]; t.site = false; } });
   d.rows = (Array.isArray(d.rows) ? d.rows : []).map(r => ({ t: String(r.t || ''), c: String(r.c || '').slice(0, 30), q: Math.max(0, Math.min(999, Math.floor(+r.q || 0))), buy: !!r.buy, need: r.need == null ? !!r.buy : !!r.need, nq: Math.max(1, Math.min(999, Math.floor(+r.nq || 1))), code: String(r.code || '').slice(0, 30) })).filter(r => r.t && r.c);
   const seen = new Map(); d.rows = d.rows.reduce((a, r) => { const k = STK_BYN[CN(r.c)]; if (k) r.c = k; const id = r.t + '|' + r.c, o = seen.get(id); if (o) { o.q = Math.min(999, o.q + r.q); o.buy = o.buy && r.buy; o.need = o.need || r.need; o.nq = Math.max(o.nq, r.nq); o.code = o.code || r.code; } else { seen.set(id, r); a.push(r); } return a; }, []);   // اسود → أسود (ودمج المكرر)
+  stkSiteSync(d);
   d.next = /^\d{4}-\d{2}-\d{2}$/.test(d.next) ? d.next : STK_START; d.mailedFor = d.mailedFor || '';
   if (!(d.v >= 2)) { d.v = 2; d.types.slice(1).forEach(t => { const rs = d.rows.filter(r => r.t === t.name); if (rs.length === STK_COLORS.length && rs.every(r => r.q === 0 && !r.buy)) d.rows = d.rows.filter(r => r.t !== t.name); }); }   // تنظيف مرة وحدة: النوع الجديد كان يتعبّى بكل الألوان تلقائيًا بالغلط
   return d;
@@ -2414,7 +2442,7 @@ async function stkSync(force) {
   try {
     if (!sy) { STK_OK = false; return; }
     const r = await readJson(sy, 'stock.json', null);
-    if (r.data) { const odd = (Array.isArray(r.data.rows) ? r.data.rows : []).some(x => x && STK_BYN[CN(x.c)] && STK_BYN[CN(x.c)] !== x.c); STK = stkNorm(r.data); if (odd) setTimeout(() => stkEdit(() => {}), 300); }   // أسماء بلا همزة (اسود) ← تُكتب تلقائيًا بالاسم الرسمي (أسود)
+    if (r.data) { const odd = (Array.isArray(r.data.rows) ? r.data.rows : []).some(x => x && STK_BYN[CN(x.c)] && STK_BYN[CN(x.c)] !== x.c); const grew = !r.data.sc || !r.data.sb || (Array.isArray(r.data.rows) && r.data.rows.some(x => x && !x.k)); STK = stkNorm(r.data); if (odd || grew) setTimeout(() => stkEdit(() => {}), 300); }   // أسماء بلا همزة (اسود) ← تُكتب تلقائيًا بالاسم الرسمي (أسود)
     else { STK = stkNorm(STK); await updateJson(sy, 'stock.json', null, d => d ? undefined : STK, 'إنشاء جرد الفلمنت'); }
     STK_OK = true; stkSaveLocal();
   } catch (e) { STK_OK = false; }
@@ -2613,7 +2641,7 @@ document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () =>
 const BUY_KEY = 'rax3d_buys';
 let BUYS = null, BUY_BUSY = false, BUY_OK = false;
 function buyNorm(d) {
-  const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), no: String(r.no || '').slice(0, 14), ship: Math.max(0, Math.round((+r.ship || 0) * 100) / 100) || undefined, tax: Math.max(0, Math.round((+r.tax || 0) * 100) / 100) || undefined, disc: Math.max(0, Math.round((+r.disc || 0) * 100) / 100) || undefined, rcv: r.rcv === 0 ? 0 : r.rcv === 1 ? 1 : undefined, mk: Array.isArray(r.mk) && r.mk.length ? r.mk.slice(0, 60).map(x => String(x).slice(0, 60)) : undefined, pb: Array.isArray(r.pb) && r.pb.length ? r.pb.slice(0, 60).map(x => String(x).slice(0, 60)) : undefined, lines: Array.isArray(r.lines) ? r.lines.slice(0, 60).map(l => ({ n: String(l.n || '').slice(0, 80), q: Math.max(1, Math.round(+l.q || 1)), p: Math.max(0, Math.round((+l.p || 0) * 100) / 100), c: String(l.c || 'other').slice(0, 10), s: l.s ? String(l.s).slice(0, 60) : undefined })) : undefined })).filter(r => r.id && r.price > 0);
+  const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), no: String(r.no || '').slice(0, 14), ship: Math.max(0, Math.round((+r.ship || 0) * 100) / 100) || undefined, tax: Math.max(0, Math.round((+r.tax || 0) * 100) / 100) || undefined, disc: Math.max(0, Math.round((+r.disc || 0) * 100) / 100) || undefined, rcv: r.rcv === 0 ? 0 : r.rcv === 1 ? 1 : undefined, mk: Array.isArray(r.mk) && r.mk.length ? r.mk.slice(0, 60).map(x => String(x).slice(0, 60)) : undefined, pb: Array.isArray(r.pb) && r.pb.length ? r.pb.slice(0, 60).map(x => String(x).slice(0, 60)) : undefined, lk: Array.isArray(r.lk) && r.lk.length ? r.lk.slice(0, 20).map(x => String(x).slice(0, 20)) : undefined, lines: Array.isArray(r.lines) ? r.lines.slice(0, 60).map(l => ({ n: String(l.n || '').slice(0, 80), q: Math.max(1, Math.round(+l.q || 1)), p: Math.max(0, Math.round((+l.p || 0) * 100) / 100), c: String(l.c || 'other').slice(0, 10), s: l.s ? String(l.s).slice(0, 60) : undefined })) : undefined })).filter(r => r.id && r.price > 0);
   return { v: 1, rows: rows.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0), u: (d && d.u) || 0 };
 }
 function buyLoad() { if (BUYS) return BUYS; try { BUYS = buyNorm(JSON.parse(localStorage.getItem(BUY_KEY) || 'null')); } catch (e) { BUYS = buyNorm(null); } return BUYS; }
@@ -2701,11 +2729,11 @@ function buyMap(l) {
   const m = /^فلمنت (.+?) — (.+)$/.exec(l.n); if (l.c === 'fil' && m) return { t: m[1], c: m[2] };
   const lab = (BUY_CATS.find(x => x[0] === l.c) || [])[1]; return lab && l.c !== 'other' && l.c !== 'fil' && stkTy(STK, lab) ? { t: lab, c: l.n } : null;
 }
-function buyReceive(r, recv) {   // recv=true: نشر (يضيف للجرد ويفتح الموقع) · false: إلغاء النشر (يرجّع كل شيء كما كان)
-  const ls = (r.lines || []).map(l => ({ m: buyMap(l), n: Math.max(1, +l.q || 1) })).filter(x => x.m);
+function buyReceive(r, recv) {   // recv=true: نشر (الجرد + الموقع) · false: إلغاء النشر (يرجّع كل شيء كما كان فعلًا)
+  const leg = r.rcv === undefined, ls = (r.lines || []).map(l => ({ m: buyMap(l), n: Math.max(1, +l.q || 1), ln: !!l.s || leg })).filter(x => x.m);   // ln: السطر كان «مطلوب شراؤه» في الجرد
   if (!ls.length) { toast('لا أصناف في هذه الفاتورة تُربط بالجرد'); return; }
-  if (!confirm(recv ? 'نشر ' + (r.no || 'الفاتورة') + ': تُضاف كمياتها للجرد (' + ls.length + ' صنف) وتصير متوفرة بالموقع، والألوان غير المسجّلة تُسجَّل بعددها. متابعة؟' : 'إلغاء نشر ' + (r.no || 'الفاتورة') + ': تُنقَص كمياتها من الجرد (' + ls.length + ' صنف)، وما أُنشئ من ألوان يُحذف، وما كان «غير متوفر بالموقع» قبل النشر يرجع كما كان. متابعة؟')) return;
-  if (!STK) stkLoadLocal(); const made = [], was = [];
+  if (!confirm(recv ? 'نشر ' + (r.no || 'الفاتورة') + ': تُضاف كمياتها للجرد (' + ls.length + ' صنف) وتصير متوفرة بالموقع (وتُربط أنواعها بالموقع)، والألوان غير المسجّلة تُسجَّل بعددها. متابعة؟' : 'إلغاء نشر ' + (r.no || 'الفاتورة') + ': تُنقَص كمياتها من الجرد (' + ls.length + ' صنف)، وتُحذف الألوان التي وصلت للصفر ولم تكن مسجّلة قبلها، وتُرجَع علامة «🛒 اشترِ» و«نفد» لما كان مطلوبًا، ويُفك ربط ما ربطه النشر بالموقع. متابعة؟')) return;
+  if (!STK) stkLoadLocal(); const made = [], was = [], linked = [], notSite = [], gone = [];
   stkEdit(d => {
     ls.forEach(x => {
       const t = x.m.t, c = x.m.c, k = t + '|' + c; let w = stkRow(d, t, c);
@@ -2713,15 +2741,19 @@ function buyReceive(r, recv) {   // recv=true: نشر (يضيف للجرد وي�
         if (!w) { if (!stkTy(d, t)) d.types.push({ name: t, site: false, acc: false, cat: '' }); w = { t: t, c: c, q: 0, buy: false, need: false, nq: 1, code: '' }; d.rows.push(w); made.push(k); }
         else if (w.buy) was.push(k);
         w.q = Math.min(999, w.q + x.n); w.buy = false; w.need = false; w.nq = 1;
+        const ty = stkTy(d, t); if (ty && !ty.acc) { if (!ty.site && !linked.includes(t)) { ty.site = true; linked.push(t); } if (!stkCanon(c, true) && !stkCanon(w.code, true)) notSite.push(c); }   // نشر بالموقع: النوع يُربط، واللون خارج ألوان الموقع ينبَّه عنه
       } else if (w) {
         w.q = Math.max(0, w.q - x.n);
-        if ((r.mk || []).includes(k) && w.q === 0) d.rows = d.rows.filter(y => y !== w);
-        else if ((r.pb || []).includes(k)) w.buy = true;
+        if (w.q === 0 && ((r.mk || []).includes(k) || (!(r.pb || []).includes(k) && !w.code && !w.need))) { d.rows = d.rows.filter(y => y !== w); gone.push(c); return; }   // لون أنشأه النشر (أو لم يكن مسجّلًا قبله)
+        if ((r.pb || []).includes(k) || w.q === 0) w.buy = true;   // رجع «نفد»
+        if (x.ln) { w.need = true; w.nq = Math.min(999, x.n); }   // رجعت علامة «🛒 اشترِ» بكمية الطلب
       }
     });
+    if (!recv) (r.lk || []).forEach(n => { const ty = stkTy(d, n); if (ty) ty.site = false; });
   });
-  buyApply(d => { const y = d.rows.find(z => z.id === r.id); if (y) { y.rcv = recv ? 1 : 0; y.mk = recv && made.length ? made : undefined; y.pb = recv && was.length ? was : undefined; } }, (recv ? 'نشر ' : 'إلغاء نشر ') + (r.no || ''));
-  toast(recv ? '✔ نُشرت في الجرد والموقع (' + ls.length + ' صنف' + (made.length ? '، ' + made.length + ' لون جديد' : '') + ')' : '↩️ أُلغي النشر: رجع الجرد والموقع كما كانا');
+  buyApply(d => { const y = d.rows.find(z => z.id === r.id); if (y) { y.rcv = recv ? 1 : 0; y.mk = recv && made.length ? made : undefined; y.pb = recv && was.length ? was : undefined; y.lk = recv && linked.length ? linked : undefined; } }, (recv ? 'نشر ' : 'إلغاء نشر ') + (r.no || ''));
+  if (!recv) setTimeout(() => { try { slReconcile(); } catch (e) {} }, 900);   // الأصناف المطلوبة ترجع لقائمة الشراء
+  toast(recv ? '✔ نُشرت في الجرد والموقع (' + ls.length + ' صنف' + (made.length ? '، ' + made.length + ' لون جديد' : '') + ')' + (notSite.length ? ' · تنبيه: ' + [...new Set(notSite)].join('، ') + ' ليس من ألوان الموقع' : '') : '↩️ أُلغي النشر: رجع الجرد والموقع كما كانا' + (gone.length ? ' (حُذف ' + gone.length + ')' : ''));
 }
 /* تعديل الشحن والضريبة والخصم على فاتورة مشتريات مسجّلة: نافذة بحقول أرقام (لوحة أرقام، عربي أو إنجليزي، يُسجَّل بالإنجليزي) */
 function buyExtraSheet(r) {
