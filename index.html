@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '161';
+const APP_VERSION = '162';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2491,6 +2491,11 @@ function stkRender() {
   $('stkNote').innerHTML = acc ? '🧰 <b>قسم مستلزمات</b> (بالقطع، للجرد فقط ولا يؤثر على الموقع). أي صنف عليه «🛒 اشترِ» أو نزل عدده إلى 0 يظهر تلقائيًا في «قائمة الشراء» بتبويب المشتريات.' : ty.site ? '🔗 <b>مربوط بالموقع</b>: اللون الذي عليه «🔴 نفد» يظهر للعميل بخط أحمر «غير متوفر»، وإذا رجع «🟢 متوفر» يرجع متوفرًا. خانة «للشراء؟» تذكير شراء لك فقط ولا تؤثر على الموقع. <button type="button" class="linkbtn" data-site="0">إلغاء الربط</button>'
     : 'هذا النوع غير مربوط بالموقع (للجرد فقط). <button type="button" class="linkbtn" data-site="1">ربطه بالموقع</button>';
   $('stkNote').innerHTML += ' · <button type="button" class="linkbtn" data-deltype="1" style="color:var(--bad)">🗑 حذف هذا ' + (acc ? 'القسم' : 'النوع') + '</button>';
+  if (ty.site && !acc) {   // لون «نفد» هنا لكنه يظهر متوفرًا بالموقع لأن نوعًا آخر مربوطًا فيه نفس اللون «متوفر»
+    const lk = new Set(d.types.filter(t => t.site && !t.acc && t.name !== STK_TYPE).map(t => t.name)), clash = [];
+    rows.forEach(r => { if (!r.buy) return; const o = d.rows.filter(x => lk.has(x.t) && (x.k || stkSiteKey(x.c)) === (r.k || stkSiteKey(r.c)) && !x.buy); if (o.length) clash.push(r.c + ' (متوفر في ' + [...new Set(o.map(x => x.t))].join('، ') + ')'); });
+    if (clash.length) $('stkNote').innerHTML += '<div style="margin-top:8px;padding:8px 10px;border:1px solid var(--bad);border-radius:10px;color:var(--bad);font-size:13px;line-height:1.7">⚠️ ألوان «نفد» هنا لكنها تظهر <b>متوفرة بالموقع</b> لأن نوعًا آخر مربوطًا فيه نفس اللون «🟢 متوفر»: <b>' + clash.map(esc).join('، ') + '</b>. الموقع يعتبر اللون متوفرًا ما دام أي نوع مربوط فيه متوفرًا. غيّر «متوفر بالموقع؟» هناك إلى «نفد»، أو «إلغاء الربط» عن ذلك النوع.</div>';
+  }
   $('stkBody').innerHTML = (acc ? '<div class="stk-row hd acc"><span>الصنف</span><span>العدد (قطع)</span><span>للشراء؟</span><span>الكمية</span><span></span></div>' : '<div class="stk-row hd"><span>اللون</span><span>العدد (بكرات)</span><span>متوفر بالموقع؟</span><span>للشراء؟</span><span>الكمية</span><span></span></div>') + (rows.length ? rows.map(r => acc
     ? `<div class="stk-row acc" data-c="${esc(r.c)}" data-t="${esc(r.t)}"><span class="stk-c"><span>${esc(r.c)}</span></span>
       <span class="stk-q"><button type="button" data-q="-1" aria-label="إنقاص">−</button><b>${r.q}</b><button type="button" data-q="1" aria-label="زيادة">+</button></span>
