@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '159';
+const APP_VERSION = '161';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2369,7 +2369,7 @@ function stkCanon(c, loose) {   // الاسم الرسمي في الموقع، �
   const n = CN(c); if (STK_BYN[n]) return STK_BYN[n]; if (STK_ALIAS[n]) return STK_ALIAS[n];
   if (loose) { const w = n.split(' ')[0]; if (STK_BYN[w]) return STK_BYN[w]; if (STK_ALIAS[w]) return STK_ALIAS[w]; const hit = [...new Set(n.toLowerCase().split(/[^a-z]+/).map(x => STK_EN[x]).filter(Boolean))]; if (hit.length === 1) return hit[0]; }   // لونان (Blue Green) = جرد فقط، بدون ربط بالموقع return '';   // الإنجليزي كما في استكر الفلمنت: Matte Ice Blue 10100 ← أزرق
 }
-const stkRegName = (ar, d) => { const r = d.rows.find(x => /[A-Za-z]/.test(x.c) && stkRC(x) === ar); return r ? r.c : (STK_ENN[ar] || ar); };   // اسم اللون كما هو مسجل عندك في أي نوع (Dark green, Blue Sky...) وإلا الاسم القياسي
+const stkRegName = (ar, d) => { const r = d.rows.find(x => /[A-Za-z]/.test(x.c) && (x.k || stkSiteKey(x.c)) === ar); return r ? r.c : (STK_ENN[ar] || ar); };   // اسم اللون كما هو مسجل عندك في أي نوع (Dark green, Blue Sky...) وإلا الاسم القياسي
 const stkRC = r => stkCanon(r.c, true) || stkCanon(r.code, true);   // لون الموقع للصف: من الاسم، وإلا من رمز الاستكر (BROWN 10100)
 /* نقطة اللون في الجرد (عرض فقط، لا تؤثر على ربط الموقع): ألوان مسمّاة، ثم تفتيح/تغميق حسب كلمات الاسم (Sky/Light/Ice ← أفتح، Dark/Navy/Deep ← أغمق)، حتى يتميّز أزرق عن أزرق */
 const STK_DOT = { 'sky blue': '#5bb5ea', 'blue sky': '#5bb5ea', 'ice blue': '#a9d6f2', 'baby blue': '#a9d6f2', 'navy': '#1f3a7a', 'beige': '#d6c3a1', 'cream': '#f1e6c8', 'tan': '#c9a77c', 'khaki': '#b9ac7a', 'ivory': '#f2eedd', 'teal': '#1f8a8a', 'turquoise': '#2bb3b1', 'maroon': '#7a1f2b', 'burgundy': '#7a1f3a', 'soft pink': '#f08cb4', 'lavender': '#b79be0', 'mint': '#7fd6a8', 'lime': '#9bd13a' };
@@ -2503,9 +2503,15 @@ function stkRender() {
       <button type="button" class="stk-b ${r.need ? 'need' : 'off'}" data-need="1">${r.need ? '🛒 اشترِ' : 'لا'}</button>
       <input class="stk-nq${r.need ? '' : ' off'}" type="number" inputmode="numeric" min="1" max="999" step="1" data-nq="1" value="${r.nq}" aria-label="الكمية المطلوب شراؤها">
       <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">' + (acc ? 'لا أصناف في هذا القسم، أضف من الأسفل.' : 'لا ألوان في هذا النوع، أضف من الأسفل.') + '</p>');
-  const have = new Set(rows.map(stkRC)), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(stkRC));
+  const have = new Set(rows.map(r => r.k || stkSiteKey(r.c))), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(stkRC));
   const gone = SHOP_COLORS.filter(c => c[1] && !linked.has(c[0])).map(c => c[0]);
-  $('stkQuick').innerHTML = acc ? (rows.some(r => r.c === STK_TYPE) ? '' : '<p class="hint" style="margin:0 0 4px">إضافة سريعة:</p><div class="cchips"><button type="button" class="cchip" data-qc="' + esc(STK_TYPE) + '">＋ ' + esc(STK_TYPE) + '</button></div>') : (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => { const nm = stkRegName(c[0], d); return `<button type="button" class="cchip" data-qc="${esc(nm)}" title="${c[0]}"><i style="background:${c[1]}"></i>${esc(nm)}</button>`; }).join('') + '</div>' : '');
+  // الألوان الجديدة (المستقلة) المسجّلة في أي نوع أو في سجل الموقع وليست في هذا النوع: تظهر اختصارات هنا لتسهيل إضافتها بين الأنواع
+  const xtra = [], xk = new Set(have);
+  if (!acc) {
+    d.rows.forEach(r2 => { if (r2.t === STK_TYPE || stkIsAcc(r2.t)) return; const k = r2.k || stkSiteKey(r2.c); if (!k.startsWith('x:') || xk.has(k)) return; xk.add(k); xtra.push({ n: r2.c, ar: stkArName(r2.c), h: stkHexR(r2) || '#8a8a8a' }); });
+    (d.sc || []).forEach(x => { if (xk.has(x.k)) return; xk.add(x.k); xtra.push({ n: x.en, ar: x.ar, h: x.h }); });
+  }
+  $('stkQuick').innerHTML = acc ? (rows.some(r => r.c === STK_TYPE) ? '' : '<p class="hint" style="margin:0 0 4px">إضافة سريعة:</p><div class="cchips"><button type="button" class="cchip" data-qc="' + esc(STK_TYPE) + '">＋ ' + esc(STK_TYPE) + '</button></div>') : (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length || xtra.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => { const nm = stkRegName(c[0], d); return `<button type="button" class="cchip" data-qc="${esc(nm)}" title="${c[0]}"><i style="background:${c[1]}"></i>${esc(nm)}</button>`; }).join('') + xtra.map(x => `<button type="button" class="cchip" data-qc="${esc(x.n)}" title="${esc(x.ar)} (لون جديد من نوع آخر)"><i style="background:${x.h}"></i>${esc(x.n)}</button>`).join('') + '</div>' : '');
   const tsel = $('stkTySel'); if (document.activeElement !== tsel) tsel.innerHTML = d.types.map(t => `<option${t.name === STK_TYPE ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
   $('stkSync').textContent = getSync() ? (STK_OK ? '🔄 مرتبط ومتزامن مع الجهاز الثاني والموقع' : '⚠️ تعذّر الاتصال، المعروض آخر نسخة محفوظة') : '📴 الربط المشترك غير مفعّل: الجرد على هذا الجوال فقط ولا يؤثر على الموقع';
   stkFormUI();
@@ -2764,9 +2770,13 @@ function buyReceive(r, recv) {   // recv=true: نشر (الجرد + الموقع
     });
     if (!recv) (r.lk || []).forEach(n => { const ty = stkTy(d, n); if (ty) ty.site = false; });
   });
+  if (recv && r.no) slApply(d => { d.items = d.items.filter(y => y.inv !== r.no); }, 'قائمة الشراء: نُشرت ' + r.no, true);
   buyApply(d => { const y = d.rows.find(z => z.id === r.id); if (y) { y.rcv = recv ? 1 : 0; y.mk = recv && made.length ? made : undefined; y.pb = recv && was.length ? was : undefined; y.lk = recv && linked.length ? linked : undefined; } }, (recv ? 'نشر ' : 'إلغاء نشر ') + (r.no || ''));
   if (!recv) {   // الأصناف المطلوبة ترجع لقائمة الشراء: ما حُذف من الجرد أو لا يرتبط به يُعاد صنفًا في القائمة، وما بقي في الجرد يعيده الربط التلقائي
-    if (back.length) slApply(d => { back.forEach((l, i) => { if (!d.items.some(x => !x.done && x.name === l.n)) d.items.push({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5), name: l.n, qty: String(Math.max(1, +l.q || 1)), ts: Date.now() + i, done: 0, price: 0, cat: l.c || 'other', src: '', auto: 0 }); }); }, 'قائمة الشراء: رجوع أصناف إلغاء النشر', true);
+    slApply(d => {   // كل سطر الفاتورة يرجع في القائمة مشطوبًا بسعره وكميته (لأن له فاتورة)، موسومًا برقمها، فلا يُحسب مرة ثانية ولا يُسجَّل بفاتورة جديدة
+      all.forEach((x, i) => { const l = x.l; if (d.items.some(y => y.inv === r.no && y.name === l.n)) return; d.items = d.items.filter(y => y.done || !((x.m && y.src === x.m.t + '|' + x.m.c) || y.name === l.n));
+        d.items.push({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5), name: l.n, qty: String(Math.max(1, +l.q || 1)), ts: Date.now() + i, done: 1, price: Math.max(0, +l.p || 0), cat: l.c || 'other', src: x.m ? x.m.t + '|' + x.m.c : '', auto: x.m ? 1 : 0, inv: r.no || 'PUR' }); });
+    }, 'قائمة الشراء: رجوع أصناف إلغاء النشر (مشطوبة بفاتورتها)', true);
     setTimeout(() => { try { slReconcile(); } catch (e) {} }, 900);
   }
   toast(recv ? '✔ نُشرت في الجرد والموقع (' + ls.length + ' صنف' + (made.length ? '، ' + made.length + ' لون جديد' : '') + ')' + (notSite.length ? ' · تنبيه: ' + [...new Set(notSite)].join('، ') + ' ليس من ألوان الموقع' : '') : '↩️ أُلغي النشر: رجع الجرد والموقع كما كانا' + (gone.length ? ' (حُذف ' + gone.length + ')' : ''));
@@ -2871,7 +2881,7 @@ const slQtyN = it => Math.max(1, Math.round(parseFloat(String(it.qty || '').repl
 const slSrc = src => { const i = String(src).indexOf('|'); return { t: src.slice(0, i), c: src.slice(i + 1) }; };
 const slId = src => 'k' + [...String(src)].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7).toString(36);
 function slNorm(d) {
-  const items = (d && Array.isArray(d.items) ? d.items : []).map(r => ({ id: String(r.id || '').slice(0, 24), name: String(r.name || '').slice(0, 80), qty: String(r.qty || '').slice(0, 20), ts: +r.ts || 0, done: r.done ? 1 : 0, price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), cat: String(r.cat || 'other').slice(0, 10), src: String(r.src || '').slice(0, 60), auto: r.auto ? 1 : 0 })).filter(r => r.id && r.name);
+  const items = (d && Array.isArray(d.items) ? d.items : []).map(r => ({ id: String(r.id || '').slice(0, 24), name: String(r.name || '').slice(0, 80), qty: String(r.qty || '').slice(0, 20), ts: +r.ts || 0, done: r.done ? 1 : 0, price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), cat: String(r.cat || 'other').slice(0, 10), src: String(r.src || '').slice(0, 60), auto: r.auto ? 1 : 0, inv: String(r.inv || '').slice(0, 14) })).filter(r => r.id && r.name);
   items.sort((a, b) => (a.done - b.done) || (a.ts - b.ts));
   return { v: 2, items: items, ship: Math.max(0, Math.round((+(d && d.ship) || 0) * 100) / 100), tax: Math.max(0, Math.round((+(d && d.tax) || 0) * 100) / 100), u: (d && d.u) || 0 };
 }
@@ -2880,8 +2890,8 @@ function slSaveLocal() { try { localStorage.setItem(SL_KEY, JSON.stringify(SL));
 function slRender() {
   const box = $('slList'); if (!box) return; const adm = slAdm(), its = slLoad().items, sy = getSync();
   $('slSync').textContent = sy ? (SL_OK ? '🔗 مربوطة بالمستودع المشترك وبالجرد' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
-  const done = its.filter(x => x.done), sub = done.reduce((a, x) => a + x.price, 0), SH = slLoad().ship, TX = slLoad().tax, tot = sub + SH + TX, noPrice = done.filter(x => !(x.price > 0)).length;
-  box.innerHTML = its.length ? its.map(x => `<div class="slr${x.done ? ' dn' : ''}">${adm ? `<input type="checkbox" data-slc="${esc(x.id)}" ${x.done ? 'checked' : ''} aria-label="تم شراؤه">` : ''}<span class="sln">${BUY_ICON[x.cat] || '🧾'} ${esc(x.name)}${x.auto ? '<span class="tg">من الجرد</span>' : ''}</span>${adm || !x.done ? `<button type="button" class="ghost slx" data-slx="${esc(x.id)}" aria-label="حذف">✕</button>` : ''}`
+  const done = its.filter(x => x.done && !x.inv), sub = done.reduce((a, x) => a + x.price, 0), SH = slLoad().ship, TX = slLoad().tax, tot = sub + SH + TX, noPrice = done.filter(x => !(x.price > 0)).length;
+  box.innerHTML = its.length ? its.map(x => `<div class="slr${x.done ? ' dn' : ''}">${adm ? `<input type="checkbox" data-slc="${esc(x.id)}" ${x.done ? 'checked' : ''} aria-label="تم شراؤه">` : ''}<span class="sln">${BUY_ICON[x.cat] || '🧾'} ${esc(x.name)}${x.auto ? '<span class="tg">من الجرد</span>' : ''}${x.inv ? `<span class="tg">🧾 ${esc(x.inv)}</span>` : ''}</span>${adm || !x.done ? `<button type="button" class="ghost slx" data-slx="${esc(x.id)}" aria-label="حذف">✕</button>` : ''}`
       + `<div class="slsub">${adm ? `<label for="q${esc(x.id)}">الكمية</label><input id="q${esc(x.id)}" class="slq" type="number" inputmode="numeric" min="1" step="1" data-slq="${esc(x.id)}" value="${slQtyN(x)}"><label for="p${esc(x.id)}">السعر</label><input id="p${esc(x.id)}" class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" data-slp="${esc(x.id)}" value="${x.price > 0 ? x.price : ''}" aria-label="سعر ${esc(x.name)}">` : `<small style="color:var(--mute)">الكمية: ${slQtyN(x)}</small>`}</div></div>`).join('')
     + (adm ? `<div class="slr" style="border-bottom:0"><div class="slsub" style="padding-inline-start:0"><label for="slShip">🚚 الشحن</label><input id="slShip" class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" data-slship value="${SH > 0 ? SH : ''}" aria-label="تكلفة الشحن"><label for="slTax">🧾 الضريبة</label><input id="slTax" class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" data-sltax value="${TX > 0 ? TX : ''}" aria-label="مبلغ الضريبة"></div></div>`
       + (SH > 0 || TX > 0 ? `<div class="slt" style="padding:4px 0;font-size:13px;color:var(--mute)"><span>الأصناف ${fmt(sub)} + شحن ${fmt(SH)} + ضريبة ${fmt(TX)}</span></div>` : '')
@@ -2977,7 +2987,7 @@ const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); }
       slApply(d => { d.items = d.items.filter(y => y.id !== id); }, 'قائمة الشراء: حذف'); if (r.auto && !r.done) slStockApply([{ src: r.src, n: 0 }], false); return;
     }
     if (e.target.closest('#slRec')) {
-      const dn = slLoad().items.filter(y => y.done && y.price > 0); if (!dn.length) { const m = $('slMsg'); m.style.color = 'var(--bad)'; m.textContent = 'اشطب الأصناف التي اشتريتها (✔) واكتب سعر كل صنف أولًا'; return; }
+      const dn = slLoad().items.filter(y => y.done && y.price > 0 && !y.inv); if (!dn.length) { const m = $('slMsg'); m.style.color = 'var(--bad)'; m.textContent = 'اشطب الأصناف التي اشتريتها (✔) واكتب سعر كل صنف أولًا'; return; }
       const SH = slLoad().ship, TX = slLoad().tax, tot = dn.reduce((a, y) => a + y.price, 0) + SH + TX, ids = dn.map(y => y.id), t = todayStr(), lnk = dn.filter(y => y.src).map(y => ({ src: y.src, n: slQtyN(y) })), rest = slLoad().items.some(y => !y.done);
       if (!confirm('تسجيل ' + dn.length + ' صنف كفاتورة مشتريات واحدة بإجمالي ' + fmt(tot) + ' ريال' + (SH || TX ? ' (يشمل شحن ' + fmt(SH) + ' وضريبة ' + fmt(TX) + ')' : '') + '، وحذفها من القائمة، وتجهيز PDF داخلي؟' + (lnk.length ? '\nويُلغى «للشراء؟» (' + lnk.length + ' صنف من الجرد). الكميات لا تُضاف للجرد والموقع إلا بزر «نشر».' : ''))) return;
       const no = buyNextNo(), nm = dn.map(y => y.name + (slQtyN(y) > 1 ? ' × ' + slQtyN(y) : '')).join('، ');
