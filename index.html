@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '150';
+const APP_VERSION = '151';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2684,6 +2684,24 @@ function buyShowPdf(row) {
   openFileSheet('فاتورة مشتريات ' + (row.no || ''), 'نسخة داخلية: ' + fmt(row.price) + ' ريال'); fileCaption = '';
   buyPdf(row).then(o => fileReady(o.blob, 'RAX3D-Purchase-' + (row.no || 'PUR') + '-' + row.date + '.pdf', o.preview)).catch(e => { $('fileMsg').textContent = 'تعذّر تجهيز الـ PDF: ' + ((e && e.message) || e); $('fileGo').textContent = 'غير متاح'; });
 }
+/* تعديل الشحن والضريبة والخصم على فاتورة مشتريات مسجّلة: نافذة بحقول أرقام (لوحة أرقام، عربي أو إنجليزي، يُسجَّل بالإنجليزي) */
+function buyExtraSheet(r) {
+  let el = document.getElementById('buyXSheet');
+  if (!el) { el = document.createElement('div'); el.className = 'sheet'; el.id = 'buyXSheet'; document.body.appendChild(el); el.addEventListener('click', e => { if (e.target === el) el.classList.remove('on'); }); }
+  const fld = (id, lab, v) => `<label for="${id}">${lab}</label><input id="${id}" type="text" data-num="1" inputmode="decimal" autocomplete="off" placeholder="0" value="${v > 0 ? v : ''}">`;
+  el.innerHTML = `<div class="box"><h2>🚚 الشحن والضريبة والخصم</h2><p class="hint" style="margin:0 0 8px">${esc(r.no || r.desc || '')} — الإجمالي = الأصل + الشحن + الضريبة − الخصم</p>${fld('bxShip', 'تكلفة الشحن (ريال)', r.ship)}${fld('bxTax', 'ضريبة القيمة المضافة (ريال)', r.tax)}${fld('bxDisc', 'الخصم / الكوبون (ريال)', r.disc)}<div class="hint" id="bxTot" style="margin:10px 0;font-size:15px"></div><button type="button" class="save" id="bxGo">حفظ</button><button type="button" class="ghost" id="bxX">إلغاء</button></div>`;
+  const num = v => Math.max(0, Math.round((parseFloat(String(v).replace(/[٠-٩]/g, c => c.charCodeAt(0) - 1632).replace(/[۰-۹]/g, c => c.charCodeAt(0) - 1776).replace(/[٫،,]/g, '.').replace(/[^\d.]/g, '')) || 0) * 100) / 100);
+  const base = r.price - (r.ship || 0) - (r.tax || 0) + (r.disc || 0), val = () => [num($('bxShip').value), num($('bxTax').value), num($('bxDisc').value)];
+  const upd = () => { const [a, b, c] = val(); $('bxTot').innerHTML = 'الإجمالي الجديد: <b style="font-size:20px;direction:ltr;display:inline-block">' + fmt(Math.max(0, base + a + b - c)) + '</b> ريال'; };
+  el.addEventListener('input', upd); upd();
+  $('bxX').onclick = () => el.classList.remove('on');
+  $('bxGo').onclick = () => {
+    const [sh, tx, dc] = val(), np = Math.round((base + sh + tx - dc) * 100) / 100; if (!(np > 0)) { toast('الإجمالي لازم يكون أكبر من صفر'); return; }
+    buyApply(d => { const x = d.rows.find(y => y.id === r.id); if (x) { x.ship = sh || undefined; x.tax = tx || undefined; x.disc = dc || undefined; x.price = np; } }, 'مشتريات: شحن وضريبة ' + (r.no || ''));
+    el.classList.remove('on'); toast('✔ ' + (r.no || 'الفاتورة') + ': الإجمالي ' + fmt(np) + ' ريال');
+  };
+  el.classList.add('on');
+}
 function buyColors() {   // الألوان المتفق عليها = ألوان الجرد (الفلمنت فقط)
   try { if (!STK) stkLoadLocal(); } catch (e) {}
   const set = []; (STK && STK.rows || []).forEach(r => { if (r.c && !stkIsAcc(r.t) && !set.includes(r.c)) set.push(r.c); }); return set;
@@ -2740,16 +2758,7 @@ function buyInit() {
     toast('✔ أُضيفت فاتورة مشتريات: ' + fmt(price) + ' ريال');
   };
   $('buyList').addEventListener('click', e => {
-    const be = e.target.closest('[data-be]'); if (be) {   // تعديل الشحن والضريبة على فاتورة مسجّلة: الإجمالي = الأصل + شحن + ضريبة
-      const r = buyRows().find(x => x.id === be.dataset.be); if (!r) return;
-      const num = v => Math.max(0, Math.round((parseFloat(String(v).replace(/[٠-٩]/g, c => c.charCodeAt(0) - 1632).replace(/[۰-۹]/g, c => c.charCodeAt(0) - 1776).replace(/[٫،,]/g, '.').replace(/[^\d.]/g, '')) || 0) * 100) / 100);
-      const a = prompt('تكلفة الشحن (ريال) — ' + (r.no || r.desc), r.ship || ''); if (a === null) return;
-      const b = prompt('ضريبة القيمة المضافة (ريال)', r.tax || ''); if (b === null) return;
-      const c = prompt('الخصم/الكوبون إن وُجد (ريال، اتركه فارغًا لو لا يوجد)', r.disc || ''); if (c === null) return;
-      const sh = num(a), tx = num(b), dc = num(c), base = r.price - (r.ship || 0) - (r.tax || 0) + (r.disc || 0);
-      buyApply(d => { const x = d.rows.find(y => y.id === r.id); if (x) { x.ship = sh || undefined; x.tax = tx || undefined; x.disc = dc || undefined; x.price = Math.round((base + sh + tx - dc) * 100) / 100; } }, 'مشتريات: شحن وضريبة ' + (r.no || ''));
-      toast('✔ ' + (r.no || 'الفاتورة') + ': الإجمالي ' + fmt(base + sh + tx - dc) + ' ريال'); return;
-    }
+    const be = e.target.closest('[data-be]'); if (be) { const r = buyRows().find(x => x.id === be.dataset.be); if (r) buyExtraSheet(r); return; }
     const bp = e.target.closest('[data-bp]'); if (bp) { const r = buyRows().find(x => x.id === bp.dataset.bp); if (r) buyShowPdf(r); return; }
     const b = e.target.closest('[data-bd]'); if (!b) return; const id = b.dataset.bd, r = buyRows().find(x => x.id === id); if (!r) return;
     if (!confirm('حذف «' + r.desc + '» (' + fmt(r.price) + ' ريال)؟')) return;
