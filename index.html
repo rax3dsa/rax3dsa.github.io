@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '159';
+const APP_VERSION = '160';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2369,7 +2369,7 @@ function stkCanon(c, loose) {   // الاسم الرسمي في الموقع، �
   const n = CN(c); if (STK_BYN[n]) return STK_BYN[n]; if (STK_ALIAS[n]) return STK_ALIAS[n];
   if (loose) { const w = n.split(' ')[0]; if (STK_BYN[w]) return STK_BYN[w]; if (STK_ALIAS[w]) return STK_ALIAS[w]; const hit = [...new Set(n.toLowerCase().split(/[^a-z]+/).map(x => STK_EN[x]).filter(Boolean))]; if (hit.length === 1) return hit[0]; }   // لونان (Blue Green) = جرد فقط، بدون ربط بالموقع return '';   // الإنجليزي كما في استكر الفلمنت: Matte Ice Blue 10100 ← أزرق
 }
-const stkRegName = (ar, d) => { const r = d.rows.find(x => /[A-Za-z]/.test(x.c) && stkRC(x) === ar); return r ? r.c : (STK_ENN[ar] || ar); };   // اسم اللون كما هو مسجل عندك في أي نوع (Dark green, Blue Sky...) وإلا الاسم القياسي
+const stkRegName = (ar, d) => { const r = d.rows.find(x => /[A-Za-z]/.test(x.c) && (x.k || stkSiteKey(x.c)) === ar); return r ? r.c : (STK_ENN[ar] || ar); };   // اسم اللون كما هو مسجل عندك في أي نوع (Dark green, Blue Sky...) وإلا الاسم القياسي
 const stkRC = r => stkCanon(r.c, true) || stkCanon(r.code, true);   // لون الموقع للصف: من الاسم، وإلا من رمز الاستكر (BROWN 10100)
 /* نقطة اللون في الجرد (عرض فقط، لا تؤثر على ربط الموقع): ألوان مسمّاة، ثم تفتيح/تغميق حسب كلمات الاسم (Sky/Light/Ice ← أفتح، Dark/Navy/Deep ← أغمق)، حتى يتميّز أزرق عن أزرق */
 const STK_DOT = { 'sky blue': '#5bb5ea', 'blue sky': '#5bb5ea', 'ice blue': '#a9d6f2', 'baby blue': '#a9d6f2', 'navy': '#1f3a7a', 'beige': '#d6c3a1', 'cream': '#f1e6c8', 'tan': '#c9a77c', 'khaki': '#b9ac7a', 'ivory': '#f2eedd', 'teal': '#1f8a8a', 'turquoise': '#2bb3b1', 'maroon': '#7a1f2b', 'burgundy': '#7a1f3a', 'soft pink': '#f08cb4', 'lavender': '#b79be0', 'mint': '#7fd6a8', 'lime': '#9bd13a' };
@@ -2503,9 +2503,15 @@ function stkRender() {
       <button type="button" class="stk-b ${r.need ? 'need' : 'off'}" data-need="1">${r.need ? '🛒 اشترِ' : 'لا'}</button>
       <input class="stk-nq${r.need ? '' : ' off'}" type="number" inputmode="numeric" min="1" max="999" step="1" data-nq="1" value="${r.nq}" aria-label="الكمية المطلوب شراؤها">
       <button type="button" class="stk-x" data-del="1" aria-label="حذف اللون">×</button></div>`).join('') : '<p class="hint">' + (acc ? 'لا أصناف في هذا القسم، أضف من الأسفل.' : 'لا ألوان في هذا النوع، أضف من الأسفل.') + '</p>');
-  const have = new Set(rows.map(stkRC)), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(stkRC));
+  const have = new Set(rows.map(r => r.k || stkSiteKey(r.c))), miss = SHOP_COLORS.filter(c => c[1] && !have.has(c[0])), linked = new Set(d.rows.filter(r => (d.types.find(t => t.name === r.t) || {}).site).map(stkRC));
   const gone = SHOP_COLORS.filter(c => c[1] && !linked.has(c[0])).map(c => c[0]);
-  $('stkQuick').innerHTML = acc ? (rows.some(r => r.c === STK_TYPE) ? '' : '<p class="hint" style="margin:0 0 4px">إضافة سريعة:</p><div class="cchips"><button type="button" class="cchip" data-qc="' + esc(STK_TYPE) + '">＋ ' + esc(STK_TYPE) + '</button></div>') : (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => { const nm = stkRegName(c[0], d); return `<button type="button" class="cchip" data-qc="${esc(nm)}" title="${c[0]}"><i style="background:${c[1]}"></i>${esc(nm)}</button>`; }).join('') + '</div>' : '');
+  // الألوان الجديدة (المستقلة) المسجّلة في أي نوع أو في سجل الموقع وليست في هذا النوع: تظهر اختصارات هنا لتسهيل إضافتها بين الأنواع
+  const xtra = [], xk = new Set(have);
+  if (!acc) {
+    d.rows.forEach(r2 => { if (r2.t === STK_TYPE || stkIsAcc(r2.t)) return; const k = r2.k || stkSiteKey(r2.c); if (!k.startsWith('x:') || xk.has(k)) return; xk.add(k); xtra.push({ n: r2.c, ar: stkArName(r2.c), h: stkHexR(r2) || '#8a8a8a' }); });
+    (d.sc || []).forEach(x => { if (xk.has(x.k)) return; xk.add(x.k); xtra.push({ n: x.en, ar: x.ar, h: x.h }); });
+  }
+  $('stkQuick').innerHTML = acc ? (rows.some(r => r.c === STK_TYPE) ? '' : '<p class="hint" style="margin:0 0 4px">إضافة سريعة:</p><div class="cchips"><button type="button" class="cchip" data-qc="' + esc(STK_TYPE) + '">＋ ' + esc(STK_TYPE) + '</button></div>') : (gone.length ? '<p class="hint" style="margin:0 0 6px;color:var(--bad)">⚠️ ألوان بالموقع غير مسجلة في أي نوع مربوط (تظهر متوفرة للعميل): <b>' + gone.join('، ') + '</b></p>' : '') + (miss.length || xtra.length ? '<p class="hint" style="margin:0 0 4px">اضغط لون لإضافته إلى ' + esc(STK_TYPE) + ':</p><div class="cchips">' + miss.map(c => { const nm = stkRegName(c[0], d); return `<button type="button" class="cchip" data-qc="${esc(nm)}" title="${c[0]}"><i style="background:${c[1]}"></i>${esc(nm)}</button>`; }).join('') + xtra.map(x => `<button type="button" class="cchip" data-qc="${esc(x.n)}" title="${esc(x.ar)} (لون جديد من نوع آخر)"><i style="background:${x.h}"></i>${esc(x.n)}</button>`).join('') + '</div>' : '');
   const tsel = $('stkTySel'); if (document.activeElement !== tsel) tsel.innerHTML = d.types.map(t => `<option${t.name === STK_TYPE ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
   $('stkSync').textContent = getSync() ? (STK_OK ? '🔄 مرتبط ومتزامن مع الجهاز الثاني والموقع' : '⚠️ تعذّر الاتصال، المعروض آخر نسخة محفوظة') : '📴 الربط المشترك غير مفعّل: الجرد على هذا الجوال فقط ولا يؤثر على الموقع';
   stkFormUI();
