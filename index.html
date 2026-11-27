@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '162';
+const APP_VERSION = '163';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2756,8 +2756,11 @@ function buyMap(l) {
 function buyReceive(r, recv) {   // recv=true: نشر (الجرد + الموقع) · false: إلغاء النشر (يرجّع كل شيء كما كان فعلًا)
   const all = (r.lines || []).map(l => ({ l: l, m: buyMap(l), n: Math.max(1, +l.q || 1) })), ls = all.filter(x => x.m);
   if (!all.length || (recv && !ls.length)) { toast('لا أصناف في هذه الفاتورة تُربط بالجرد'); return; }
-  if (!confirm(recv ? 'نشر ' + (r.no || 'الفاتورة') + ': تُضاف كمياتها للجرد (' + ls.length + ' صنف) وتصير متوفرة بالموقع (وتُربط أنواعها بالموقع)، والألوان غير المسجّلة تُسجَّل بعددها. متابعة؟' : 'إلغاء نشر ' + (r.no || 'الفاتورة') + ': تُنقَص كمياتها من الجرد (' + ls.length + ' صنف)، وتُحذف الألوان التي وصلت للصفر ولم تكن مسجّلة قبلها، وتُرجَع علامة «🛒 اشترِ» و«نفد» لما كان مطلوبًا، ويُفك ربط ما ربطه النشر بالموقع. متابعة؟')) return;
+  if (!STK) stkLoadLocal();
+  const pv = ls.map(x => { const w = stkRow(STK, x.m.t, x.m.c), cur = w ? w.q : 0; return '• ' + x.m.c + ': ' + cur + ' ← ' + (recv ? Math.min(999, cur + x.n) : Math.max(0, cur - x.n)); }).join('\n');   // معاينة التغيير في عدد الجرد قبل التأكيد
+  if (!confirm((recv ? 'نشر ' + (r.no || 'الفاتورة') + ': تُضاف كمياتها للجرد وتصير متوفرة بالموقع (وتُربط أنواعها بالموقع)، والألوان غير المسجّلة تُسجَّل بعددها.' : 'إلغاء نشر ' + (r.no || 'الفاتورة') + ': تُنقَص كمياتها من الجرد، وتُحذف الألوان التي أنشأها النشر، ويرجع «نفد» و«🛒 اشترِ» لما كان.') + '\n\nالعدد في الجرد (قبل ← بعد):\n' + pv + '\n\nمتابعة؟')) return;
   if (!STK) stkLoadLocal(); const made = [], was = [], linked = [], notSite = [], gone = [], back = all.filter(x => !x.m).map(x => x.l);
+  const mk0 = (r.mk || []).slice(), pb0 = (r.pb || []).slice(), lk0 = (r.lk || []).slice(), leg0 = r.rcv === undefined;   // لقطة ثابتة: التعديل يُطبَّق مرة محليًا ومرة على نسخة المستودع بعد لحظات، وصف الفاتورة يتغير بينهما
   stkEdit(d => {
     ls.forEach(x => {
       const t = x.m.t, c = x.m.c, k = t + '|' + c; let w = stkRow(d, t, c);
@@ -2768,12 +2771,12 @@ function buyReceive(r, recv) {   // recv=true: نشر (الجرد + الموقع
         const ty = stkTy(d, t); if (ty && !ty.acc) { if (!ty.site && !linked.includes(t)) { ty.site = true; linked.push(t); } if (!stkCanon(c, true) && !stkCanon(w.code, true)) notSite.push(c); }   // نشر بالموقع: النوع يُربط، واللون خارج ألوان الموقع ينبَّه عنه
       } else if (w) {
         w.q = Math.max(0, w.q - x.n);
-        if (w.q === 0 && ((r.mk || []).includes(k) || (r.rcv === undefined && !(r.pb || []).includes(k) && !w.code && !w.need))) { d.rows = d.rows.filter(y => y !== w); gone.push(c); back.push(x.l); return; }   // لون أنشأه النشر (أو لم يكن مسجّلًا قبله): يُحذف من الجرد ويرجع للقائمة صنفًا مطلوبًا
-        if ((r.pb || []).includes(k) || w.q === 0) w.buy = true;   // رجع «نفد»
+        if (w.q === 0 && (mk0.includes(k) || (leg0 && !pb0.includes(k) && !w.code && !w.need))) { d.rows = d.rows.filter(y => y !== w); gone.push(c); back.push(x.l); return; }   // لون أنشأه النشر (أو لم يكن مسجّلًا قبله): يُحذف من الجرد ويرجع للقائمة صنفًا مطلوبًا
+        if (pb0.includes(k) || w.q === 0) w.buy = true;   // رجع «نفد»
         w.need = true; w.nq = Math.min(999, x.n);   // كل ما كان في الفاتورة كان مطلوب شراؤه: رجعت علامة «🛒 اشترِ» بكمية الطلب
       }
     });
-    if (!recv) (r.lk || []).forEach(n => { const ty = stkTy(d, n); if (ty) ty.site = false; });
+    if (!recv) lk0.forEach(n => { const ty = stkTy(d, n); if (ty) ty.site = false; });
   });
   if (recv && r.no) slApply(d => { d.items = d.items.filter(y => y.inv !== r.no); }, 'قائمة الشراء: نُشرت ' + r.no, true);
   buyApply(d => { const y = d.rows.find(z => z.id === r.id); if (y) { y.rcv = recv ? 1 : 0; y.mk = recv && made.length ? made : undefined; y.pb = recv && was.length ? was : undefined; y.lk = recv && linked.length ? linked : undefined; } }, (recv ? 'نشر ' : 'إلغاء نشر ') + (r.no || ''));
