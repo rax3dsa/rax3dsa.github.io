@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '147';
+const APP_VERSION = '148';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2603,7 +2603,7 @@ document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () =>
 const BUY_KEY = 'rax3d_buys';
 let BUYS = null, BUY_BUSY = false, BUY_OK = false;
 function buyNorm(d) {
-  const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), no: String(r.no || '').slice(0, 14), lines: Array.isArray(r.lines) ? r.lines.slice(0, 60).map(l => ({ n: String(l.n || '').slice(0, 80), q: Math.max(1, Math.round(+l.q || 1)), p: Math.max(0, Math.round((+l.p || 0) * 100) / 100), c: String(l.c || 'other').slice(0, 10) })) : undefined })).filter(r => r.id && r.price > 0);
+  const rows = (d && Array.isArray(d.rows) ? d.rows : []).map(r => ({ id: String(r.id || '').slice(0, 24), date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(), cat: String(r.cat || 'other').slice(0, 10), desc: String(r.desc || '').slice(0, 120), price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), no: String(r.no || '').slice(0, 14), ship: Math.max(0, Math.round((+r.ship || 0) * 100) / 100) || undefined, tax: Math.max(0, Math.round((+r.tax || 0) * 100) / 100) || undefined, lines: Array.isArray(r.lines) ? r.lines.slice(0, 60).map(l => ({ n: String(l.n || '').slice(0, 80), q: Math.max(1, Math.round(+l.q || 1)), p: Math.max(0, Math.round((+l.p || 0) * 100) / 100), c: String(l.c || 'other').slice(0, 10) })) : undefined })).filter(r => r.id && r.price > 0);
   return { v: 1, rows: rows.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0), u: (d && d.u) || 0 };
 }
 function buyLoad() { if (BUYS) return BUYS; try { BUYS = buyNorm(JSON.parse(localStorage.getItem(BUY_KEY) || 'null')); } catch (e) { BUYS = buyNorm(null); } return BUYS; }
@@ -2635,7 +2635,7 @@ const buyNextNo = () => 'PUR-' + (buyRows().reduce((m, r) => Math.max(m, parseIn
 function buyPdf(row) {
   const fontReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('700 30px "IBM Plex Sans Arabic"'), document.fonts.load('400 24px "IBM Plex Sans Arabic"')]).catch(() => {}) : Promise.resolve();
   return Promise.all([getLogo(), fontReady]).then(([logo]) => {
-    const W = 1240, H = 1754, M = 80, R = W - M, rh = 54, PER = 22, F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
+    const W = 1240, H = 1754, M = 80, R = W - M, rh = 54, PER = 15, F = '"IBM Plex Sans Arabic","Geeza Pro",Tahoma,Arial,sans-serif';
     const GOLD = '#B8902A', GOLDL = '#E0B64A', CREAM = '#FBF5E6', LINE = '#D9D2C0', INK = '#1a1a1a', money = v => fmt(v) + ' ر.س';
     const lines = row.lines && row.lines.length ? row.lines : [{ n: row.desc, q: 1, p: row.price, c: row.cat }], pages = Math.max(1, Math.ceil(lines.length / PER)), jp = [];
     const label = c => (BUY_CATS.find(x => x[0] === c) || [, 'أخرى'])[1];
@@ -2666,6 +2666,8 @@ function buyPdf(row) {
       if (pg === pages - 1) {
         y += 36; const tw = 520, tl = 240;
         box(M + tw - tl, y, tl, rh, '#F1ECE0'); txt('عدد الأصناف', M + tw - tl / 2, y + rh / 2, { a: 'center', w: 700 }); box(M, y, tw - tl, rh); txt(lines.length, M + (tw - tl) / 2, y + rh / 2, { a: 'center', ltr: true }); y += rh;
+        if (row.ship > 0) { box(M + tw - tl, y, tl, rh, '#F1ECE0'); txt('الشحن', M + tw - tl / 2, y + rh / 2, { a: 'center', w: 700 }); box(M, y, tw - tl, rh); txt(money(row.ship), M + (tw - tl) / 2, y + rh / 2, { a: 'center' }); y += rh; }
+        if (row.tax > 0) { box(M + tw - tl, y, tl, rh, '#F1ECE0'); txt('الضريبة', M + tw - tl / 2, y + rh / 2, { a: 'center', w: 700 }); box(M, y, tw - tl, rh); txt(money(row.tax), M + (tw - tl) / 2, y + rh / 2, { a: 'center' }); y += rh; }
         box(M + tw - tl, y, tl, rh + 6, '#111'); txt('إجمالي المشتريات', M + tw - tl / 2, y + (rh + 6) / 2, { a: 'center', w: 700, c: GOLDL }); box(M, y, tw - tl, rh + 6, '#111'); txt(money(row.price), M + (tw - tl) / 2, y + (rh + 6) / 2, { a: 'center', w: 700, s: 30, c: GOLDL });
       }
       c.fillStyle = GOLD; c.fillRect(M, H - 110, W - 2 * M, 5);
@@ -2756,17 +2758,19 @@ const slId = src => 'k' + [...String(src)].reduce((h, ch) => (Math.imul(h, 31) +
 function slNorm(d) {
   const items = (d && Array.isArray(d.items) ? d.items : []).map(r => ({ id: String(r.id || '').slice(0, 24), name: String(r.name || '').slice(0, 80), qty: String(r.qty || '').slice(0, 20), ts: +r.ts || 0, done: r.done ? 1 : 0, price: Math.max(0, Math.round((+r.price || 0) * 100) / 100), cat: String(r.cat || 'other').slice(0, 10), src: String(r.src || '').slice(0, 60), auto: r.auto ? 1 : 0 })).filter(r => r.id && r.name);
   items.sort((a, b) => (a.done - b.done) || (a.ts - b.ts));
-  return { v: 2, items: items, u: (d && d.u) || 0 };
+  return { v: 2, items: items, ship: Math.max(0, Math.round((+(d && d.ship) || 0) * 100) / 100), tax: Math.max(0, Math.round((+(d && d.tax) || 0) * 100) / 100), u: (d && d.u) || 0 };
 }
 function slLoad() { if (SL) return SL; try { SL = slNorm(JSON.parse(localStorage.getItem(SL_KEY) || 'null')); } catch (e) { SL = slNorm(null); } return SL; }
 function slSaveLocal() { try { localStorage.setItem(SL_KEY, JSON.stringify(SL)); } catch (e) {} }
 function slRender() {
   const box = $('slList'); if (!box) return; const adm = slAdm(), its = slLoad().items, sy = getSync();
   $('slSync').textContent = sy ? (SL_OK ? '🔗 مربوطة بالمستودع المشترك وبالجرد' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
-  const done = its.filter(x => x.done), tot = done.reduce((a, x) => a + x.price, 0), noPrice = done.filter(x => !(x.price > 0)).length;
+  const done = its.filter(x => x.done), sub = done.reduce((a, x) => a + x.price, 0), SH = slLoad().ship, TX = slLoad().tax, tot = sub + SH + TX, noPrice = done.filter(x => !(x.price > 0)).length;
   box.innerHTML = its.length ? its.map(x => `<div class="slr${x.done ? ' dn' : ''}">${adm ? `<input type="checkbox" data-slc="${esc(x.id)}" ${x.done ? 'checked' : ''} aria-label="تم شراؤه">` : ''}<span class="sln">${BUY_ICON[x.cat] || '🧾'} ${esc(x.name)}${x.auto ? '<span class="tg">من الجرد</span>' : ''}</span>${adm || !x.done ? `<button type="button" class="ghost slx" data-slx="${esc(x.id)}" aria-label="حذف">✕</button>` : ''}`
       + `<div class="slsub">${adm ? `<label for="q${esc(x.id)}">الكمية</label><input id="q${esc(x.id)}" class="slq" type="number" inputmode="numeric" min="1" step="1" data-slq="${esc(x.id)}" value="${slQtyN(x)}"><label for="p${esc(x.id)}">السعر</label><input id="p${esc(x.id)}" class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" data-slp="${esc(x.id)}" value="${x.price > 0 ? x.price : ''}" aria-label="سعر ${esc(x.name)}">` : `<small style="color:var(--mute)">الكمية: ${slQtyN(x)}</small>`}</div></div>`).join('')
-    + (adm ? `<div class="slt"><span>إجمالي المشتريات (${done.length} من ${its.length})</span><b>${fmt(tot)}</b></div>`
+    + (adm ? `<div class="slr" style="border-bottom:0"><div class="slsub" style="padding-inline-start:0"><label for="slShip">🚚 الشحن</label><input id="slShip" class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" data-slship value="${SH > 0 ? SH : ''}" aria-label="تكلفة الشحن"><label for="slTax">🧾 الضريبة</label><input id="slTax" class="slp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" data-sltax value="${TX > 0 ? TX : ''}" aria-label="مبلغ الضريبة"></div></div>`
+      + (SH > 0 || TX > 0 ? `<div class="slt" style="padding:4px 0;font-size:13px;color:var(--mute)"><span>الأصناف ${fmt(sub)} + شحن ${fmt(SH)} + ضريبة ${fmt(TX)}</span></div>` : '')
+      + `<div class="slt"><span>إجمالي المشتريات (${done.length} من ${its.length})</span><b>${fmt(tot)}</b></div>`
       + (noPrice ? `<p class="hint" style="margin:0 0 6px;color:var(--bad)">${noPrice} مشطوب بلا سعر: اكتب سعره ليدخل في الإجمالي.</p>` : '')
       + `<button class="${done.some(x => x.price > 0) ? '' : 'ghost'}" id="slRec" style="margin-top:8px">📥 سجّلها فاتورة مشتريات واحدة + PDF</button>` : '')
     : '<p class="hint">القائمة فاضية.</p>';
@@ -2843,8 +2847,9 @@ const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); }
   };
   $('slAdd').onclick = add; $('slDesc').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
   $('slList').addEventListener('change', e => {
-    slWas = slAllDone(); const c = e.target.closest('[data-slc]'), p = e.target.closest('[data-slp]'), q = e.target.closest('[data-slq]');
-    if (c) { const id = c.dataset.slc, v = c.checked ? 1 : 0; slApply(d => { const x = d.items.find(y => y.id === id); if (x) x.done = v; }, 'قائمة الشراء: تحديث').then(slBoughtCheck); }
+    slWas = slAllDone(); const c = e.target.closest('[data-slc]'), p = e.target.closest('[data-slp]'), q = e.target.closest('[data-slq]'), sh = e.target.closest('[data-slship]'), tx = e.target.closest('[data-sltax]');
+    if (sh || tx) { const v = Math.max(0, Math.round((+(sh || tx).value || 0) * 100) / 100); slApply(d => { if (sh) d.ship = v; else d.tax = v; }, 'قائمة الشراء: ' + (sh ? 'شحن' : 'ضريبة')); }
+    else if (c) { const id = c.dataset.slc, v = c.checked ? 1 : 0; slApply(d => { const x = d.items.find(y => y.id === id); if (x) x.done = v; }, 'قائمة الشراء: تحديث').then(slBoughtCheck); }
     else if (p) { const id = p.dataset.slp, v = Math.max(0, Math.round((+p.value || 0) * 100) / 100); slApply(d => { const x = d.items.find(y => y.id === id); if (x) { x.price = v; if (v > 0) x.done = 1; } }, 'قائمة الشراء: سعر').then(slBoughtCheck); }
     else if (q) { const id = q.dataset.slq, v = Math.max(1, Math.round(+q.value || 1)); slApply(d => { const x = d.items.find(y => y.id === id); if (x) x.qty = String(v); }, 'قائمة الشراء: كمية', true); const it = slLoad().items.find(y => y.id === id); if (it && it.src) { const s2 = slSrc(it.src); if (!STK) stkLoadLocal(); stkEdit(d => { const r = stkRow(d, s2.t, s2.c); if (r) r.nq = v; }); } }
   });
@@ -2858,11 +2863,11 @@ const slBoughtCheck = () => { if (!slWas && slAllDone()) pushNotify('bought'); }
     }
     if (e.target.closest('#slRec')) {
       const dn = slLoad().items.filter(y => y.done && y.price > 0); if (!dn.length) { const m = $('slMsg'); m.style.color = 'var(--bad)'; m.textContent = 'اشطب الأصناف التي اشتريتها (✔) واكتب سعر كل صنف أولًا'; return; }
-      const tot = dn.reduce((a, y) => a + y.price, 0), ids = dn.map(y => y.id), t = todayStr(), lnk = dn.filter(y => y.src).map(y => ({ src: y.src, n: slQtyN(y) })), rest = slLoad().items.some(y => !y.done);
-      if (!confirm('تسجيل ' + dn.length + ' صنف كفاتورة مشتريات واحدة بإجمالي ' + fmt(tot) + ' ريال، وحذفها من القائمة، وتجهيز PDF داخلي؟' + (lnk.length ? '\nوتُضاف كمياتها إلى الجرد ويُلغى «للشراء؟» (' + lnk.length + ' صنف من الجرد).' : ''))) return;
+      const SH = slLoad().ship, TX = slLoad().tax, tot = dn.reduce((a, y) => a + y.price, 0) + SH + TX, ids = dn.map(y => y.id), t = todayStr(), lnk = dn.filter(y => y.src).map(y => ({ src: y.src, n: slQtyN(y) })), rest = slLoad().items.some(y => !y.done);
+      if (!confirm('تسجيل ' + dn.length + ' صنف كفاتورة مشتريات واحدة بإجمالي ' + fmt(tot) + ' ريال' + (SH || TX ? ' (يشمل شحن ' + fmt(SH) + ' وضريبة ' + fmt(TX) + ')' : '') + '، وحذفها من القائمة، وتجهيز PDF داخلي؟' + (lnk.length ? '\nوتُضاف كمياتها إلى الجرد ويُلغى «للشراء؟» (' + lnk.length + ' صنف من الجرد).' : ''))) return;
       const no = buyNextNo(), nm = dn.map(y => y.name + (slQtyN(y) > 1 ? ' × ' + slQtyN(y) : '')).join('، ');
-      const row = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: t, cat: 'other', no: no, desc: ('فاتورة مشتريات ' + no + ' (' + dn.length + ' أصناف): ' + nm).slice(0, 120), price: r2(tot), lines: dn.map(y => ({ n: y.name, q: slQtyN(y), p: y.price, c: y.cat || 'other' })) };
-      buyApply(d => { if (!d.rows.some(x => x.id === row.id)) d.rows.unshift(row); }, 'فاتورة مشتريات ' + no + ' من قائمة الشراء (' + dn.length + ' أصناف)').then(() => slApply(d => { d.items = d.items.filter(y => !ids.includes(y.id)); }, 'قائمة الشراء: تسجيل المشتريات')).then(() => slStockApply(lnk, true));
+      const row = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: t, cat: 'other', no: no, desc: ('فاتورة مشتريات ' + no + ' (' + dn.length + ' أصناف): ' + nm).slice(0, 120), price: r2(tot), ship: SH || undefined, tax: TX || undefined, lines: dn.map(y => ({ n: y.name, q: slQtyN(y), p: y.price, c: y.cat || 'other' })) };
+      buyApply(d => { if (!d.rows.some(x => x.id === row.id)) d.rows.unshift(row); }, 'فاتورة مشتريات ' + no + ' من قائمة الشراء (' + dn.length + ' أصناف)').then(() => slApply(d => { d.items = d.items.filter(y => !ids.includes(y.id)); d.ship = 0; d.tax = 0; }, 'قائمة الشراء: تسجيل المشتريات')).then(() => slStockApply(lnk, true));
       buyShowPdf(row);
       if (rest) pushNotify('bought');
       toast('✔ سُجّلت فاتورة ' + no + ': ' + fmt(tot) + ' ريال');
