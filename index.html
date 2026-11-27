@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '157';
+const APP_VERSION = '158';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2412,12 +2412,25 @@ function stkArName(en) {   // «Blue Sky» ← «أزرق سماوي»؛ غير 
   return stkNm(en);
 }
 function stkSiteSync(d) {
-  d.sb = Array.isArray(d.sb) ? d.sb.filter(x => typeof x === 'string').slice(0, 20) : []; d.sc = (Array.isArray(d.sc) ? d.sc : []).filter(x => x && x.k && x.ar && /^#[0-9a-f]{6}$/i.test(x.h)).slice(0, 40).map(x => ({ k: String(x.k).slice(0, 40), ar: String(x.ar).slice(0, 30), en: String(x.en || x.ar).slice(0, 30), h: x.h }));
-  const linked = new Set(d.types.filter(t => t.site).map(t => t.name));
+  const linked = new Set(d.types.filter(t => t.site).map(t => t.name)), baseHex = {}; Object.keys(STK_HEX).forEach(k => { if (STK_HEX[k]) baseHex[STK_HEX[k].toLowerCase()] = k; });
+  d.sb = Array.isArray(d.sb) ? d.sb.filter(x => typeof x === 'string').slice(0, 20) : [];
+  // لا ألوان مكررة بالمظهر: لون مستقل بنفس لون أساسي (أو بنفس لون مستقل سبقه) يُدمج فيه بدل أن يظهر سواتش مطابقًا ثانيًا
+  const sc = [], same = {};
+  (Array.isArray(d.sc) ? d.sc : []).filter(x => x && x.k && x.ar && /^#[0-9a-f]{6}$/i.test(x.h)).slice(0, 40).forEach(x => {
+    const h = x.h.toLowerCase(), t = baseHex[h] || (sc.find(y => y.h.toLowerCase() === h) || {}).k;
+    if (t) same[x.k] = t; else sc.push({ k: String(x.k).slice(0, 40), ar: String(x.ar).slice(0, 30), en: String(x.en || x.ar).slice(0, 30), h: x.h });
+  });
+  d.sc = sc;
   d.rows.forEach(r => {
     r.k = stkSiteKey(r.c); if (!linked.has(r.t)) return;
-    if (!r.k.startsWith('x:')) { if (!d.sb.includes(r.k)) d.sb.push(r.k); return; }
-    if (d.sc.length < 40 && !d.sc.some(x => x.k === r.k)) d.sc.push({ k: r.k, ar: stkArName(r.c), en: stkNm(r.c), h: (typeof stkHexR === 'function' && stkHexR(r)) || '#8a8a8a' });
+    if (r.k.startsWith('x:')) {
+      if (same[r.k]) r.k = same[r.k];
+      else if (!d.sc.some(x => x.k === r.k)) {
+        const h = ((typeof stkHexR === 'function' && stkHexR(r)) || '#8a8a8a').toLowerCase(), t = baseHex[h] || (d.sc.find(y => y.h.toLowerCase() === h) || {}).k;
+        if (t) { same[r.k] = t; r.k = t; } else if (d.sc.length < 40) d.sc.push({ k: r.k, ar: stkArName(r.c), en: stkNm(r.c), h: h });
+      }
+    }
+    if (!r.k.startsWith('x:') && !d.sb.includes(r.k)) d.sb.push(r.k);
   });
 }
 function stkNorm(d) {
@@ -2442,7 +2455,7 @@ async function stkSync(force) {
   try {
     if (!sy) { STK_OK = false; return; }
     const r = await readJson(sy, 'stock.json', null);
-    if (r.data) { const odd = (Array.isArray(r.data.rows) ? r.data.rows : []).some(x => x && STK_BYN[CN(x.c)] && STK_BYN[CN(x.c)] !== x.c); const grew = !r.data.sc || !r.data.sb || (Array.isArray(r.data.rows) && r.data.rows.some(x => x && !x.k)); STK = stkNorm(r.data); if (odd || grew) setTimeout(() => stkEdit(() => {}), 300); }   // أسماء بلا همزة (اسود) ← تُكتب تلقائيًا بالاسم الرسمي (أسود)
+    if (r.data) { const odd = (Array.isArray(r.data.rows) ? r.data.rows : []).some(x => x && STK_BYN[CN(x.c)] && STK_BYN[CN(x.c)] !== x.c); const sig = d0 => JSON.stringify([d0.sc, (d0.rows || []).map(x => x && x.k)]), s0 = sig(r.data); STK = stkNorm(r.data); if (odd || !r.data.sc || !r.data.sb || sig(STK) !== s0) setTimeout(() => stkEdit(() => {}), 300); }   // أسماء بلا همزة (اسود) ← تُكتب تلقائيًا بالاسم الرسمي (أسود)
     else { STK = stkNorm(STK); await updateJson(sy, 'stock.json', null, d => d ? undefined : STK, 'إنشاء جرد الفلمنت'); }
     STK_OK = true; stkSaveLocal();
   } catch (e) { STK_OK = false; }
