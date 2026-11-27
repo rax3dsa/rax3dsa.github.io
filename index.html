@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '158';
+const APP_VERSION = '159';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2743,10 +2743,10 @@ function buyMap(l) {
   const lab = (BUY_CATS.find(x => x[0] === l.c) || [])[1]; return lab && l.c !== 'other' && l.c !== 'fil' && stkTy(STK, lab) ? { t: lab, c: l.n } : null;
 }
 function buyReceive(r, recv) {   // recv=true: نشر (الجرد + الموقع) · false: إلغاء النشر (يرجّع كل شيء كما كان فعلًا)
-  const leg = r.rcv === undefined, ls = (r.lines || []).map(l => ({ m: buyMap(l), n: Math.max(1, +l.q || 1), ln: !!l.s || leg })).filter(x => x.m);   // ln: السطر كان «مطلوب شراؤه» في الجرد
-  if (!ls.length) { toast('لا أصناف في هذه الفاتورة تُربط بالجرد'); return; }
+  const all = (r.lines || []).map(l => ({ l: l, m: buyMap(l), n: Math.max(1, +l.q || 1) })), ls = all.filter(x => x.m);
+  if (!all.length || (recv && !ls.length)) { toast('لا أصناف في هذه الفاتورة تُربط بالجرد'); return; }
   if (!confirm(recv ? 'نشر ' + (r.no || 'الفاتورة') + ': تُضاف كمياتها للجرد (' + ls.length + ' صنف) وتصير متوفرة بالموقع (وتُربط أنواعها بالموقع)، والألوان غير المسجّلة تُسجَّل بعددها. متابعة؟' : 'إلغاء نشر ' + (r.no || 'الفاتورة') + ': تُنقَص كمياتها من الجرد (' + ls.length + ' صنف)، وتُحذف الألوان التي وصلت للصفر ولم تكن مسجّلة قبلها، وتُرجَع علامة «🛒 اشترِ» و«نفد» لما كان مطلوبًا، ويُفك ربط ما ربطه النشر بالموقع. متابعة؟')) return;
-  if (!STK) stkLoadLocal(); const made = [], was = [], linked = [], notSite = [], gone = [];
+  if (!STK) stkLoadLocal(); const made = [], was = [], linked = [], notSite = [], gone = [], back = all.filter(x => !x.m).map(x => x.l);
   stkEdit(d => {
     ls.forEach(x => {
       const t = x.m.t, c = x.m.c, k = t + '|' + c; let w = stkRow(d, t, c);
@@ -2757,15 +2757,18 @@ function buyReceive(r, recv) {   // recv=true: نشر (الجرد + الموقع
         const ty = stkTy(d, t); if (ty && !ty.acc) { if (!ty.site && !linked.includes(t)) { ty.site = true; linked.push(t); } if (!stkCanon(c, true) && !stkCanon(w.code, true)) notSite.push(c); }   // نشر بالموقع: النوع يُربط، واللون خارج ألوان الموقع ينبَّه عنه
       } else if (w) {
         w.q = Math.max(0, w.q - x.n);
-        if (w.q === 0 && ((r.mk || []).includes(k) || (!(r.pb || []).includes(k) && !w.code && !w.need))) { d.rows = d.rows.filter(y => y !== w); gone.push(c); return; }   // لون أنشأه النشر (أو لم يكن مسجّلًا قبله)
+        if (w.q === 0 && ((r.mk || []).includes(k) || (r.rcv === undefined && !(r.pb || []).includes(k) && !w.code && !w.need))) { d.rows = d.rows.filter(y => y !== w); gone.push(c); back.push(x.l); return; }   // لون أنشأه النشر (أو لم يكن مسجّلًا قبله): يُحذف من الجرد ويرجع للقائمة صنفًا مطلوبًا
         if ((r.pb || []).includes(k) || w.q === 0) w.buy = true;   // رجع «نفد»
-        if (x.ln) { w.need = true; w.nq = Math.min(999, x.n); }   // رجعت علامة «🛒 اشترِ» بكمية الطلب
+        w.need = true; w.nq = Math.min(999, x.n);   // كل ما كان في الفاتورة كان مطلوب شراؤه: رجعت علامة «🛒 اشترِ» بكمية الطلب
       }
     });
     if (!recv) (r.lk || []).forEach(n => { const ty = stkTy(d, n); if (ty) ty.site = false; });
   });
   buyApply(d => { const y = d.rows.find(z => z.id === r.id); if (y) { y.rcv = recv ? 1 : 0; y.mk = recv && made.length ? made : undefined; y.pb = recv && was.length ? was : undefined; y.lk = recv && linked.length ? linked : undefined; } }, (recv ? 'نشر ' : 'إلغاء نشر ') + (r.no || ''));
-  if (!recv) setTimeout(() => { try { slReconcile(); } catch (e) {} }, 900);   // الأصناف المطلوبة ترجع لقائمة الشراء
+  if (!recv) {   // الأصناف المطلوبة ترجع لقائمة الشراء: ما حُذف من الجرد أو لا يرتبط به يُعاد صنفًا في القائمة، وما بقي في الجرد يعيده الربط التلقائي
+    if (back.length) slApply(d => { back.forEach((l, i) => { if (!d.items.some(x => !x.done && x.name === l.n)) d.items.push({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5), name: l.n, qty: String(Math.max(1, +l.q || 1)), ts: Date.now() + i, done: 0, price: 0, cat: l.c || 'other', src: '', auto: 0 }); }); }, 'قائمة الشراء: رجوع أصناف إلغاء النشر', true);
+    setTimeout(() => { try { slReconcile(); } catch (e) {} }, 900);
+  }
   toast(recv ? '✔ نُشرت في الجرد والموقع (' + ls.length + ' صنف' + (made.length ? '، ' + made.length + ' لون جديد' : '') + ')' + (notSite.length ? ' · تنبيه: ' + [...new Set(notSite)].join('، ') + ' ليس من ألوان الموقع' : '') : '↩️ أُلغي النشر: رجع الجرد والموقع كما كانا' + (gone.length ? ' (حُذف ' + gone.length + ')' : ''));
 }
 /* تعديل الشحن والضريبة والخصم على فاتورة مشتريات مسجّلة: نافذة بحقول أرقام (لوحة أرقام، عربي أو إنجليزي، يُسجَّل بالإنجليزي) */
