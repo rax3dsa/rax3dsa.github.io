@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '151';
+const APP_VERSION = '152';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2688,8 +2688,9 @@ function buyShowPdf(row) {
 function buyExtraSheet(r) {
   let el = document.getElementById('buyXSheet');
   if (!el) { el = document.createElement('div'); el.className = 'sheet'; el.id = 'buyXSheet'; document.body.appendChild(el); el.addEventListener('click', e => { if (e.target === el) el.classList.remove('on'); }); }
+  const lns = r.lines || [];
   const fld = (id, lab, v) => `<label for="${id}">${lab}</label><input id="${id}" type="text" data-num="1" inputmode="decimal" autocomplete="off" placeholder="0" value="${v > 0 ? v : ''}">`;
-  el.innerHTML = `<div class="box"><h2>🚚 الشحن والضريبة والخصم</h2><p class="hint" style="margin:0 0 8px">${esc(r.no || r.desc || '')} — الإجمالي = الأصل + الشحن + الضريبة − الخصم</p>${fld('bxShip', 'تكلفة الشحن (ريال)', r.ship)}${fld('bxTax', 'ضريبة القيمة المضافة (ريال)', r.tax)}${fld('bxDisc', 'الخصم / الكوبون (ريال)', r.disc)}<div class="hint" id="bxTot" style="margin:10px 0;font-size:15px"></div><button type="button" class="save" id="bxGo">حفظ</button><button type="button" class="ghost" id="bxX">إلغاء</button></div>`;
+  el.innerHTML = `<div class="box"><h2>🚚 الشحن والضريبة والخصم</h2><p class="hint" style="margin:0 0 8px">${esc(r.no || r.desc || '')} — الإجمالي = الأصل + الشحن + الضريبة − الخصم</p>${fld('bxShip', 'تكلفة الشحن (ريال)', r.ship)}${fld('bxTax', 'ضريبة القيمة المضافة (ريال)', r.tax)}${fld('bxDisc', 'الخصم / الكوبون (ريال)', r.disc)}${lns.length ? `<label style="margin-top:10px">الكميات (المبلغ لكل سطر يبقى كما هو)</label>` + lns.map((l, i) => `<div class="slr" style="border-bottom:0;padding:4px 0"><span class="sln" style="font-size:14px">${esc(l.n)}</span><input class="slq" type="text" data-num="1" inputmode="numeric" data-bq="${i}" value="${l.q}" aria-label="كمية ${esc(l.n)}"></div>`).join('') + `<label style="display:flex;gap:8px;align-items:center;margin:6px 0;font-size:13px"><input type="checkbox" id="bxStk" checked style="width:20px;height:20px;margin:0"> عدّل عدد الجرد بفرق الكمية (للأصناف الموجودة في الجرد)</label>` : ''}<div class="hint" id="bxTot" style="margin:10px 0;font-size:15px"></div><button type="button" class="save" id="bxGo">حفظ</button><button type="button" class="ghost" id="bxX">إلغاء</button></div>`;
   const num = v => Math.max(0, Math.round((parseFloat(String(v).replace(/[٠-٩]/g, c => c.charCodeAt(0) - 1632).replace(/[۰-۹]/g, c => c.charCodeAt(0) - 1776).replace(/[٫،,]/g, '.').replace(/[^\d.]/g, '')) || 0) * 100) / 100);
   const base = r.price - (r.ship || 0) - (r.tax || 0) + (r.disc || 0), val = () => [num($('bxShip').value), num($('bxTax').value), num($('bxDisc').value)];
   const upd = () => { const [a, b, c] = val(); $('bxTot').innerHTML = 'الإجمالي الجديد: <b style="font-size:20px;direction:ltr;display:inline-block">' + fmt(Math.max(0, base + a + b - c)) + '</b> ريال'; };
@@ -2697,8 +2698,13 @@ function buyExtraSheet(r) {
   $('bxX').onclick = () => el.classList.remove('on');
   $('bxGo').onclick = () => {
     const [sh, tx, dc] = val(), np = Math.round((base + sh + tx - dc) * 100) / 100; if (!(np > 0)) { toast('الإجمالي لازم يكون أكبر من صفر'); return; }
-    buyApply(d => { const x = d.rows.find(y => y.id === r.id); if (x) { x.ship = sh || undefined; x.tax = tx || undefined; x.disc = dc || undefined; x.price = np; } }, 'مشتريات: شحن وضريبة ' + (r.no || ''));
-    el.classList.remove('on'); toast('✔ ' + (r.no || 'الفاتورة') + ': الإجمالي ' + fmt(np) + ' ريال');
+    const nq = lns.map((l, i) => { const q = el.querySelector('[data-bq="' + i + '"]'); return q ? Math.max(1, Math.round(num(q.value) || 1)) : l.q; }), adj = [];
+    if (lns.length && $('bxStk') && $('bxStk').checked) lns.forEach((l, i) => { const df = nq[i] - l.q; if (!df) return; let t = '', c = '', m = /^فلمنت (.+?) — (.+)$/.exec(l.n);
+      if (m) { t = m[1]; c = m[2]; } else { t = (BUY_CATS.find(x => x[0] === l.c) || [])[1] || ''; c = l.n; }
+      if (!STK) stkLoadLocal(); if (t && stkRow(STK, t, c)) adj.push({ t, c, df }); });
+    buyApply(d => { const x = d.rows.find(y => y.id === r.id); if (x) { x.ship = sh || undefined; x.tax = tx || undefined; x.disc = dc || undefined; x.price = np; if (x.lines) x.lines.forEach((l, i) => { if (nq[i]) l.q = nq[i]; }); } }, 'مشتريات: تعديل ' + (r.no || ''));
+    if (adj.length) stkEdit(d => { adj.forEach(a => { const w = stkRow(d, a.t, a.c); if (w) w.q = Math.max(0, Math.min(999, w.q + a.df)); }); });
+    el.classList.remove('on'); toast('✔ ' + (r.no || 'الفاتورة') + ': الإجمالي ' + fmt(np) + ' ريال' + (adj.length ? ' · عُدّل الجرد (' + adj.length + ')' : ''));
   };
   el.classList.add('on');
 }
