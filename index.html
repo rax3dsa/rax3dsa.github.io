@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '148';
+const APP_VERSION = '149';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -2723,7 +2723,7 @@ function buyRender() {
   $('buySync').textContent = sy ? (BUY_OK ? '🔗 مربوطة بالمستودع المشترك' : '⏳ جارٍ الاتصال بالمستودع…') : 'محفوظة على هذا الجوال فقط';
   const cl = BUY_ICON;
   $('buyList').innerHTML = `<div class="period"><h3>إجمالي المشتريات</h3><div class="kv"><div>هذا الشهر<b>${fmt(mo)}</b></div><div>الكل<b>${fmt(all)}</b></div><div>عدد الفواتير<b>${rows.length}</b></div></div></div>` +
-    (rows.length ? '<div class="period"><h3>آخر المشتريات</h3>' + rows.slice(0, 60).map(r => `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="flex:1;line-height:1.6">${cl[r.cat] || '🧾'} ${esc(r.desc || '—')}<br><small style="color:var(--mute)">${esc(r.date)}${r.no ? ' · ' + esc(r.no) : ''}</small></span><b style="direction:ltr">${fmt(r.price)}</b>${r.lines && r.lines.length ? `<button type="button" class="ghost" data-bp="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="PDF">📄</button>` : ''}<button type="button" class="ghost" data-bd="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="حذف">✕</button></div>`).join('') + '</div>' : '<p class="hint">لا توجد مشتريات بعد.</p>');
+    (rows.length ? '<div class="period"><h3>آخر المشتريات</h3>' + rows.slice(0, 60).map(r => `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="flex:1;line-height:1.6">${cl[r.cat] || '🧾'} ${esc(r.desc || '—')}<br><small style="color:var(--mute)">${esc(r.date)}${r.no ? ' · ' + esc(r.no) : ''}${r.ship || r.tax ? ' · شحن ' + fmt(r.ship || 0) + ' + ضريبة ' + fmt(r.tax || 0) : ''}</small></span><b style="direction:ltr">${fmt(r.price)}</b><button type="button" class="ghost" data-be="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="تعديل الشحن والضريبة">🚚</button>${r.lines && r.lines.length ? `<button type="button" class="ghost" data-bp="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="PDF">📄</button>` : ''}<button type="button" class="ghost" data-bd="${esc(r.id)}" style="margin:0;width:auto;padding:6px 10px" aria-label="حذف">✕</button></div>`).join('') + '</div>' : '<p class="hint">لا توجد مشتريات بعد.</p>');
 }
 function buyInit() {
   $('buyDate').value = todayStr();
@@ -2739,6 +2739,15 @@ function buyInit() {
     toast('✔ أُضيفت فاتورة مشتريات: ' + fmt(price) + ' ريال');
   };
   $('buyList').addEventListener('click', e => {
+    const be = e.target.closest('[data-be]'); if (be) {   // تعديل الشحن والضريبة على فاتورة مسجّلة: الإجمالي = الأصل + شحن + ضريبة
+      const r = buyRows().find(x => x.id === be.dataset.be); if (!r) return;
+      const num = v => Math.max(0, Math.round((parseFloat(String(v).replace(/[٠-٩]/g, c => c.charCodeAt(0) - 1632).replace(/[۰-۹]/g, c => c.charCodeAt(0) - 1776).replace(/[٫،,]/g, '.').replace(/[^\d.]/g, '')) || 0) * 100) / 100);
+      const a = prompt('تكلفة الشحن (ريال) — ' + (r.no || r.desc), r.ship || ''); if (a === null) return;
+      const b = prompt('ضريبة القيمة المضافة (ريال)', r.tax || ''); if (b === null) return;
+      const sh = num(a), tx = num(b), base = r.price - (r.ship || 0) - (r.tax || 0);
+      buyApply(d => { const x = d.rows.find(y => y.id === r.id); if (x) { x.ship = sh || undefined; x.tax = tx || undefined; x.price = Math.round((base + sh + tx) * 100) / 100; } }, 'مشتريات: شحن وضريبة ' + (r.no || ''));
+      toast('✔ ' + (r.no || 'الفاتورة') + ': الإجمالي ' + fmt(base + sh + tx) + ' ريال'); return;
+    }
     const bp = e.target.closest('[data-bp]'); if (bp) { const r = buyRows().find(x => x.id === bp.dataset.bp); if (r) buyShowPdf(r); return; }
     const b = e.target.closest('[data-bd]'); if (!b) return; const id = b.dataset.bd, r = buyRows().find(x => x.id === id); if (!r) return;
     if (!confirm('حذف «' + r.desc + '» (' + fmt(r.price) + ' ريال)؟')) return;
