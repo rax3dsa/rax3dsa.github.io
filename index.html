@@ -754,7 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold-d);outline-off
 <div id="cloudInd" hidden aria-live="polite" style="position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom,0px));font-size:11px;opacity:.75;z-index:5;pointer-events:none"></div>
 
 <script>
-const APP_VERSION = '146';
+const APP_VERSION = '147';
 // ================= RAX3D — v25: حسابين + الدعم الفني + تحديث تلقائي =================
 // كل البيانات محفوظة داخل الجوال. لا Google ولا إيميل.
 const DB_KEY = 'rax3d_db';
@@ -3617,8 +3617,25 @@ async function inflateRaw(bytes) { const ds = new DecompressionStream('deflate-r
 let CATALOG = null;
 async function catalog() { if (CATALOG) return CATALOG; for (const u of ['https://rax3d.com/catalog.json'])   // (كان فيه نسخة قديمة احتياطية في /shop/ بأسماء وأوزان قديمة، حُذفت: الأفضل يفشل الاستيراد من تعبئة غلط)
    { try { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) continue; CATALOG = await r.json(); if (CATALOG && CATALOG.items) return CATALOG; } catch (e) {} } CATALOG = { items: {}, colors: [] }; return CATALOG; }
+function parseSpecialMsg(s) {   // رسائل المتجر الثانية: «طلب خاص» (النوع/الوصف) و«سعّر ملفي» (الملف): تتحول لسطر فاتورة واحد
+  const one = (k) => { const m = s.match(new RegExp('\\*?\\s*(?:' + k + ')\\s*:\\s*(.*)')); return m ? m[1].trim() : ''; };
+  const sp = /\*?\s*(?:النوع|Type)\s*:/.test(s) && /\*?\s*(?:الوصف|Description)\s*:/.test(s), fl = /\*?\s*(?:الملف|File)\s*:/.test(s);
+  if (!sp && !fl) return null;
+  const n = one('الاسم|Name'), ph = one('الجوال|Mobile'); let name, color = '', q = 1, size = '', note = '', g = 0;
+  if (sp) {
+    const dm = s.match(/(?:الوصف|Description)\s*:\s*([\s\S]*?)(?=\n\s*\*\s*\S[^\n:]*:|$)/);
+    name = 'طلب خاص' + (one('النوع|Type') ? ': ' + one('النوع|Type') : ''); note = dm ? dm[1].trim().replace(/\s*\n\s*/g, ' ') : '';
+    size = one('المقاس التقريبي|Approx\\. size').replace(/\s*(مم|mm)\s*$/, ''); if (/^(غير محدد|not decided)$/i.test(size)) size = '';
+    color = one('اللون|Colou?r'); if (/^(غير محدد|not decided)$/i.test(color)) color = '';
+    q = parseInt(one('الكمية|Quantity'), 10) || 1;
+  } else {
+    name = 'طباعة ملف العميل: ' + one('الملف|File'); size = one('المقاس|Size').replace(/\s*(مم|mm)\s*$/, ''); g = parseFloat(one('الوزن التقديري|Estimated weight')) || 0;
+    note = 'سعر الموقع التقديري ' + (parseFloat(one('السعر التقديري|Estimated price')) || '—') + ' ريال';
+  }
+  return { v: 3, i: [['', name, color, q, g, size, note]], c: n || ph ? [n, ph] : null, ref: '', num: 0 };
+}
 function parseMsg(text, cat) {   // رسالة الطلب الجديدة (بدون رابط): نقرأ الخانات سطر سطر
-  const s = String(text || ''); if (!/(القطعة|القطعه|Piece)\s*:/.test(s)) return null;
+  const s = String(text || ''); if (!/(القطعة|القطعه|Piece)\s*:/.test(s)) return parseSpecialMsg(s);
   const val = (blk, keys) => { for (const k of keys) { const m = blk.match(new RegExp('\\*?\\s*' + k + '\\s*:\\s*(.*)')); if (m) return m[1].trim(); } return ''; };
   const byName = {}; Object.entries(cat.items || {}).forEach(([id, it]) => { byName[(it.n || '').trim()] = id; if (it.en) byName[it.en.trim().toLowerCase()] = id; });
   const blocks = s.split(/\n(?=\s*\*?\s*(?:القطعة|القطعه|Piece)\s*:)/).slice(1);
@@ -3626,6 +3643,8 @@ function parseMsg(text, cat) {   // رسالة الطلب الجديدة (بدو
     const name = val(b, ['القطعة', 'القطعه', 'Piece']), id = byName[name] || byName[name.toLowerCase()] || '', it = (cat.items || {})[id] || {};
     let size = val(b, ['المقاس', 'Size']); if (/^(الأصلي|Original)/.test(size)) size = ''; size = size.replace(/\s*(مم|mm)\s*$/, '');
     let note = val(b, ['خيارات إضافية', 'خيارات اضافية', 'Extra options']); if (/^(لا يوجد|None)$/i.test(note)) note = '';
+    const ex = [['الإضافة', 'Add-on'], ['رقم التصميم', 'Design no.']].map(k => { const v = val(s, k); return v ? k[0] + ' ' + v : ''; }).filter(Boolean).join(' · ');   // رسالة التوزيعات
+    if (ex) note = [note, ex].filter(Boolean).join(' · ');
     const color = val(b, ['اللون', 'Colour', 'Color']), q = parseInt(val(b, ['الكمية', 'Quantity']), 10) || 1;
     return [id || name, it.n || name, color, q, it.g || 0, size, note];
   }).filter(x => x[1]);
@@ -3719,7 +3738,7 @@ function mailOrderFiles(num) {   // بعد حفظ فاتورة جاية من ا�
     'ملفات الطباعة (تحتاج رمز الدخول)': links.join('\n') });
 }
 $('ordBtn').onclick = () => { $('ordErr').textContent = ''; $('ordIn').value = ''; $('ordSheet').classList.add('on');
-  try { navigator.clipboard.readText().then(t => { if (/(القطعة|Piece)\s*:/.test(t) || /RX2[zj]/.test(t) || parseOrder(t)) $('ordIn').value = t; }).catch(() => {}); } catch (e) {} };
+  try { navigator.clipboard.readText().then(t => { if (/(القطعة|Piece|النوع|الملف)\s*:/.test(t) || /RX2[zj]/.test(t) || parseOrder(t)) $('ordIn').value = t; }).catch(() => {}); } catch (e) {} };
 $('ordClose').onclick = () => $('ordSheet').classList.remove('on');
 $('ordGo').onclick = async () => { const v = $('ordIn').value, o = parseMsg(v, await catalog()) || (await parseCode(v)) || parseOrder(v); if (!o) { $('ordErr').textContent = 'ما لقينا كود طلب صحيح — تأكد إنك نسخت الكود كامل'; return; }
   $('ordSheet').classList.remove('on'); fillFromOrder(o);
